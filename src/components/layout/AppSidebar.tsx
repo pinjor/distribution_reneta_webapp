@@ -13,8 +13,15 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigationItems = [
-  { title: "Warehouse", url: "/", icon: Package },
-  { title: "Distribution", url: "/distribution", icon: Truck },
+  { title: "Dashboard", url: "/", icon: Package },
+  { title: "Stock Receipt", url: "/warehouse/receipt", icon: Package },
+  { title: "Stock Issuance", url: "/warehouse/issuance", icon: Truck },
+  { title: "Stock Maintenance", url: "/warehouse/maintenance", icon: Database },
+  { title: "Stock Adjustment", url: "/warehouse/adjustment", icon: CheckSquare },
+  { title: "Vehicles", url: "/distribution/vehicles", icon: Truck },
+  { title: "Drivers", url: "/distribution/drivers", icon: Truck },
+  { title: "Route Planning", url: "/distribution/routes", icon: Truck },
+  { title: "Reconciliation", url: "/distribution/reconciliation", icon: CheckSquare },
   { title: "Masters", url: "/masters", icon: Database },
   { title: "Approvals", url: "/approvals", icon: CheckSquare },
   { title: "Billing", url: "/billing", icon: CreditCard },
