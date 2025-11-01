@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import Approvals from "./pages/Approvals";
 import StockReceipt from "./pages/StockReceipt";
 import StockIssuance from "./pages/StockIssuance";
+import OrderList from "./pages/OrderList";
+import VehicleLoading from "./pages/VehicleLoading";
 import StockMaintenance from "./pages/StockMaintenance";
 import StockAdjustment from "./pages/StockAdjustment";
 import Vehicles from "./pages/Vehicles";
@@ -35,6 +37,8 @@ const App = () => (
             <Route path="/approvals" element={<Approvals />} />
             <Route path="/warehouse/receipt" element={<StockReceipt />} />
             <Route path="/warehouse/issuance" element={<StockIssuance />} />
+            <Route path="/warehouse/issuance/orders" element={<OrderList />} />
+            <Route path="/warehouse/issuance/loading" element={<VehicleLoading />} />
             <Route path="/warehouse/maintenance" element={<StockMaintenance />} />
             <Route path="/warehouse/adjustment" element={<StockAdjustment />} />
             <Route path="/distribution/vehicles" element={<Vehicles />} />

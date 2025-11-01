@@ -129,7 +129,7 @@ export function AppSidebar() {
     });
 
   return (
-    <Sidebar className={open ? "w-64" : "w-16"} collapsible="icon">
+    <Sidebar className={open ? "w-72" : "w-16"} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/70 px-4 py-3">
@@ -179,14 +179,14 @@ export function AppSidebar() {
                                   <SidebarMenuSubItem>
                                     <CollapsibleTrigger asChild>
                                       <SidebarMenuSubButton
-                                        className={`flex items-center gap-3 px-4 py-2.5 pl-12 rounded-button transition-colors ${
+                                        className={`flex items-center gap-2 px-3 py-2 pl-10 rounded-button transition-colors ${
                                           isParentActive(subItem.subItems)
                                             ? "bg-sidebar-accent text-sidebar-accent-foreground"
                                             : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
                                         }`}
                                       >
-                                        <subItem.icon className="h-4 w-4" />
-                                        <span className="text-sm flex-1">{subItem.title}</span>
+                                        <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                                        <span className="text-sm flex-1 truncate">{subItem.title}</span>
                                         <ChevronDown
                                           className={`h-3 w-3 transition-transform duration-200 ${
                                             openMenus[subItem.title] ? "rotate-180" : ""
@@ -198,17 +198,17 @@ export function AppSidebar() {
                                       <SidebarMenuSub>
                                         {subItem.subItems.map((nestedItem) => (
                                           <SidebarMenuSubItem key={nestedItem.title}>
-                                            <SidebarMenuSubButton asChild isActive={isActive(nestedItem.path)}>
-                                              <NavLink
-                                                to={nestedItem.path}
-                                                className={`flex items-center gap-3 px-4 py-2 pl-20 rounded-button transition-colors ${
-                                                  isActive(nestedItem.path)
-                                                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                                                    : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
-                                                }`}
-                                              >
-                                                <nestedItem.icon className="h-4 w-4" />
-                                                <span className="text-sm">{nestedItem.title}</span>
+                                             <SidebarMenuSubButton asChild isActive={isActive(nestedItem.path)}>
+                                               <NavLink
+                                                 to={nestedItem.path}
+                                                 className={`flex items-center gap-2 px-3 py-2 pl-16 rounded-button transition-colors ${
+                                                   isActive(nestedItem.path)
+                                                     ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                                                     : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                                                 }`}
+                                               >
+                                                 <nestedItem.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                                                 <span className="text-sm truncate">{nestedItem.title}</span>
                                               </NavLink>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
@@ -219,17 +219,17 @@ export function AppSidebar() {
                                 </Collapsible>
                               ) : (
                                 <SidebarMenuSubItem key={subItem.title}>
-                                  <SidebarMenuSubButton asChild isActive={isActive(subItem.path)}>
-                                    <NavLink
-                                      to={subItem.path}
-                                      className={`flex items-center gap-3 px-4 py-2.5 pl-12 rounded-button transition-colors ${
-                                        isActive(subItem.path)
-                                          ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                                          : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
-                                      }`}
-                                    >
-                                      <subItem.icon className="h-4 w-4" />
-                                      <span className="text-sm">{subItem.title}</span>
+                                   <SidebarMenuSubButton asChild isActive={isActive(subItem.path)}>
+                                     <NavLink
+                                       to={subItem.path}
+                                       className={`flex items-center gap-2 px-3 py-2 pl-10 rounded-button transition-colors ${
+                                         isActive(subItem.path)
+                                           ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                                           : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                                       }`}
+                                     >
+                                       <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                                       <span className="text-sm truncate">{subItem.title}</span>
                                     </NavLink>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
