@@ -15,6 +15,12 @@ import {
   Users,
   MapPin,
   GitCompare,
+  Building2,
+  Warehouse,
+  UserSquare2,
+  UserCheck,
+  Package2,
+  MapPinned,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -56,7 +62,19 @@ const menuItems = [
       { title: "Reconciliation", icon: GitCompare, path: "/distribution/reconciliation" },
     ],
   },
-  { title: "Masters", icon: Settings, path: "/masters" },
+  {
+    title: "Settings",
+    icon: Settings,
+    subItems: [
+      { title: "Company", icon: Building2, path: "/settings/company" },
+      { title: "Depot", icon: Warehouse, path: "/settings/depot" },
+      { title: "Employees", icon: UserSquare2, path: "/settings/employees" },
+      { title: "Customers", icon: UserCheck, path: "/settings/customers" },
+      { title: "Vendors", icon: Users, path: "/settings/vendors" },
+      { title: "Materials", icon: Package2, path: "/settings/materials" },
+      { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
+    ],
+  },
   { title: "Approvals", icon: CheckSquare, path: "/approvals" },
   { title: "Billing", icon: CreditCard, path: "/billing" },
   { title: "Analytics", icon: BarChart3, path: "/analytics" },
