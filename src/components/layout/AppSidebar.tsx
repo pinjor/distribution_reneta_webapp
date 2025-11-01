@@ -21,6 +21,8 @@ import {
   UserCheck,
   Package2,
   MapPinned,
+  ClipboardList,
+  TruckIcon,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -47,7 +49,14 @@ const menuItems = [
     icon: Package,
     subItems: [
       { title: "Stock Receipt", icon: PackagePlus, path: "/warehouse/receipt" },
-      { title: "Stock Issuance", icon: PackageMinus, path: "/warehouse/issuance" },
+      { 
+        title: "Stock Issuance", 
+        icon: PackageMinus, 
+        subItems: [
+          { title: "Order List", icon: ClipboardList, path: "/warehouse/issuance/orders" },
+          { title: "Vehicle Loading Panel", icon: TruckIcon, path: "/warehouse/issuance/loading" },
+        ]
+      },
       { title: "Stock Maintenance", icon: Wrench, path: "/warehouse/maintenance" },
       { title: "Stock Adjustment", icon: AlertCircle, path: "/warehouse/adjustment" },
     ],
@@ -90,7 +99,15 @@ export function AppSidebar() {
     const newOpenMenus: Record<string, boolean> = {};
     menuItems.forEach((item) => {
       if (item.subItems) {
-        const hasActiveChild = item.subItems.some((sub) => location.pathname === sub.path);
+        const hasActiveChild = item.subItems.some((sub) => {
+          if (sub.path) return location.pathname === sub.path;
+          if (sub.subItems) {
+            const hasNestedActive = sub.subItems.some((nested) => location.pathname === nested.path);
+            if (hasNestedActive) newOpenMenus[sub.title] = true;
+            return hasNestedActive;
+          }
+          return false;
+        });
         if (hasActiveChild) {
           newOpenMenus[item.title] = true;
         }
@@ -105,7 +122,11 @@ export function AppSidebar() {
 
   const isActive = (path: string) => location.pathname === path;
   const isParentActive = (subItems?: any[]) =>
-    subItems?.some((item) => location.pathname === item.path);
+    subItems?.some((item) => {
+      if (item.path) return location.pathname === item.path;
+      if (item.subItems) return item.subItems.some((nested: any) => location.pathname === nested.path);
+      return false;
+    });
 
   return (
     <Sidebar className={open ? "w-64" : "w-16"} collapsible="icon">
@@ -148,23 +169,72 @@ export function AppSidebar() {
                       {open && (
                         <CollapsibleContent className="animate-accordion-down">
                           <SidebarMenuSub>
-                            {item.subItems.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton asChild isActive={isActive(subItem.path)}>
-                                  <NavLink
-                                    to={subItem.path}
-                                    className={`flex items-center gap-3 px-4 py-2.5 pl-12 rounded-button transition-colors ${
-                                      isActive(subItem.path)
-                                        ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                                        : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
-                                    }`}
-                                  >
-                                    <subItem.icon className="h-4 w-4" />
-                                    <span className="text-sm">{subItem.title}</span>
-                                  </NavLink>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
+                            {item.subItems.map((subItem) => 
+                              subItem.subItems ? (
+                                <Collapsible
+                                  key={subItem.title}
+                                  open={openMenus[subItem.title]}
+                                  onOpenChange={() => toggleMenu(subItem.title)}
+                                >
+                                  <SidebarMenuSubItem>
+                                    <CollapsibleTrigger asChild>
+                                      <SidebarMenuSubButton
+                                        className={`flex items-center gap-3 px-4 py-2.5 pl-12 rounded-button transition-colors ${
+                                          isParentActive(subItem.subItems)
+                                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                            : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                                        }`}
+                                      >
+                                        <subItem.icon className="h-4 w-4" />
+                                        <span className="text-sm flex-1">{subItem.title}</span>
+                                        <ChevronDown
+                                          className={`h-3 w-3 transition-transform duration-200 ${
+                                            openMenus[subItem.title] ? "rotate-180" : ""
+                                          }`}
+                                        />
+                                      </SidebarMenuSubButton>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="animate-accordion-down">
+                                      <SidebarMenuSub>
+                                        {subItem.subItems.map((nestedItem) => (
+                                          <SidebarMenuSubItem key={nestedItem.title}>
+                                            <SidebarMenuSubButton asChild isActive={isActive(nestedItem.path)}>
+                                              <NavLink
+                                                to={nestedItem.path}
+                                                className={`flex items-center gap-3 px-4 py-2 pl-20 rounded-button transition-colors ${
+                                                  isActive(nestedItem.path)
+                                                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                                                    : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                                                }`}
+                                              >
+                                                <nestedItem.icon className="h-4 w-4" />
+                                                <span className="text-sm">{nestedItem.title}</span>
+                                              </NavLink>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                        ))}
+                                      </SidebarMenuSub>
+                                    </CollapsibleContent>
+                                  </SidebarMenuSubItem>
+                                </Collapsible>
+                              ) : (
+                                <SidebarMenuSubItem key={subItem.title}>
+                                  <SidebarMenuSubButton asChild isActive={isActive(subItem.path)}>
+                                    <NavLink
+                                      to={subItem.path}
+                                      className={`flex items-center gap-3 px-4 py-2.5 pl-12 rounded-button transition-colors ${
+                                        isActive(subItem.path)
+                                          ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                                          : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
+                                      }`}
+                                    >
+                                      <subItem.icon className="h-4 w-4" />
+                                      <span className="text-sm">{subItem.title}</span>
+                                    </NavLink>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              )
+                            )}
                           </SidebarMenuSub>
                         </CollapsibleContent>
                       )}
