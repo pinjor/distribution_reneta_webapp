@@ -81,7 +81,7 @@ const menuItems = [
     ],
   },
   {
-    title: "Settings",
+    title: "Master Data",
     icon: Settings,
     subItems: [
       { title: "Company", icon: Building2, path: "/settings/company" },
@@ -89,6 +89,7 @@ const menuItems = [
       { title: "Employees", icon: UserSquare2, path: "/settings/employees" },
       { title: "Customers", icon: UserCheck, path: "/settings/customers" },
       { title: "Vendors", icon: Users, path: "/settings/vendors" },
+      { title: "Products", icon: Package, path: "/settings/products" },
       { title: "Materials", icon: Package2, path: "/settings/materials" },
       { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
     ],

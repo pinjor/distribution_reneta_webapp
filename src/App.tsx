@@ -27,6 +27,7 @@ import Depot from "./pages/settings/Depot";
 import Employees from "./pages/settings/Employees";
 import Customers from "./pages/settings/Customers";
 import Vendors from "./pages/settings/Vendors";
+import Products from "./pages/settings/Products";
 import Materials from "./pages/settings/Materials";
 import ShippingPoints from "./pages/settings/ShippingPoints";
 import NotFound from "./pages/NotFound";
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/settings/employees" element={<Employees />} />
             <Route path="/settings/customers" element={<Customers />} />
             <Route path="/settings/vendors" element={<Vendors />} />
+            <Route path="/settings/products" element={<Products />} />
             <Route path="/settings/materials" element={<Materials />} />
             <Route path="/settings/shipping-points" element={<ShippingPoints />} />
             <Route path="*" element={<NotFound />} />
