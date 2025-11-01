@@ -13,6 +13,8 @@ import OrderList from "./pages/OrderList";
 import VehicleLoading from "./pages/VehicleLoading";
 import StockMaintenance from "./pages/StockMaintenance";
 import StockAdjustment from "./pages/StockAdjustment";
+import NewAdjustment from "./pages/NewAdjustment";
+import AdjustmentRequest from "./pages/AdjustmentRequest";
 import Vehicles from "./pages/Vehicles";
 import Drivers from "./pages/Drivers";
 import RoutePlanning from "./pages/RoutePlanning";
@@ -41,6 +43,8 @@ const App = () => (
             <Route path="/warehouse/issuance/loading" element={<VehicleLoading />} />
             <Route path="/warehouse/maintenance" element={<StockMaintenance />} />
             <Route path="/warehouse/adjustment" element={<StockAdjustment />} />
+            <Route path="/warehouse/adjustment/new" element={<NewAdjustment />} />
+            <Route path="/warehouse/adjustment/request" element={<AdjustmentRequest />} />
             <Route path="/distribution/vehicles" element={<Vehicles />} />
             <Route path="/distribution/drivers" element={<Drivers />} />
             <Route path="/distribution/routes" element={<RoutePlanning />} />

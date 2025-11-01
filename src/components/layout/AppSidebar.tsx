@@ -11,6 +11,8 @@ import {
   PackageMinus,
   Wrench,
   AlertCircle,
+  PlusCircle,
+  List,
   Car,
   Users,
   MapPin,
@@ -58,7 +60,14 @@ const menuItems = [
         ]
       },
       { title: "Stock Maintenance", icon: Wrench, path: "/warehouse/maintenance" },
-      { title: "Stock Adjustment", icon: AlertCircle, path: "/warehouse/adjustment" },
+      { 
+        title: "Stock Adjustment", 
+        icon: AlertCircle, 
+        subItems: [
+          { title: "New Adjustment", icon: PlusCircle, path: "/warehouse/adjustment/new" },
+          { title: "Adjustment Request", icon: List, path: "/warehouse/adjustment/request" },
+        ]
+      },
     ],
   },
   {
