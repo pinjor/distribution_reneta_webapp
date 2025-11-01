@@ -1,68 +1,146 @@
 import { useState } from "react";
-import { FileText, DollarSign, CreditCard, Clock } from "lucide-react";
+import { FileText, DollarSign, CreditCard, Clock, Download, Eye, Printer, CheckCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-
-const invoices = [
-  { id: "INV-2025-001", customer: "Apollo Pharmacy", date: "2025-01-15", amount: 125000, paymentMode: "Credit", status: "paid" },
-  { id: "INV-2025-002", customer: "MedPlus Stores", date: "2025-01-14", amount: 87500, paymentMode: "Cash", status: "pending" },
-  { id: "INV-2025-003", customer: "City Hospital", date: "2025-01-13", amount: 215000, paymentMode: "Credit", status: "overdue" },
-];
+import { Label } from "@/components/ui/label";
+import { DataTable } from "@/components/ui/data-table";
+import { useTableSort } from "@/hooks/useTableSort";
+import { useTableFilter } from "@/hooks/useTableFilter";
+import { invoices } from "@/lib/mockData";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { toast } from "sonner";
 
 export default function Billing() {
   const [depotFilter, setDepotFilter] = useState("all");
   const [showSettlement, setShowSettlement] = useState(false);
-  const { toast } = useToast();
+  const [selectedInvoice, setSelectedInvoice] = useState<typeof invoices[0] | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [paymentRef, setPaymentRef] = useState("");
+  
+  const { sortedData, sortKey, sortOrder, handleSort } = useTableSort(invoices, "date" as any);
+  const { filteredData, searchTerm, setSearchTerm } = useTableFilter(sortedData);
 
-  const handleSettle = () => {
-    toast({ title: "Payment recorded", description: "Invoice marked as paid" });
+  const handleSettle = async () => {
+    if (!paymentRef.trim()) {
+      toast.error("Please enter payment reference");
+      return;
+    }
+    
+    setProcessing(true);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setProcessing(false);
+    
+    toast.success("Payment recorded successfully");
     setShowSettlement(false);
+    setPaymentRef("");
   };
 
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const paidAmount = invoices.filter(inv => inv.status === "paid").reduce((sum, inv) => sum + inv.amount, 0);
-  const pendingAmount = invoices.filter(inv => inv.status === "pending").reduce((sum, inv) => sum + inv.amount, 0);
-  const overdueAmount = invoices.filter(inv => inv.status === "overdue").reduce((sum, inv) => sum + inv.amount, 0);
+  const paidAmount = invoices.filter((inv) => inv.status === "Paid").reduce((sum, inv) => sum + inv.amount, 0);
+  const pendingAmount = invoices.filter((inv) => inv.status === "Pending").reduce((sum, inv) => sum + inv.amount, 0);
+  const overdueAmount = invoices.filter((inv) => inv.status === "Overdue").reduce((sum, inv) => sum + inv.amount, 0);
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      Paid: "status-success",
+      Pending: "status-info",
+      Overdue: "status-error",
+    };
+    return <Badge className={colors[status]}>{status}</Badge>;
+  };
+
+  const columns = [
+    { key: "id" as const, label: "Invoice No.", sortable: true },
+    { key: "customer" as const, label: "Customer", sortable: true },
+    { key: "date" as const, label: "Date", sortable: true },
+    {
+      key: "amount" as const,
+      label: "Amount",
+      sortable: true,
+      align: "right" as const,
+      render: (val: any) => `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+    },
+    { key: "mode" as const, label: "Payment Mode", sortable: true },
+    {
+      key: "status" as const,
+      label: "Status",
+      sortable: true,
+      render: (val: any) => getStatusBadge(val),
+    },
+    {
+      key: "dueDate" as const,
+      label: "Due Date",
+      sortable: true,
+    },
+    {
+      key: "id" as const,
+      label: "Actions",
+      align: "right" as const,
+      render: (_: any, row: any) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" className="hover-scale">
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+          <Button variant="ghost" size="sm" className="hover-scale">
+            <Printer className="h-4 w-4" />
+          </Button>
+          {row.status !== "Paid" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedInvoice(row);
+                setShowSettlement(true);
+              }}
+              className="hover-scale"
+            >
+              Settle
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-semibold mb-2">Billing & Settlement</h1>
         <p className="text-muted-foreground">Manage invoices and payment settlements</p>
       </div>
 
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
+        <Card className="p-4 hover-scale cursor-pointer transition-all hover:shadow-lg">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
               <DollarSign className="h-6 w-6 text-primary" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Invoiced</p>
-              <p className="text-2xl font-semibold">₹{(totalAmount / 1000).toFixed(0)}K</p>
+              <p className="text-2xl font-semibold">₹{(totalAmount / 100000).toFixed(2)}L</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-4">
+        <Card className="p-4 hover-scale cursor-pointer transition-all hover:shadow-lg">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-lg bg-success/10 flex items-center justify-center">
               <CreditCard className="h-6 w-6 text-success" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Paid</p>
-              <p className="text-2xl font-semibold text-success">₹{(paidAmount / 1000).toFixed(0)}K</p>
+              <p className="text-sm text-muted-foreground">Collected</p>
+              <p className="text-2xl font-semibold text-success">₹{(paidAmount / 100000).toFixed(2)}L</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-4">
+        <Card className="p-4 hover-scale cursor-pointer transition-all hover:shadow-lg">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-lg bg-warning/10 flex items-center justify-center">
               <Clock className="h-6 w-6 text-warning" />
@@ -74,7 +152,7 @@ export default function Billing() {
           </div>
         </Card>
 
-        <Card className="p-4">
+        <Card className="p-4 hover-scale cursor-pointer transition-all hover:shadow-lg">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-lg bg-destructive/10 flex items-center justify-center">
               <FileText className="h-6 w-6 text-destructive" />
@@ -87,7 +165,8 @@ export default function Billing() {
         </Card>
       </div>
 
-      <Card className="p-6">
+      {/* Invoice List */}
+      <Card className="p-6 card-elevated">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Invoice List</h2>
           <div className="flex gap-4">
@@ -97,130 +176,99 @@ export default function Billing() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Depots</SelectItem>
-                <SelectItem value="chennai">Chennai Main</SelectItem>
-                <SelectItem value="south">Chennai South</SelectItem>
+                <SelectItem value="bangalore">Bangalore Hub</SelectItem>
+                <SelectItem value="mumbai">Mumbai Central</SelectItem>
+                <SelectItem value="delhi">Delhi Main</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="date" className="w-[180px]" />
+            
+            <Input
+              placeholder="Search invoices..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64"
+            />
+            
+            <Button variant="outline" size="sm" className="hover-scale">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
           </div>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Invoice No.</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Payment Mode</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {invoices.map((invoice) => (
-              <TableRow key={invoice.id}>
-                <TableCell className="font-medium">{invoice.id}</TableCell>
-                <TableCell>{invoice.customer}</TableCell>
-                <TableCell>{invoice.date}</TableCell>
-                <TableCell>₹{invoice.amount.toLocaleString()}</TableCell>
-                <TableCell>{invoice.paymentMode}</TableCell>
-                <TableCell>
-                  {invoice.status === "paid" && (
-                    <Badge className="bg-success/10 text-success border-success/20">Paid</Badge>
-                  )}
-                  {invoice.status === "pending" && (
-                    <Badge className="bg-warning/10 text-warning border-warning/20">Pending</Badge>
-                  )}
-                  {invoice.status === "overdue" && (
-                    <Badge className="bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline">View</Button>
-                    {invoice.status !== "paid" && (
-                      <Button size="sm" onClick={() => setShowSettlement(true)}>Settle</Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataTable
+          data={filteredData}
+          columns={columns}
+          sortKey={sortKey}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          emptyMessage="No invoices found"
+        />
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Payment Distribution</h2>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Cash Collected</span>
-                <span className="text-sm font-semibold">29%</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-success" style={{ width: "29%" }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Credit</span>
-                <span className="text-sm font-semibold">71%</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary" style={{ width: "71%" }} />
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Outstanding Summary</h2>
-          <div className="space-y-3">
-            <div className="p-4 bg-muted/30 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-1">0-30 Days</p>
-              <p className="text-xl font-semibold">₹87,500</p>
-            </div>
-            <div className="p-4 bg-warning/10 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-1">30-60 Days</p>
-              <p className="text-xl font-semibold text-warning">₹1,25,000</p>
-            </div>
-            <div className="p-4 bg-destructive/10 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-1">60+ Days (Overdue)</p>
-              <p className="text-xl font-semibold text-destructive">₹2,15,000</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
+      {/* Settlement Dialog */}
       <Dialog open={showSettlement} onOpenChange={setShowSettlement}>
-        <DialogContent>
+        <DialogContent className="animate-scale-in">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
-            <DialogDescription>Enter payment details to settle invoice</DialogDescription>
+            <DialogDescription>
+              Invoice: {selectedInvoice?.id} - {selectedInvoice?.customer}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Invoice</label>
-              <Input value="INV-2025-002" disabled />
+
+          <div className="space-y-4">
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+              <p className="text-sm">
+                <span className="font-medium">Amount:</span> ₹
+                {selectedInvoice?.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">Payment Mode:</span> {selectedInvoice?.mode}
+              </p>
+              <p className="text-sm">
+                <span className="font-medium">Due Date:</span> {selectedInvoice?.dueDate}
+              </p>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Amount</label>
-              <Input value="₹87,500" disabled />
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentRef">Payment Reference *</Label>
+              <Input
+                id="paymentRef"
+                placeholder="Enter transaction reference"
+                value={paymentRef}
+                onChange={(e) => setPaymentRef(e.target.value)}
+                required
+              />
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Payment Reference</label>
-              <Input placeholder="Enter transaction ID or check number" />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Payment Date</label>
-              <Input type="date" />
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentDate">Payment Date *</Label>
+              <Input id="paymentDate" type="date" required />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSettlement(false)}>Cancel</Button>
-            <Button onClick={handleSettle}>Confirm Payment</Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowSettlement(false)}
+              disabled={processing}
+              className="hover-scale"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSettle} disabled={processing || !paymentRef.trim()} className="hover-scale">
+              {processing ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm Payment
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

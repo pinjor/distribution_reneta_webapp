@@ -1,4 +1,4 @@
-import { Search, Bell, Plus, User } from "lucide-react";
+import { Search, Bell, Plus, User, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,10 +11,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function AppHeader() {
+  const { theme, toggleTheme } = useTheme();
+  
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm transition-colors">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-4 flex-1 max-w-2xl">
           <SidebarTrigger />
@@ -28,9 +31,23 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button size="sm" className="gap-2 rounded-button">
+          <Button size="sm" className="gap-2 rounded-button hover-scale">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Add New</span>
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="rounded-button hover-scale"
+            aria-label="Toggle theme"
+          >
+            {theme === "light" ? (
+              <Moon className="h-5 w-5" />
+            ) : (
+              <Sun className="h-5 w-5" />
+            )}
           </Button>
 
           <DropdownMenu>

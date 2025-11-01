@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle, XCircle, Clock, Eye } from "lucide-react";
+import { Search, CheckCircle, XCircle, Clock, Eye, Filter } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,59 +13,24 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-
-const approvalRequests = [
-  {
-    id: "SA-001",
-    type: "Stock Adjustment",
-    submittedBy: "John Smith",
-    date: "2025-01-08",
-    status: "pending",
-    product: "Paracetamol 500mg",
-    batch: "PCM2024-11",
-    qty: -50,
-    reason: "Damaged goods",
-  },
-  {
-    id: "SA-002",
-    type: "Stock Adjustment",
-    submittedBy: "Sarah Johnson",
-    date: "2025-01-07",
-    status: "submitted",
-    product: "Amoxicillin 250mg",
-    batch: "AMX2024-08",
-    qty: 100,
-    reason: "Count correction",
-  },
-  {
-    id: "SA-003",
-    type: "Stock Adjustment",
-    submittedBy: "Mike Wilson",
-    date: "2025-01-06",
-    status: "approved",
-    product: "Ibuprofen 400mg",
-    batch: "IBU2024-09",
-    qty: -25,
-    reason: "Expired items",
-  },
-  {
-    id: "SA-004",
-    type: "Stock Adjustment",
-    submittedBy: "Emma Davis",
-    date: "2025-01-05",
-    status: "rejected",
-    product: "Vitamin C 1000mg",
-    batch: "VTC2024-12",
-    qty: 200,
-    reason: "System discrepancy",
-  },
-];
+import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/ui/data-table";
+import { useTableSort } from "@/hooks/useTableSort";
+import { useTableFilter } from "@/hooks/useTableFilter";
+import { approvalRequests } from "@/lib/mockData";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { toast } from "sonner";
 
 const Approvals = () => {
   const [selectedRequest, setSelectedRequest] = useState<typeof approvalRequests[0] | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   const [comment, setComment] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState("pending");
+  
+  const { sortedData, sortKey, sortOrder, handleSort } = useTableSort(approvalRequests, "date" as any);
+  const { filteredData, searchTerm, setSearchTerm } = useTableFilter(sortedData);
 
   const handleAction = (request: typeof approvalRequests[0], action: "approve" | "reject") => {
     setSelectedRequest(request);
@@ -73,134 +38,216 @@ const Approvals = () => {
     setDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    console.log(`${actionType} request ${selectedRequest?.id} with comment: ${comment}`);
+  const handleSubmit = async () => {
+    if (!comment.trim()) {
+      toast.error("Please provide a comment");
+      return;
+    }
+    
+    setProcessing(true);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setProcessing(false);
+    
+    toast.success(`Request ${actionType === "approve" ? "approved" : "rejected"} successfully`);
     setDialogOpen(false);
     setComment("");
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "status-neutral";
-      case "submitted":
-        return "status-info";
-      case "approved":
-        return "status-success";
-      case "rejected":
-        return "status-error";
-      default:
-        return "status-neutral";
-    }
+  const getStatusBadge = (status: string, priority: string) => {
+    const statusColors: Record<string, string> = {
+      Pending: "status-neutral",
+      Submitted: "status-info",
+      Approved: "status-success",
+      Rejected: "status-error",
+    };
+    
+    const priorityColors: Record<string, string> = {
+      High: "bg-destructive/10 text-destructive border-destructive/20",
+      Medium: "bg-warning/10 text-warning border-warning/20",
+      Low: "bg-muted text-muted-foreground",
+    };
+
+    return (
+      <div className="flex gap-2">
+        <Badge className={statusColors[status]}>{status}</Badge>
+        <Badge variant="outline" className={priorityColors[priority]}>{priority}</Badge>
+      </div>
+    );
   };
 
   const filterByStatus = (status: string) => {
-    if (status === "all") return approvalRequests;
-    return approvalRequests.filter((req) => req.status === status);
+    if (status === "all") return filteredData;
+    return filteredData.filter((req) => req.status.toLowerCase() === status.toLowerCase());
   };
 
+  const columns = [
+    { key: "id" as const, label: "Request ID", sortable: true },
+    { key: "type" as const, label: "Type", sortable: true },
+    { key: "submittedBy" as const, label: "Submitted By", sortable: true },
+    { key: "depot" as const, label: "Depot", sortable: true },
+    { key: "date" as const, label: "Date", sortable: true },
+    {
+      key: "status" as const,
+      label: "Status",
+      sortable: true,
+      render: (val: any, row: any) => getStatusBadge(val, row.priority),
+    },
+    {
+      key: "id" as const,
+      label: "Actions",
+      align: "right" as const,
+      render: (_: any, row: any) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedRequest(row)}
+            className="hover-scale"
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
+          {row.status === "Pending" && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleAction(row, "approve")}
+                className="text-success hover:text-success hover-scale"
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Approve
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleAction(row, "reject")}
+                className="text-destructive hover:text-destructive hover-scale"
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Reject
+              </Button>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-semibold mb-2">Approvals</h1>
-        <p className="text-muted-foreground">Manage approval requests and workflows</p>
+        <h1 className="text-3xl font-semibold mb-2">Approval Workflow</h1>
+        <p className="text-muted-foreground">Review and manage pending approval requests</p>
       </div>
 
       <Card className="p-6 card-elevated">
-        <Tabs defaultValue="all" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="all">All Requests</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="submitted">Submitted</TabsTrigger>
-              <TabsTrigger value="approved">Approved</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected</TabsTrigger>
-            </TabsList>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search requests..." className="pl-10" />
-            </div>
-          </div>
-
-          {["all", "pending", "submitted", "approved", "rejected"].map((status) => (
-            <TabsContent key={status} value={status} className="space-y-4">
-              <div className="rounded-lg border">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted/50">
-                      <tr className="border-b">
-                        <th className="text-left p-4 text-sm font-medium">Request ID</th>
-                        <th className="text-left p-4 text-sm font-medium">Type</th>
-                        <th className="text-left p-4 text-sm font-medium">Submitted By</th>
-                        <th className="text-left p-4 text-sm font-medium">Date</th>
-                        <th className="text-left p-4 text-sm font-medium">Product</th>
-                        <th className="text-left p-4 text-sm font-medium">Qty</th>
-                        <th className="text-left p-4 text-sm font-medium">Status</th>
-                        <th className="text-right p-4 text-sm font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filterByStatus(status).map((request) => (
-                        <tr key={request.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="p-4 text-sm font-medium">{request.id}</td>
-                          <td className="p-4 text-sm">{request.type}</td>
-                          <td className="p-4 text-sm">{request.submittedBy}</td>
-                          <td className="p-4 text-sm text-muted-foreground">{request.date}</td>
-                          <td className="p-4 text-sm">{request.product}</td>
-                          <td className="p-4 text-sm">
-                            <span className={request.qty < 0 ? "text-destructive" : "text-success"}>
-                              {request.qty > 0 ? "+" : ""}
-                              {request.qty}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <span className={`status-chip ${getStatusColor(request.status)}`}>
-                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button variant="ghost" size="sm" className="gap-1">
-                                <Eye className="h-4 w-4" />
-                                View
-                              </Button>
-                              {request.status === "submitted" && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="gap-1 text-success hover:text-success"
-                                    onClick={() => handleAction(request, "approve")}
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="gap-1 text-destructive hover:text-destructive"
-                                    onClick={() => handleAction(request, "reject")}
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                    Reject
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+        <div className="flex justify-between items-center mb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="flex justify-between items-center mb-4">
+              <TabsList>
+                <TabsTrigger value="all" className="gap-2">
+                  All Requests
+                  <Badge variant="secondary">{approvalRequests.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="pending" className="gap-2">
+                  <Clock className="h-4 w-4" />
+                  Pending
+                  <Badge variant="secondary">
+                    {approvalRequests.filter((r) => r.status === "Pending").length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="submitted" className="gap-2">
+                  Submitted
+                  <Badge variant="secondary">
+                    {approvalRequests.filter((r) => r.status === "Submitted").length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="approved" className="gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Approved
+                </TabsTrigger>
+                <TabsTrigger value="rejected" className="gap-2">
+                  <XCircle className="h-4 w-4" />
+                  Rejected
+                </TabsTrigger>
+              </TabsList>
+              
+              <div className="flex items-center gap-4">
+                <Input
+                  placeholder="Search requests..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
+                />
+                <Button variant="outline" size="sm" className="hover-scale">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Advanced Filter
+                </Button>
               </div>
+            </div>
+
+            <TabsContent value="all">
+              <DataTable
+                data={filterByStatus("all")}
+                columns={columns}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                emptyMessage="No approval requests found"
+              />
             </TabsContent>
-          ))}
-        </Tabs>
+
+            <TabsContent value="pending">
+              <DataTable
+                data={filterByStatus("pending")}
+                columns={columns}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                emptyMessage="No pending requests"
+              />
+            </TabsContent>
+
+            <TabsContent value="submitted">
+              <DataTable
+                data={filterByStatus("submitted")}
+                columns={columns}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                emptyMessage="No submitted requests"
+              />
+            </TabsContent>
+
+            <TabsContent value="approved">
+              <DataTable
+                data={filterByStatus("approved")}
+                columns={columns}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                emptyMessage="No approved requests"
+              />
+            </TabsContent>
+
+            <TabsContent value="rejected">
+              <DataTable
+                data={filterByStatus("rejected")}
+                columns={columns}
+                sortKey={sortKey}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                emptyMessage="No rejected requests"
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </Card>
 
+      {/* Action Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="animate-scale-in">
           <DialogHeader>
             <DialogTitle>
               {actionType === "approve" ? "Approve Request" : "Reject Request"}
@@ -209,43 +256,63 @@ const Approvals = () => {
               Request ID: {selectedRequest?.id} - {selectedRequest?.type}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
+
+          <div className="space-y-4">
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <p className="text-sm">
-                <span className="font-medium">Product:</span> {selectedRequest?.product}
+                <span className="font-medium">Submitted By:</span> {selectedRequest?.submittedBy}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Batch:</span> {selectedRequest?.batch}
+                <span className="font-medium">Depot:</span> {selectedRequest?.depot}
               </p>
               <p className="text-sm">
-                <span className="font-medium">Quantity:</span>{" "}
-                <span className={selectedRequest && selectedRequest.qty < 0 ? "text-destructive" : "text-success"}>
-                  {selectedRequest?.qty}
-                </span>
-              </p>
-              <p className="text-sm">
-                <span className="font-medium">Reason:</span> {selectedRequest?.reason}
+                <span className="font-medium">Date:</span> {selectedRequest?.date}
               </p>
             </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Comments</label>
+              <label className="text-sm font-medium">Comment *</label>
               <Textarea
-                placeholder="Add your comments..."
+                placeholder="Enter your comment or reason..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 rows={4}
+                required
               />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={processing}
+              className="hover-scale"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
-              className={actionType === "reject" ? "bg-destructive hover:bg-destructive/90" : ""}
+              disabled={processing || !comment.trim()}
+              className={`hover-scale ${
+                actionType === "reject" ? "bg-destructive hover:bg-destructive/90" : ""
+              }`}
             >
-              {actionType === "approve" ? "Approve Request" : "Reject Request"}
+              {processing ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  {actionType === "approve" ? (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Confirm {actionType === "approve" ? "Approval" : "Rejection"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
