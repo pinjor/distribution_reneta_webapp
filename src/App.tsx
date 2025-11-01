@@ -22,6 +22,13 @@ import Reconciliation from "./pages/Reconciliation";
 import Billing from "./pages/Billing";
 import Analytics from "./pages/Analytics";
 import Masters from "./pages/Masters";
+import Company from "./pages/settings/Company";
+import Depot from "./pages/settings/Depot";
+import Employees from "./pages/settings/Employees";
+import Customers from "./pages/settings/Customers";
+import Vendors from "./pages/settings/Vendors";
+import Materials from "./pages/settings/Materials";
+import ShippingPoints from "./pages/settings/ShippingPoints";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,6 +60,13 @@ const App = () => (
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/masters" element={<Masters />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/settings/company" element={<Company />} />
+            <Route path="/settings/depot" element={<Depot />} />
+            <Route path="/settings/employees" element={<Employees />} />
+            <Route path="/settings/customers" element={<Customers />} />
+            <Route path="/settings/vendors" element={<Vendors />} />
+            <Route path="/settings/materials" element={<Materials />} />
+            <Route path="/settings/shipping-points" element={<ShippingPoints />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </MainLayout>
