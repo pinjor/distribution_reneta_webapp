@@ -269,7 +269,9 @@ export default function Products() {
       key: "category",
       header: "Category",
       render: (value) => (
-        <Badge variant="outline" className="text-xs">{String(value)}</Badge>
+        <Badge variant="outline" className="text-xs">
+          {String(value)}
+        </Badge>
       ),
     },
     {
