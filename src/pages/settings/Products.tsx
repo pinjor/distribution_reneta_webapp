@@ -381,11 +381,11 @@ export default function Products() {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="product-type-commercial"
-                      checked={formData.productType.commercial}
+                      checked={formData.product_type_commercial}
                       onCheckedChange={(checked) => 
                         setFormData(prev => ({
                           ...prev,
-                          productType: { ...prev.productType, commercial: checked === true }
+                          product_type_commercial: checked === true
                         }))
                       }
                     />
@@ -396,11 +396,11 @@ export default function Products() {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="product-type-sample"
-                      checked={formData.productType.sample}
+                      checked={formData.product_type_sample}
                       onCheckedChange={(checked) => 
                         setFormData(prev => ({
                           ...prev,
-                          productType: { ...prev.productType, sample: checked === true }
+                          product_type_sample: checked === true
                         }))
                       }
                     />
@@ -411,11 +411,11 @@ export default function Products() {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="product-type-institutional"
-                      checked={formData.productType.institutional}
+                      checked={formData.product_type_institutional}
                       onCheckedChange={(checked) => 
                         setFormData(prev => ({
                           ...prev,
-                          productType: { ...prev.productType, institutional: checked === true }
+                          product_type_institutional: checked === true
                         }))
                       }
                     />
@@ -426,11 +426,11 @@ export default function Products() {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="product-type-export"
-                      checked={formData.productType.export}
+                      checked={formData.product_type_export}
                       onCheckedChange={(checked) => 
                         setFormData(prev => ({
                           ...prev,
-                          productType: { ...prev.productType, export: checked === true }
+                          product_type_export: checked === true
                         }))
                       }
                     />
