@@ -437,8 +437,9 @@ export default function RoleMaster() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {parentRoles
-                        .filter((role) => role.id != null && role.id !== undefined && role.id !== "")
+                        .filter((role) => role && role.id != null && role.id !== undefined)
                         .map((role) => {
+                          if (!role || role.id == null) return null;
                           const roleId = String(role.id);
                           if (!roleId || roleId === "" || roleId === "undefined" || roleId === "null") return null;
                           return (
@@ -470,8 +471,9 @@ export default function RoleMaster() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {employees
-                        .filter((emp) => emp.id != null && emp.id !== undefined && emp.id !== "")
+                        .filter((emp) => emp && emp.id != null && emp.id !== undefined)
                         .map((emp) => {
+                          if (!emp || emp.id == null) return null;
                           const empId = String(emp.id);
                           if (!empId || empId === "" || empId === "undefined" || empId === "null") return null;
                           return (
