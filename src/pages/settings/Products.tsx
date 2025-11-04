@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, ArrowLeft, Barcode, DollarSign } from "lucide-react";
+import { Package, ArrowLeft, Barcode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateCode } from "@/utils/codeGenerator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,7 +53,6 @@ export default function Products() {
     new_code: "",
     name: "",
     generic_name: "",
-    base_price: "",
     unit_of_measure: "",
     business_unit: "" as "Pharma" | "Purnava" | "Animal health" | "",
     primary_packaging: "" as "Bottle" | "Blister" | "Vial" | "Injection" | "",
@@ -66,7 +65,6 @@ export default function Products() {
     mc_value1: "",
     mc_value2: "",
     mc_value3: "",
-    hsn_code: "",
   });
   
   const [newProductSku, setNewProductSku] = useState<string>("");
@@ -122,7 +120,7 @@ export default function Products() {
         old_code: formData.old_code || undefined,
         new_code: formData.new_code || undefined,
         generic_name: formData.generic_name || undefined,
-        base_price: parseFloat(formData.base_price) || 0,
+        base_price: 0,  // Default to 0, not editable in form
         unit_of_measure: formData.unit_of_measure || "PCS",
         business_unit: formData.business_unit || undefined,
         primary_packaging: formData.primary_packaging || undefined,
@@ -137,7 +135,6 @@ export default function Products() {
         mc_value2: formData.mc_value2 ? parseFloat(formData.mc_value2) : undefined,
         mc_value3: formData.mc_value3 ? parseFloat(formData.mc_value3) : undefined,
         mc_result: mcResult || undefined,
-        hsn_code: formData.hsn_code || undefined,
         is_active: true,
       };
 
@@ -174,7 +171,6 @@ export default function Products() {
       new_code: product.new_code || product.code || "",
       name: product.name,
       generic_name: product.generic_name || "",
-      base_price: product.base_price?.toString() || "",
       unit_of_measure: product.unit_of_measure || "",
       business_unit: product.business_unit || "",
       primary_packaging: product.primary_packaging || "",
@@ -187,7 +183,6 @@ export default function Products() {
       mc_value1: product.mc_value1?.toString() || "",
       mc_value2: product.mc_value2?.toString() || "",
       mc_value3: product.mc_value3?.toString() || "",
-      hsn_code: product.hsn_code || "",
     });
     setNewProductSku(product.sku);
     setEditMode(true);
@@ -223,7 +218,6 @@ export default function Products() {
       new_code: "",
       name: "",
       generic_name: "",
-      base_price: "",
       unit_of_measure: "",
       business_unit: "",
       primary_packaging: "",
@@ -236,7 +230,6 @@ export default function Products() {
       mc_value1: "",
       mc_value2: "",
       mc_value3: "",
-      hsn_code: "",
     });
     setNewProductSku("");
     setEditMode(false);
@@ -472,30 +465,6 @@ export default function Products() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="base-price" className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    Unit Price *
-                  </Label>
-                  <Input
-                    id="base-price"
-                    type="number"
-                    value={formData.base_price}
-                    onChange={(e) => handleChange("base_price", e.target.value)}
-                    placeholder="0.00"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="hsn-code">HSN Code</Label>
-                <Input
-                  id="hsn-code"
-                  value={formData.hsn_code}
-                  onChange={(e) => handleChange("hsn_code", e.target.value)}
-                  placeholder="Enter HSN code"
-                />
               </div>
 
               {/* Primary Packaging */}
