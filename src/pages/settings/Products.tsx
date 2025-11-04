@@ -241,7 +241,7 @@ export default function Products() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Define table columns (SKU removed from list as per requirements)
+  // Define table columns (Old Code and New Code instead of SKU)
   const columns: ColumnDef<Product>[] = [
     {
       key: "name",
@@ -251,17 +251,28 @@ export default function Products() {
       ),
     },
     {
+      key: "old_code",
+      header: "Old Code",
+      render: (value) => (
+        <span className="font-mono font-semibold text-muted-foreground bg-muted px-2 py-1 rounded">
+          {value || "-"}
+        </span>
+      ),
+    },
+    {
+      key: "new_code",
+      header: "New Code",
+      render: (value, product) => (
+        <span className="font-mono font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
+          {value || product.code || "-"}
+        </span>
+      ),
+    },
+    {
       key: "generic_name",
       header: "Generic Name",
       render: (value) => (
         <span className="text-muted-foreground">{value || "-"}</span>
-      ),
-    },
-    {
-      key: "base_price",
-      header: "Price",
-      render: (value) => (
-        <span className="font-medium">₹{Number(value).toFixed(2)}</span>
       ),
     },
     {
@@ -597,14 +608,13 @@ export default function Products() {
         data={products}
         columns={columns}
         searchPlaceholder="Search products..."
-        searchFields={["name", "sku", "code", "generic_name"]}
+        searchFields={["name", "old_code", "new_code", "code", "generic_name"]}
         itemsPerPage={10}
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
         emptyMessage="No products found"
-        showCode={true}
-        codeKey="code"
+        showCode={false}
       />
     </main>
   );
