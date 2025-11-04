@@ -37,7 +37,7 @@ interface Product {
   mc_value2?: number;
   mc_value3?: number;
   mc_result?: number;
-  description?: string;
+  business_unit?: string;  // Pharma, Purnava, Animal health
   hsn_code?: string;
 }
 
@@ -56,7 +56,7 @@ export default function Products() {
     generic_name: "",
     base_price: "",
     unit_of_measure: "",
-    description: "",
+    business_unit: "" as "Pharma" | "Purnava" | "Animal health" | "",
     primary_packaging: "" as "Bottle" | "Blister" | "Vial" | "Injection" | "",
     product_type_commercial: false,
     product_type_sample: false,
@@ -125,7 +125,7 @@ export default function Products() {
         generic_name: formData.generic_name || undefined,
         base_price: parseFloat(formData.base_price) || 0,
         unit_of_measure: formData.unit_of_measure || "PCS",
-        description: formData.description || undefined,
+        business_unit: formData.business_unit || undefined,
         primary_packaging: formData.primary_packaging || undefined,
         product_type_commercial: formData.product_type_commercial,
         product_type_sample: formData.product_type_sample,
@@ -177,7 +177,7 @@ export default function Products() {
       generic_name: product.generic_name || "",
       base_price: product.base_price?.toString() || "",
       unit_of_measure: product.unit_of_measure || "",
-      description: product.description || "",
+      business_unit: product.business_unit || "",
       primary_packaging: product.primary_packaging || "",
       product_type_commercial: product.product_type_commercial || false,
       product_type_sample: product.product_type_sample || false,
@@ -226,7 +226,7 @@ export default function Products() {
       generic_name: "",
       base_price: "",
       unit_of_measure: "",
-      description: "",
+      business_unit: "",
       primary_packaging: "",
       product_type_commercial: false,
       product_type_sample: false,
@@ -441,15 +441,20 @@ export default function Products() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleChange("description", e.target.value)}
-                  placeholder="Product description"
-                  rows={3}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="business-unit">Business Unit</Label>
+                  <Select value={formData.business_unit} onValueChange={(val) => handleChange("business_unit", val)}>
+                    <SelectTrigger id="business-unit">
+                      <SelectValue placeholder="Select business unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pharma">Pharma</SelectItem>
+                      <SelectItem value="Purnava">Purnava</SelectItem>
+                      <SelectItem value="Animal health">Animal health</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -118,7 +118,7 @@ class Product(Base):
     old_code = Column(String(50))  # User input old code
     new_code = Column(String(50))  # User input new code
     generic_name = Column(String(255))  # Optional generic name
-    description = Column(Text)
+    business_unit = Column(String(50))  # Pharma, Purnava, Animal health
     category = Column(String(100))  # Keep for backward compatibility, but not in form
     hsn_code = Column(String(20))
     unit_of_measure = Column(String(20), default="PCS")

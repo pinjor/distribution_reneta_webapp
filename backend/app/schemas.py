@@ -188,7 +188,7 @@ class ProductBase(BaseModel):
     old_code: Optional[str] = None
     new_code: Optional[str] = None
     generic_name: Optional[str] = None
-    description: Optional[str] = None
+    business_unit: Optional[str] = None  # Pharma, Purnava, Animal health
     category: Optional[str] = None
     hsn_code: Optional[str] = None
     unit_of_measure: str = "PCS"
