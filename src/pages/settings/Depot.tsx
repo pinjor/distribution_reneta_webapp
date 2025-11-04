@@ -1,53 +1,124 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Warehouse, Plus, Search, Edit, Trash2, MapPin } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Warehouse, ArrowLeft, MapPin, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
+import { generateCode } from "@/utils/codeGenerator";
+import { getBadgeVariant } from "@/utils/badgeColors";
 
 interface Depot {
   id: string;
-  name: string;
   code: string;
+  name: string;
   location: string;
   capacity: string;
   status: "active" | "inactive";
+  warehouse?: string;
+  zone?: string;
+  storageType?: "General Store" | "Cold" | "Cool";
 }
 
 export default function Depot() {
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedDepot, setSelectedDepot] = useState<Depot | null>(null);
+  const [newDepotCode, setNewDepotCode] = useState<string>("");
+  const [warehouse, setWarehouse] = useState("");
+  const [zone, setZone] = useState("");
+  const [storageType, setStorageType] = useState<"General Store" | "Cold" | "Cool">("General Store");
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    location: "",
+    capacity: "",
+  });
+  
   const [depots, setDepots] = useState<Depot[]>([
-    { id: "1", name: "Main Warehouse", code: "WH-001", location: "New York, NY", capacity: "50,000 sq ft", status: "active" },
-    { id: "2", name: "Distribution Center East", code: "WH-002", location: "Boston, MA", capacity: "35,000 sq ft", status: "active" },
-    { id: "3", name: "Regional Hub", code: "WH-003", location: "Philadelphia, PA", capacity: "28,000 sq ft", status: "inactive" },
+    { id: "1", code: "DEPT-0001", name: "Main Warehouse", location: "New York, NY", capacity: "50,000 sq ft", status: "active", warehouse: "Warehouse-1", zone: "Zone-1", storageType: "General Store" },
+    { id: "2", code: "DEPT-0002", name: "Distribution Center East", location: "Boston, MA", capacity: "35,000 sq ft", status: "active", warehouse: "Warehouse-1", zone: "Zone-2", storageType: "Cold" },
+    { id: "3", code: "DEPT-0003", name: "Regional Hub", location: "Philadelphia, PA", capacity: "28,000 sq ft", status: "inactive", warehouse: "Warehouse-2", zone: "Zone-1", storageType: "Cool" },
   ]);
 
   useEffect(() => {
     document.title = "Depot Settings | App";
   }, []);
 
-  const filteredDepots = depots.filter(depot =>
-    depot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    depot.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    depot.location.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleAdd = () => {
-    toast({
-      title: "Depot added",
-      description: "New depot has been created successfully.",
-    });
-    setOpen(false);
+  const generateDepotCode = (): string => {
+    const existingCodes = depots.map(d => d.code);
+    return generateCode("DEPT", existingCodes);
   };
 
-  const handleDelete = (id: string) => {
-    setDepots(prev => prev.filter(d => d.id !== id));
+  // Generate code when form opens for new depot
+  useEffect(() => {
+    if (showAddForm && !editMode) {
+      setNewDepotCode(generateDepotCode());
+    }
+  }, [showAddForm, editMode]);
+
+  const handleAdd = () => {
+    if (editMode && selectedDepot) {
+      setDepots(prev => prev.map(d => 
+        d.id === selectedDepot.id 
+          ? { 
+              ...d, 
+              name: formData.name,
+              location: formData.location,
+              capacity: formData.capacity,
+              warehouse: warehouse,
+              zone: zone,
+              storageType: storageType,
+            }
+          : d
+      ));
+      toast({
+        title: "Depot updated",
+        description: "Depot information has been updated successfully.",
+      });
+    } else {
+      const newCode = generateDepotCode();
+      const newDepot: Depot = {
+        id: Date.now().toString(),
+        code: newCode,
+        name: formData.name,
+        location: formData.location,
+        capacity: formData.capacity,
+        status: "active",
+        warehouse: warehouse,
+        zone: zone,
+        storageType: storageType,
+      };
+      setDepots(prev => [...prev, newDepot]);
+      toast({
+        title: "Depot added",
+        description: `New depot created with code ${newCode}.`,
+      });
+    }
+    resetForm();
+  };
+
+  const handleEdit = (depot: Depot) => {
+    setSelectedDepot(depot);
+    setFormData({
+      name: depot.name,
+      location: depot.location,
+      capacity: depot.capacity,
+    });
+    setWarehouse(depot.warehouse || "");
+    setZone(depot.zone || "");
+    setStorageType(depot.storageType || "General Store");
+    setEditMode(true);
+    setShowAddForm(true);
+  };
+
+  const handleDelete = (depot: Depot) => {
+    setDepots(prev => prev.filter(d => d.id !== depot.id));
     toast({
       title: "Depot deleted",
       description: "The depot has been removed.",
@@ -55,6 +126,193 @@ export default function Depot() {
     });
   };
 
+  const handleCancel = () => {
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      location: "",
+      capacity: "",
+    });
+    setWarehouse("");
+    setZone("");
+    setStorageType("General Store");
+    setEditMode(false);
+    setSelectedDepot(null);
+    setNewDepotCode("");
+    setShowAddForm(false);
+  };
+
+  // Define table columns
+  const columns: ColumnDef<Depot>[] = [
+    {
+      key: "name",
+      header: "Depot Name",
+      render: (_, depot) => (
+        <span className="font-medium">{depot.name}</span>
+      ),
+    },
+    {
+      key: "location",
+      header: "Location",
+      render: (_, depot) => (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          {depot.location}
+        </div>
+      ),
+    },
+    {
+      key: "capacity",
+      header: "Capacity",
+    },
+    {
+      key: "warehouse",
+      header: "Warehouse",
+      render: (value) => value || "-",
+    },
+    {
+      key: "zone",
+      header: "Zone",
+      render: (value) => value || "-",
+    },
+    {
+      key: "storageType",
+      header: "Storage Type",
+      render: (value) => (
+        <Badge variant={getBadgeVariant(value)}>
+          {value || "-"}
+        </Badge>
+      ),
+    },
+  ];
+
+  // Show form page if showAddForm is true
+  if (showAddForm) {
+    return (
+      <main className="p-6">
+        <header className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <Warehouse className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-semibold text-foreground">
+              {editMode ? "Edit Depot" : "Add New Depot"}
+            </h1>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {editMode ? "Update depot information" : "Create a new depot or warehouse"}
+          </p>
+        </header>
+
+        <Card className="card-elevated">
+          <CardContent className="p-6">
+            <div className="space-y-6 max-w-4xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="depot-name">Depot Name *</Label>
+                  <Input 
+                    id="depot-name" 
+                    placeholder="Main Warehouse" 
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="depot-location">Location *</Label>
+                  <Input 
+                    id="depot-location" 
+                    placeholder="City, State" 
+                    value={formData.location}
+                    onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="depot-capacity">Capacity</Label>
+                  <Input 
+                    id="depot-capacity" 
+                    placeholder="50,000 sq ft" 
+                    value={formData.capacity}
+                    onChange={(e) => setFormData(prev => ({ ...prev, capacity: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Hierarchical Structure */}
+              <div className="border-t pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Layers className="h-5 w-5 text-primary" />
+                  <Label className="text-lg font-semibold text-primary">Hierarchical Structure</Label>
+                </div>
+                
+                <div className="space-y-4 pl-4 border-l-2 border-primary/20">
+                  <div className="space-y-2">
+                    <Label htmlFor="depot-warehouse">Warehouse *</Label>
+                    <Input 
+                      id="depot-warehouse" 
+                      placeholder="e.g., Warehouse-1" 
+                      value={warehouse}
+                      onChange={(e) => setWarehouse(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">The warehouse name under this depot</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="depot-zone">Zone *</Label>
+                    <Input 
+                      id="depot-zone" 
+                      placeholder="e.g., Zone-1, Zone-2" 
+                      value={zone}
+                      onChange={(e) => setZone(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">The zone within the warehouse</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="depot-storage-type">Storage Type *</Label>
+                    <Select value={storageType} onValueChange={(value: "General Store" | "Cold" | "Cool") => setStorageType(value)}>
+                      <SelectTrigger id="depot-storage-type">
+                        <SelectValue placeholder="Select storage type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General Store">General Store</SelectItem>
+                        <SelectItem value="Cold">Cold</SelectItem>
+                        <SelectItem value="Cool">Cool</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">The storage type for this zone (General Store, Cold, or Cool)</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-4 pt-6 border-t">
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAdd}>
+                  {editMode ? "Update Depot" : "Create Depot"}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  // Show list view
   return (
     <main className="p-6">
       <header className="mb-6">
@@ -65,112 +323,20 @@ export default function Depot() {
         <p className="text-sm text-muted-foreground">Manage warehouses, distribution centers, and storage facilities</p>
       </header>
 
-      <Card className="card-elevated">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>All Depots</CardTitle>
-              <CardDescription>Total locations: {depots.length}</CardDescription>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search depots..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Depot
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Depot</DialogTitle>
-                    <DialogDescription>Create a new warehouse or distribution center</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="depot-name">Depot Name *</Label>
-                      <Input id="depot-name" placeholder="Main Warehouse" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="depot-code">Code *</Label>
-                      <Input id="depot-code" placeholder="WH-001" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="depot-location">Location *</Label>
-                      <Input id="depot-location" placeholder="City, State" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="depot-capacity">Capacity</Label>
-                      <Input id="depot-capacity" placeholder="50,000 sq ft" />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAdd}>Create Depot</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Capacity</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDepots.map((depot) => (
-                <TableRow key={depot.id}>
-                  <TableCell className="font-medium">{depot.code}</TableCell>
-                  <TableCell>{depot.name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      {depot.location}
-                    </div>
-                  </TableCell>
-                  <TableCell>{depot.capacity}</TableCell>
-                  <TableCell>
-                    <Badge className={depot.status === "active" ? "status-success" : "status-neutral"}>
-                      {depot.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(depot.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <MasterDataTable
+        title="All Depots"
+        description={`Total locations: ${depots.length}`}
+        data={depots}
+        columns={columns}
+        searchPlaceholder="Search depots..."
+        searchFields={["name", "location", "warehouse", "zone"]}
+        itemsPerPage={10}
+        onAdd={() => setShowAddForm(true)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        emptyMessage="No depots found"
+        showCode={false}
+      />
     </main>
   );
 }

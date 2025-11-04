@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-
-const drivers = [
-  { id: "DR-001", name: "Rajesh Kumar", phone: "+91-9876543210", license: "TN-12345678", licenseExpiry: "2026-05-20", vehicle: "TN-01-AB-1234", route: "Route A (North)", status: "active" },
-  { id: "DR-002", name: "Suresh Babu", phone: "+91-9876543211", license: "TN-87654321", licenseExpiry: "2025-08-15", vehicle: "TN-02-CD-5678", route: "Route B (South)", status: "active" },
-  { id: "DR-003", name: "Mohan Reddy", phone: "+91-9876543212", license: "TN-11223344", licenseExpiry: "2025-12-30", vehicle: "TN-03-EF-9012", route: "Route C (East)", status: "inactive" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
 
 export default function Drivers() {
-  const [selectedDriver, setSelectedDriver] = useState<typeof drivers[0] | null>(null);
+  const { data: drivers = [], isLoading } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: apiEndpoints.drivers.getAll,
+  });
+  
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
   const [showPanel, setShowPanel] = useState(false);
 
   const handleViewProfile = (driver: typeof drivers[0]) => {
@@ -31,19 +32,19 @@ export default function Drivers() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Total Drivers</p>
-          <p className="text-2xl font-semibold">{drivers.length}</p>
+          <p className="text-2xl font-semibold">{isLoading ? "..." : drivers.length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Active</p>
-          <p className="text-2xl font-semibold text-success">{drivers.filter(d => d.status === "active").length}</p>
+          <p className="text-2xl font-semibold text-success">{isLoading ? "..." : drivers.filter((d: any) => d.status === "On Route" || d.status === "Available").length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">On Duty</p>
-          <p className="text-2xl font-semibold">2</p>
+          <p className="text-2xl font-semibold">{isLoading ? "..." : drivers.filter((d: any) => d.status === "On Route").length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Available</p>
-          <p className="text-2xl font-semibold">1</p>
+          <p className="text-2xl font-semibold">{isLoading ? "..." : drivers.filter((d: any) => d.status === "Available").length}</p>
         </Card>
       </div>
 
@@ -64,28 +65,38 @@ export default function Drivers() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {drivers.map((driver) => (
-              <TableRow key={driver.id}>
-                <TableCell className="font-medium">{driver.id}</TableCell>
-                <TableCell>{driver.name}</TableCell>
-                <TableCell>{driver.phone}</TableCell>
-                <TableCell>{driver.licenseExpiry}</TableCell>
-                <TableCell>{driver.vehicle}</TableCell>
-                <TableCell>{driver.route}</TableCell>
-                <TableCell>
-                  {driver.status === "active" ? (
-                    <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
-                  ) : (
-                    <Badge variant="outline">Inactive</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Button size="sm" variant="outline" onClick={() => handleViewProfile(driver)}>
-                    View Profile
-                  </Button>
-                </TableCell>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
               </TableRow>
-            ))}
+            ) : drivers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center">No drivers found</TableCell>
+              </TableRow>
+            ) : (
+              drivers.map((driver: any) => (
+                <TableRow key={driver.id}>
+                  <TableCell className="font-medium">{driver.driver_id || driver.id}</TableCell>
+                  <TableCell>{`${driver.first_name} ${driver.last_name || ''}`.trim()}</TableCell>
+                  <TableCell>{driver.contact}</TableCell>
+                  <TableCell>{driver.license_expiry}</TableCell>
+                  <TableCell>{driver.vehicle_id}</TableCell>
+                  <TableCell>{driver.route}</TableCell>
+                  <TableCell>
+                    {(driver.status === "On Route" || driver.status === "Available") ? (
+                      <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
+                    ) : (
+                      <Badge variant="outline">Inactive</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="outline" onClick={() => handleViewProfile(driver)}>
+                      View Profile
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -104,8 +115,8 @@ export default function Drivers() {
                   <User className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">{selectedDriver.name}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedDriver.id}</p>
+                  <h3 className="text-lg font-semibold">{`${selectedDriver.first_name} ${selectedDriver.last_name || ''}`.trim()}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedDriver.driver_id || selectedDriver.id}</p>
                 </div>
               </div>
 
@@ -114,7 +125,7 @@ export default function Drivers() {
                   <Phone className="h-5 w-5 text-primary" />
                   <div>
                     <p className="text-xs text-muted-foreground">Contact</p>
-                    <p className="text-sm font-medium">{selectedDriver.phone}</p>
+                    <p className="text-sm font-medium">{selectedDriver.contact}</p>
                   </div>
                 </div>
 
@@ -122,8 +133,8 @@ export default function Drivers() {
                   <Calendar className="h-5 w-5 text-primary" />
                   <div>
                     <p className="text-xs text-muted-foreground">License</p>
-                    <p className="text-sm font-medium">{selectedDriver.license}</p>
-                    <p className="text-xs text-muted-foreground">Expires: {selectedDriver.licenseExpiry}</p>
+                    <p className="text-sm font-medium">{selectedDriver.license_number}</p>
+                    <p className="text-xs text-muted-foreground">Expires: {selectedDriver.license_expiry}</p>
                   </div>
                 </div>
 
@@ -137,12 +148,12 @@ export default function Drivers() {
 
                 <div className="p-3 rounded-lg bg-muted/30">
                   <p className="text-xs text-muted-foreground mb-1">Assigned Vehicle</p>
-                  <p className="text-sm font-medium">{selectedDriver.vehicle}</p>
+                  <p className="text-sm font-medium">{selectedDriver.vehicle_id}</p>
                 </div>
 
                 <div className="p-3 rounded-lg bg-muted/30">
                   <p className="text-xs text-muted-foreground mb-1">Status</p>
-                  {selectedDriver.status === "active" ? (
+                  {(selectedDriver.status === "On Route" || selectedDriver.status === "Available") ? (
                     <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
                   ) : (
                     <Badge variant="outline">Inactive</Badge>

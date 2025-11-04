@@ -1,6 +1,5 @@
-import { Search, Bell, Plus, User, Moon, Sun } from "lucide-react";
+import { Bell, User, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,25 +16,13 @@ export function AppHeader() {
   const { theme, toggleTheme } = useTheme();
   
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm transition-colors">
+    <header className="sticky top-0 z-30 w-full border-b bg-card shadow-sm transition-colors backdrop-blur-sm">
       <div className="flex h-16 items-center justify-between px-6">
-        <div className="flex items-center gap-4 flex-1 max-w-2xl">
+        <div className="flex items-center gap-4">
           <SidebarTrigger />
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search warehouse, orders, customers..."
-              className="pl-10 w-full bg-muted/50 border-0 rounded-input"
-            />
-          </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <Button size="sm" className="gap-2 rounded-button hover-scale">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add New</span>
-          </Button>
-          
           <Button
             variant="ghost"
             size="icon"

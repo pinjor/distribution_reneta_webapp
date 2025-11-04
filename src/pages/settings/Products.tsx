@@ -12,33 +12,33 @@ import { generateCode } from "@/utils/codeGenerator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Product {
-  id: string;
+  id: number;
   sku: string;
-  code?: string; // New Code (auto-generated)
-  oldCode?: string; // Old Code (user input)
+  code?: string; // New Code (user input)
+  old_code?: string; // Old Code (user input)
+  new_code?: string; // New Code (user input)
   name: string;
-  category: string;
-  brand: string;
-  price: string;
-  stock: number;
-  unit: string;
-  status: "active" | "inactive" | "discontinued";
-  primaryPackaging?: "Bottle" | "Blister" | "Vial" | "Injection";
-  productType?: {
-    commercial?: boolean;
-    sample?: boolean;
-    institutional?: boolean;
-    export?: boolean;
-  };
-  ifcValue1?: number;
-  ifcValue2?: number;
-  ifcResult?: number;
-  mcValue1?: number;
-  mcValue2?: number;
-  mcValue3?: number;
-  mcResult?: number;
+  generic_name?: string; // Optional generic name
+  base_price: number | string;
+  unit_of_measure: string;
+  is_active: boolean;
+  primary_packaging?: "Bottle" | "Blister" | "Vial" | "Injection";
+  product_type_commercial?: boolean;
+  product_type_sample?: boolean;
+  product_type_institutional?: boolean;
+  product_type_export?: boolean;
+  ifc_value1?: number;
+  ifc_value2?: number;
+  ifc_result?: number;
+  mc_value1?: number;
+  mc_value2?: number;
+  mc_value3?: number;
+  mc_result?: number;
+  description?: string;
+  hsn_code?: string;
 }
 
 export default function Products() {
@@ -46,163 +46,172 @@ export default function Products() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [products, setProducts] = useState<Product[]>([
-    { id: "1", sku: "PRD-001", name: "Premium Widget A", category: "Electronics", brand: "TechBrand", price: "$49.99", stock: 250, unit: "unit", status: "active" },
-    { id: "2", sku: "PRD-002", name: "Industrial Component B", category: "Hardware", brand: "IndustrialCo", price: "$125.50", stock: 150, unit: "unit", status: "active" },
-    { id: "3", sku: "PRD-003", name: "Consumer Gadget C", category: "Electronics", brand: "GadgetPro", price: "$89.00", stock: 0, unit: "unit", status: "inactive" },
-    { id: "4", sku: "PRD-004", name: "Office Supply Kit", category: "Office", brand: "OfficePlus", price: "$35.75", stock: 500, unit: "pack", status: "active" },
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
-    oldCode: "",
-    newCode: "",
+    old_code: "",
+    new_code: "",
     name: "",
-    category: "",
-    brand: "",
-    price: "",
-    unit: "",
+    generic_name: "",
+    base_price: "",
+    unit_of_measure: "",
     description: "",
-    primaryPackaging: "" as "Bottle" | "Blister" | "Vial" | "Injection" | "",
-    productType: {
-      commercial: false,
-      sample: false,
-      institutional: false,
-      export: false,
-    },
-    ifcValue1: "",
-    ifcValue2: "",
-    mcValue1: "",
-    mcValue2: "",
-    mcValue3: "",
+    primary_packaging: "" as "Bottle" | "Blister" | "Vial" | "Injection" | "",
+    product_type_commercial: false,
+    product_type_sample: false,
+    product_type_institutional: false,
+    product_type_export: false,
+    ifc_value1: "",
+    ifc_value2: "",
+    mc_value1: "",
+    mc_value2: "",
+    mc_value3: "",
+    hsn_code: "",
   });
   
   const [newProductSku, setNewProductSku] = useState<string>("");
 
   // Calculate IFC result
-  const ifcResult = formData.ifcValue1 && formData.ifcValue2 
-    ? parseFloat(formData.ifcValue1) * parseFloat(formData.ifcValue2)
+  const ifcResult = formData.ifc_value1 && formData.ifc_value2 
+    ? parseFloat(formData.ifc_value1) * parseFloat(formData.ifc_value2)
     : null;
 
   // Calculate MC result
-  const mcResult = formData.mcValue1 && formData.mcValue2 && formData.mcValue3
-    ? parseFloat(formData.mcValue1) * parseFloat(formData.mcValue2) * parseFloat(formData.mcValue3)
+  const mcResult = formData.mc_value1 && formData.mc_value2 && formData.mc_value3
+    ? parseFloat(formData.mc_value1) * parseFloat(formData.mc_value2) * parseFloat(formData.mc_value3)
     : null;
+
+  // Fetch products from API
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const data = await apiEndpoints.products.getAll();
+      setProducts(data);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load products. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     document.title = "Products | App";
   }, []);
 
-  const generateProductSku = (): string => {
-    const existingSkus = products.map(p => p.sku);
-    return generateCode("PRD", existingSkus);
-  };
-
-  // Generate SKU when form opens for new product
+  // Generate SKU when form opens for new product (will be auto-generated by backend)
   useEffect(() => {
     if (showAddForm && !editMode) {
-      setNewProductSku(generateProductSku());
+      setNewProductSku("PRD-XXXX"); // Placeholder, will be generated by backend
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
 
-  const handleAdd = () => {
-    if (editMode && selectedProduct) {
-      setProducts(prev => prev.map(p => 
-        p.id === selectedProduct.id 
-          ? { 
-              ...p, 
-              name: formData.name,
-              category: formData.category,
-              brand: formData.brand,
-              price: formData.price,
-              stock: p.stock || 0, // Preserve existing stock value, don't update
-              unit: formData.unit,
-              primaryPackaging: formData.primaryPackaging || undefined,
-              productType: formData.productType,
-              oldCode: formData.oldCode || undefined,
-              code: formData.newCode || undefined,
-              ifcValue1: formData.ifcValue1 ? parseFloat(formData.ifcValue1) : undefined,
-              ifcValue2: formData.ifcValue2 ? parseFloat(formData.ifcValue2) : undefined,
-              ifcResult: ifcResult || undefined,
-              mcValue1: formData.mcValue1 ? parseFloat(formData.mcValue1) : undefined,
-              mcValue2: formData.mcValue2 ? parseFloat(formData.mcValue2) : undefined,
-              mcValue3: formData.mcValue3 ? parseFloat(formData.mcValue3) : undefined,
-              mcResult: mcResult || undefined,
-            }
-          : p
-      ));
-      toast({
-        title: "Product updated",
-        description: "Product information has been updated successfully.",
-      });
-    } else {
-      const newSku = generateProductSku();
-      const newProduct: Product = {
-        id: Date.now().toString(),
-        sku: newSku,
-        code: formData.newCode || undefined,
-        oldCode: formData.oldCode || undefined,
+  const handleAdd = async () => {
+    try {
+      const productData: any = {
         name: formData.name,
-        category: formData.category,
-        brand: formData.brand,
-        price: formData.price,
-        stock: 0, // Keep for backwards compatibility but not editable
-        unit: formData.unit,
-        status: "active",
-        primaryPackaging: formData.primaryPackaging || undefined,
-        productType: formData.productType,
-        ifcValue1: formData.ifcValue1 ? parseFloat(formData.ifcValue1) : undefined,
-        ifcValue2: formData.ifcValue2 ? parseFloat(formData.ifcValue2) : undefined,
-        ifcResult: ifcResult || undefined,
-        mcValue1: formData.mcValue1 ? parseFloat(formData.mcValue1) : undefined,
-        mcValue2: formData.mcValue2 ? parseFloat(formData.mcValue2) : undefined,
-        mcValue3: formData.mcValue3 ? parseFloat(formData.mcValue3) : undefined,
-        mcResult: mcResult || undefined,
+        old_code: formData.old_code || undefined,
+        new_code: formData.new_code || undefined,
+        generic_name: formData.generic_name || undefined,
+        base_price: parseFloat(formData.base_price) || 0,
+        unit_of_measure: formData.unit_of_measure || "PCS",
+        description: formData.description || undefined,
+        primary_packaging: formData.primary_packaging || undefined,
+        product_type_commercial: formData.product_type_commercial,
+        product_type_sample: formData.product_type_sample,
+        product_type_institutional: formData.product_type_institutional,
+        product_type_export: formData.product_type_export,
+        ifc_value1: formData.ifc_value1 ? parseFloat(formData.ifc_value1) : undefined,
+        ifc_value2: formData.ifc_value2 ? parseFloat(formData.ifc_value2) : undefined,
+        ifc_result: ifcResult || undefined,
+        mc_value1: formData.mc_value1 ? parseFloat(formData.mc_value1) : undefined,
+        mc_value2: formData.mc_value2 ? parseFloat(formData.mc_value2) : undefined,
+        mc_value3: formData.mc_value3 ? parseFloat(formData.mc_value3) : undefined,
+        mc_result: mcResult || undefined,
+        hsn_code: formData.hsn_code || undefined,
+        is_active: true,
       };
-      setProducts(prev => [...prev, newProduct]);
+
+      if (editMode && selectedProduct) {
+        await apiEndpoints.products.update(selectedProduct.id, productData);
+        toast({
+          title: "Product updated",
+          description: "Product information has been updated successfully.",
+        });
+      } else {
+        const newProduct = await apiEndpoints.products.create(productData);
+        toast({
+          title: "Product added",
+          description: `New product created with SKU ${newProduct.sku}.`,
+        });
+      }
+      
+      await fetchProducts();
+      resetForm();
+    } catch (error: any) {
+      console.error("Failed to save product:", error);
       toast({
-        title: "Product added",
-        description: `New product created with SKU ${newSku}.`,
+        title: "Error",
+        description: error.message || "Failed to save product. Please try again.",
+        variant: "destructive",
       });
     }
-    resetForm();
   };
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setFormData({
-      oldCode: product.oldCode || "",
-      newCode: product.code || "",
+      old_code: product.old_code || "",
+      new_code: product.new_code || product.code || "",
       name: product.name,
-      category: product.category,
-      brand: product.brand,
-      price: product.price,
-      unit: product.unit,
-      description: "",
-      primaryPackaging: product.primaryPackaging || "",
-      productType: product.productType || {
-        commercial: false,
-        sample: false,
-        institutional: false,
-        export: false,
-      },
-      ifcValue1: product.ifcValue1?.toString() || "",
-      ifcValue2: product.ifcValue2?.toString() || "",
-      mcValue1: product.mcValue1?.toString() || "",
-      mcValue2: product.mcValue2?.toString() || "",
-      mcValue3: product.mcValue3?.toString() || "",
+      generic_name: product.generic_name || "",
+      base_price: product.base_price?.toString() || "",
+      unit_of_measure: product.unit_of_measure || "",
+      description: product.description || "",
+      primary_packaging: product.primary_packaging || "",
+      product_type_commercial: product.product_type_commercial || false,
+      product_type_sample: product.product_type_sample || false,
+      product_type_institutional: product.product_type_institutional || false,
+      product_type_export: product.product_type_export || false,
+      ifc_value1: product.ifc_value1?.toString() || "",
+      ifc_value2: product.ifc_value2?.toString() || "",
+      mc_value1: product.mc_value1?.toString() || "",
+      mc_value2: product.mc_value2?.toString() || "",
+      mc_value3: product.mc_value3?.toString() || "",
+      hsn_code: product.hsn_code || "",
     });
+    setNewProductSku(product.sku);
     setEditMode(true);
     setShowAddForm(true);
   };
 
-  const handleDelete = (product: Product) => {
-    setProducts(prev => prev.filter(p => p.id !== product.id));
-    toast({
-      title: "Product deleted",
-      description: "The product has been removed from catalog.",
-      variant: "destructive",
-    });
+  const handleDelete = async (product: Product) => {
+    try {
+      await apiEndpoints.products.delete(product.id);
+      toast({
+        title: "Product deleted",
+        description: "The product has been removed from catalog.",
+        variant: "destructive",
+      });
+      await fetchProducts();
+    } catch (error: any) {
+      console.error("Failed to delete product:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -211,26 +220,24 @@ export default function Products() {
 
   const resetForm = () => {
     setFormData({
-      oldCode: "",
-      newCode: "",
+      old_code: "",
+      new_code: "",
       name: "",
-      category: "",
-      brand: "",
-      price: "",
-      unit: "",
+      generic_name: "",
+      base_price: "",
+      unit_of_measure: "",
       description: "",
-      primaryPackaging: "",
-      productType: {
-        commercial: false,
-        sample: false,
-        institutional: false,
-        export: false,
-      },
-      ifcValue1: "",
-      ifcValue2: "",
-      mcValue1: "",
-      mcValue2: "",
-      mcValue3: "",
+      primary_packaging: "",
+      product_type_commercial: false,
+      product_type_sample: false,
+      product_type_institutional: false,
+      product_type_export: false,
+      ifc_value1: "",
+      ifc_value2: "",
+      mc_value1: "",
+      mc_value2: "",
+      mc_value3: "",
+      hsn_code: "",
     });
     setNewProductSku("");
     setEditMode(false);
@@ -252,23 +259,26 @@ export default function Products() {
       ),
     },
     {
-      key: "brand",
-      header: "Brand",
+      key: "generic_name",
+      header: "Generic Name",
+      render: (value) => (
+        <span className="text-muted-foreground">{value || "-"}</span>
+      ),
     },
     {
-      key: "category",
-      header: "Category",
+      key: "base_price",
+      header: "Price",
+      render: (value) => (
+        <span className="font-medium">₹{Number(value).toFixed(2)}</span>
+      ),
+    },
+    {
+      key: "unit_of_measure",
+      header: "Unit",
       render: (value) => (
         <Badge variant="outline" className="text-xs">
           {String(value)}
         </Badge>
-      ),
-    },
-    {
-      key: "price",
-      header: "Price",
-      render: (value) => (
-        <span className="font-medium">{value}</span>
       ),
     },
   ];
@@ -323,8 +333,8 @@ export default function Products() {
                   <Label htmlFor="old-code">Old Code</Label>
                   <Input
                     id="old-code"
-                    value={formData.oldCode}
-                    onChange={(e) => handleChange("oldCode", e.target.value)}
+                    value={formData.old_code}
+                    onChange={(e) => handleChange("old_code", e.target.value)}
                     placeholder="Enter old code"
                   />
                   <p className="text-xs text-muted-foreground">Manually enter the old product code</p>
@@ -333,8 +343,8 @@ export default function Products() {
                   <Label htmlFor="new-code">New Code</Label>
                   <Input
                     id="new-code"
-                    value={formData.newCode}
-                    onChange={(e) => handleChange("newCode", e.target.value)}
+                    value={formData.new_code}
+                    onChange={(e) => handleChange("new_code", e.target.value)}
                     placeholder="Enter new code"
                   />
                   <p className="text-xs text-muted-foreground">Manually enter the new product code</p>
@@ -343,22 +353,24 @@ export default function Products() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    value={formData.brand}
-                    onChange={(e) => handleChange("brand", e.target.value)}
-                    placeholder="Brand name"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="name">Product Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => handleChange("name", e.target.value)}
                     placeholder="Enter product name"
+                    required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="generic-name">Generic Name</Label>
+                  <Input
+                    id="generic-name"
+                    value={formData.generic_name}
+                    onChange={(e) => handleChange("generic_name", e.target.value)}
+                    placeholder="Enter generic name (optional)"
+                  />
+                  <p className="text-xs text-muted-foreground">Optional generic name for the product</p>
                 </div>
               </div>
 
@@ -442,28 +454,13 @@ export default function Products() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={formData.category} onValueChange={(val) => handleChange("category", val)}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Electronics">Electronics</SelectItem>
-                      <SelectItem value="Hardware">Hardware</SelectItem>
-                      <SelectItem value="Office">Office</SelectItem>
-                      <SelectItem value="Consumer Goods">Consumer Goods</SelectItem>
-                      <SelectItem value="Industrial">Industrial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Select value={formData.unit} onValueChange={(val) => handleChange("unit", val)}>
+                  <Label htmlFor="unit">Unit *</Label>
+                  <Select value={formData.unit_of_measure} onValueChange={(val) => handleChange("unit_of_measure", val)}>
                     <SelectTrigger id="unit">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unit">unit</SelectItem>
+                      <SelectItem value="PCS">PCS</SelectItem>
                       <SelectItem value="pack">pack</SelectItem>
                       <SelectItem value="box">box</SelectItem>
                       <SelectItem value="kg">kg</SelectItem>
@@ -471,18 +468,29 @@ export default function Products() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="base-price" className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    Unit Price *
+                  </Label>
+                  <Input
+                    id="base-price"
+                    type="number"
+                    value={formData.base_price}
+                    onChange={(e) => handleChange("base_price", e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                  />
+                </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="price" className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  Unit Price
-                </Label>
+                <Label htmlFor="hsn-code">HSN Code</Label>
                 <Input
-                  id="price"
-                  value={formData.price}
-                  onChange={(e) => handleChange("price", e.target.value)}
-                  placeholder="$0.00"
+                  id="hsn-code"
+                  value={formData.hsn_code}
+                  onChange={(e) => handleChange("hsn_code", e.target.value)}
+                  placeholder="Enter HSN code"
                 />
               </div>
 
@@ -490,8 +498,8 @@ export default function Products() {
               <div className="space-y-2">
                 <Label htmlFor="primary-packaging">Primary Packaging</Label>
                 <Select 
-                  value={formData.primaryPackaging} 
-                  onValueChange={(val) => handleChange("primaryPackaging", val)}
+                  value={formData.primary_packaging} 
+                  onValueChange={(val) => handleChange("primary_packaging", val)}
                 >
                   <SelectTrigger id="primary-packaging">
                     <SelectValue placeholder="Select primary packaging" />
@@ -517,16 +525,16 @@ export default function Products() {
                   <div className="grid grid-cols-4 gap-2 items-center">
                     <Input
                       type="number"
-                      value={formData.ifcValue1}
-                      onChange={(e) => handleChange("ifcValue1", e.target.value)}
+                      value={formData.ifc_value1}
+                      onChange={(e) => handleChange("ifc_value1", e.target.value)}
                       placeholder="5"
                       className="text-center"
                     />
                     <span className="text-center">×</span>
                     <Input
                       type="number"
-                      value={formData.ifcValue2}
-                      onChange={(e) => handleChange("ifcValue2", e.target.value)}
+                      value={formData.ifc_value2}
+                      onChange={(e) => handleChange("ifc_value2", e.target.value)}
                       placeholder="10"
                       className="text-center"
                     />
@@ -550,24 +558,24 @@ export default function Products() {
                   <div className="grid grid-cols-6 gap-2 items-center">
                     <Input
                       type="number"
-                      value={formData.mcValue1}
-                      onChange={(e) => handleChange("mcValue1", e.target.value)}
+                      value={formData.mc_value1}
+                      onChange={(e) => handleChange("mc_value1", e.target.value)}
                       placeholder="18"
                       className="text-center"
                     />
                     <span className="text-center">×</span>
                     <Input
                       type="number"
-                      value={formData.mcValue2}
-                      onChange={(e) => handleChange("mcValue2", e.target.value)}
+                      value={formData.mc_value2}
+                      onChange={(e) => handleChange("mc_value2", e.target.value)}
                       placeholder="5"
                       className="text-center"
                     />
                     <span className="text-center">×</span>
                     <Input
                       type="number"
-                      value={formData.mcValue3}
-                      onChange={(e) => handleChange("mcValue3", e.target.value)}
+                      value={formData.mc_value3}
+                      onChange={(e) => handleChange("mc_value3", e.target.value)}
                       placeholder="10"
                       className="text-center"
                     />
@@ -616,7 +624,7 @@ export default function Products() {
         data={products}
         columns={columns}
         searchPlaceholder="Search products..."
-        searchFields={["name", "sku", "code", "category", "brand"]}
+        searchFields={["name", "sku", "code", "generic_name"]}
         itemsPerPage={10}
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}

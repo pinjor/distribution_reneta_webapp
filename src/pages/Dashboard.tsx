@@ -4,8 +4,21 @@ import { StockChart } from "@/components/dashboard/StockChart";
 import { DispatchChart } from "@/components/dashboard/DispatchChart";
 import { ExpiryAlerts } from "@/components/dashboard/ExpiryAlerts";
 import { Card } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
 
 const Dashboard = () => {
+  const { data: kpis, isLoading } = useQuery({
+    queryKey: ['dashboard-kpis'],
+    queryFn: apiEndpoints.dashboard.kpis,
+  });
+
+  // Format numbers with commas
+  const formatNumber = (num: number | undefined) => {
+    if (num === undefined) return "0";
+    return num.toLocaleString();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -17,35 +30,35 @@ const Dashboard = () => {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <KPICard
           title="Total Stock"
-          value="47,892"
+          value={isLoading ? "..." : formatNumber(kpis?.total_stock)}
           icon={Package}
           description="Units across all depots"
-          trend={{ value: 12, direction: "up" }}
+          trend={!isLoading && kpis?.total_stock > 0 ? { value: 0, direction: "up" } : undefined}
         />
         <KPICard
           title="Orders Today"
-          value="156"
+          value={isLoading ? "..." : formatNumber(kpis?.orders_today)}
           icon={Truck}
           description="New orders received"
-          trend={{ value: 8, direction: "up" }}
+          trend={!isLoading && kpis?.orders_today > 0 ? { value: 0, direction: "up" } : undefined}
         />
         <KPICard
           title="Dispatched"
-          value="142"
+          value={isLoading ? "..." : formatNumber(kpis?.dispatched_today)}
           icon={CheckCircle}
           description="Orders sent out"
-          trend={{ value: 5, direction: "up" }}
+          trend={!isLoading && kpis?.dispatched_today > 0 ? { value: 0, direction: "up" } : undefined}
         />
         <KPICard
           title="Delivered"
-          value="128"
+          value={isLoading ? "..." : formatNumber(kpis?.delivered_today)}
           icon={CheckCircle}
           description="Successfully completed"
-          trend={{ value: 3, direction: "down" }}
+          trend={!isLoading && kpis?.delivered_today > 0 ? { value: 0, direction: "up" } : undefined}
         />
         <KPICard
           title="Pending Approvals"
-          value="23"
+          value={isLoading ? "..." : formatNumber(kpis?.pending_approvals)}
           icon={AlertTriangle}
           description="Requiring action"
         />

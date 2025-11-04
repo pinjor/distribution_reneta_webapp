@@ -8,14 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-
-const vehicles = [
-  { id: "VH-001", type: "Refrigerated", regNo: "TN-01-AB-1234", capacity: "5 Ton", depot: "Chennai Main", vendor: "LogiTrans", status: "active" },
-  { id: "VH-002", type: "Dry Van", regNo: "TN-02-CD-5678", capacity: "10 Ton", depot: "Chennai South", vendor: "QuickMove", status: "active" },
-  { id: "VH-003", type: "Refrigerated", regNo: "TN-03-EF-9012", capacity: "7 Ton", depot: "Chennai North", vendor: "LogiTrans", status: "inactive" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
 
 export default function Vehicles() {
+  const { data: vehicles = [], isLoading } = useQuery({
+    queryKey: ['vehicles'],
+    queryFn: apiEndpoints.vehicles.getAll,
+  });
+  
   const [showDialog, setShowDialog] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const { toast } = useToast();
@@ -55,19 +56,19 @@ export default function Vehicles() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Total Vehicles</p>
-          <p className="text-2xl font-semibold">{vehicles.length}</p>
+          <p className="text-2xl font-semibold">{isLoading ? "..." : vehicles.length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Active</p>
-          <p className="text-2xl font-semibold text-success">{vehicles.filter(v => v.status === "active").length}</p>
+          <p className="text-2xl font-semibold text-success">{isLoading ? "..." : vehicles.filter((v: any) => v.status === "Active" || v.status === "active").length}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Refrigerated</p>
-          <p className="text-2xl font-semibold">{vehicles.filter(v => v.type === "Refrigerated").length}</p>
+          <p className="text-2xl font-semibold">{isLoading ? "..." : vehicles.filter((v: any) => v.vehicle_type === "Refrigerated Van" || v.vehicle_type === "Refrigerated Truck").length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Dry Van</p>
-          <p className="text-2xl font-semibold">{vehicles.filter(v => v.type === "Dry Van").length}</p>
+          <p className="text-sm text-muted-foreground mb-1">Standard</p>
+          <p className="text-2xl font-semibold">{isLoading ? "..." : vehicles.filter((v: any) => v.vehicle_type === "Standard Truck" || v.vehicle_type === "Mini Truck").length}</p>
         </Card>
       </div>
 
@@ -91,26 +92,36 @@ export default function Vehicles() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {vehicles.map((vehicle) => (
-              <TableRow key={vehicle.id}>
-                <TableCell className="font-medium">{vehicle.id}</TableCell>
-                <TableCell>{vehicle.type}</TableCell>
-                <TableCell>{vehicle.regNo}</TableCell>
-                <TableCell>{vehicle.capacity}</TableCell>
-                <TableCell>{vehicle.depot}</TableCell>
-                <TableCell>{vehicle.vendor}</TableCell>
-                <TableCell>
-                  {vehicle.status === "active" ? (
-                    <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
-                  ) : (
-                    <Badge variant="outline">Inactive</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Button size="sm" variant="outline">Edit</Button>
-                </TableCell>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
               </TableRow>
-            ))}
+            ) : vehicles.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center">No vehicles found</TableCell>
+              </TableRow>
+            ) : (
+              vehicles.map((vehicle: any) => (
+                <TableRow key={vehicle.id}>
+                  <TableCell className="font-medium">{vehicle.vehicle_id || vehicle.id}</TableCell>
+                  <TableCell>{vehicle.vehicle_type}</TableCell>
+                  <TableCell>{vehicle.registration_number}</TableCell>
+                  <TableCell>{vehicle.capacity ? `${vehicle.capacity} Ton` : '-'}</TableCell>
+                  <TableCell>{vehicle.depot?.name || '-'}</TableCell>
+                  <TableCell>{vehicle.vendor || '-'}</TableCell>
+                  <TableCell>
+                    {vehicle.status === "Active" || vehicle.status === "active" ? (
+                      <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
+                    ) : (
+                      <Badge variant="outline">Inactive</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="outline">Edit</Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Card>
