@@ -6,7 +6,7 @@ import redis.asyncio as redis
 from app.database import engine, Base
 from app.routers import (
     auth, companies, depots, employees, customers, vendors,
-    products, materials, shipping_points, uoms, primary_packagings,
+    products, materials, shipping_points, uoms, primary_packagings, price_setups,
     vehicles, drivers, routes,
     stock_receipt, stock_issuance, vehicle_loading,
     stock_adjustment, stock_maintenance,
@@ -56,6 +56,7 @@ app.include_router(materials.router, prefix="/api/materials", tags=["Materials"]
 app.include_router(shipping_points.router, prefix="/api/shipping-points", tags=["Shipping Points"])
 app.include_router(uoms.router, prefix="/api/uoms", tags=["UOMs"])
 app.include_router(primary_packagings.router, prefix="/api/primary-packagings", tags=["Primary Packagings"])
+app.include_router(price_setups.router, prefix="/api/price-setups", tags=["Price Setups"])
 app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"])
 app.include_router(drivers.router, prefix="/api/drivers", tags=["Drivers"])
 app.include_router(routes.router, prefix="/api/routes", tags=["Routes"])

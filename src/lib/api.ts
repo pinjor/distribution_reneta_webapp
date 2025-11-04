@@ -151,6 +151,14 @@ export const apiEndpoints = {
     delete: (id: number) => api.delete(`/primary-packagings/${id}`),
   },
   
+  priceSetups: {
+    getAll: () => api.get('/price-setups'),
+    getById: (id: number) => api.get(`/price-setups/${id}`),
+    create: (data: any) => api.post('/price-setups', data),
+    update: (id: number, data: any) => api.put(`/price-setups/${id}`, data),
+    delete: (id: number) => api.delete(`/price-setups/${id}`),
+  },
+  
   vehicles: {
     getAll: () => api.get('/vehicles'),
     create: (data: any) => api.post('/vehicles', data),

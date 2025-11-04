@@ -167,6 +167,24 @@ class PrimaryPackaging(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class PriceSetup(Base):
+    __tablename__ = "price_setups"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    trade_price = Column(Numeric(15, 2))
+    unit_price = Column(Numeric(15, 2))
+    ifc_price = Column(Numeric(15, 2))
+    mc_price = Column(Numeric(15, 2))
+    validity_start_date = Column(Date)
+    validity_end_date = Column(Date)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    product = relationship("Product")
+
 class Material(Base):
     __tablename__ = "materials"
     

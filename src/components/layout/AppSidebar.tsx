@@ -26,6 +26,7 @@ import {
   ClipboardList,
   TruckIcon,
   Ruler,
+  DollarSign,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -95,6 +96,7 @@ const menuItems = [
       { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
       { title: "UOM", icon: Ruler, path: "/settings/uom" },
       { title: "Primary Packaging", icon: Package2, path: "/settings/primary-packaging" },
+      { title: "Price Setup", icon: DollarSign, path: "/settings/price-setup" },
     ],
   },
   { title: "Approvals", icon: CheckSquare, path: "/approvals" },

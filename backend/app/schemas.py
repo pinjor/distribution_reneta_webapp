@@ -263,6 +263,32 @@ class PrimaryPackaging(PrimaryPackagingBase):
     class Config:
         from_attributes = True
 
+# PriceSetup schemas
+class PriceSetupBase(BaseModel):
+    code: str
+    product_id: int
+    trade_price: Optional[Decimal] = None
+    unit_price: Optional[Decimal] = None
+    ifc_price: Optional[Decimal] = None
+    mc_price: Optional[Decimal] = None
+    validity_start_date: Optional[date] = None
+    validity_end_date: Optional[date] = None
+    is_active: bool = True
+
+class PriceSetupCreate(PriceSetupBase):
+    pass
+
+class PriceSetupUpdate(PriceSetupBase):
+    pass
+
+class PriceSetup(PriceSetupBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 # Vehicle schemas
 class VehicleBase(BaseModel):
     vehicle_id: str
