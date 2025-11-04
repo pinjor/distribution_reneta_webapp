@@ -115,9 +115,12 @@ export default function RoleMaster() {
   const fetchEmployees = async () => {
     try {
       const data = await apiEndpoints.employees.getAll();
-      setEmployees(data);
+      // Filter out any invalid employees
+      const validEmployees = (data || []).filter((emp: any) => emp && emp.id != null && emp.id !== undefined);
+      setEmployees(validEmployees);
     } catch (error) {
       console.error("Failed to fetch Employees:", error);
+      setEmployees([]);
     }
   };
 
@@ -439,18 +442,20 @@ export default function RoleMaster() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {parentRoles
-                        .filter((role) => role && role.id != null && role.id !== undefined)
-                        .map((role) => {
-                          if (!role || role.id == null) return null;
+                        .filter((role) => {
+                          if (!role) return false;
+                          if (role.id == null || role.id === undefined) return false;
                           const roleId = String(role.id);
-                          if (!roleId || roleId === "" || roleId === "undefined" || roleId === "null") return null;
+                          return roleId && roleId !== "" && roleId !== "undefined" && roleId !== "null";
+                        })
+                        .map((role) => {
+                          const roleId = String(role.id);
                           return (
                             <SelectItem key={role.id} value={roleId}>
-                              {role.name} ({role.code})
+                              {role.name || "Unnamed"} ({role.code || "N/A"})
                             </SelectItem>
                           );
-                        })
-                        .filter(Boolean)}
+                        })}
                     </SelectContent>
                   </Select>
                   {parentRoles.length === 0 && formData.role_type && (
@@ -473,18 +478,20 @@ export default function RoleMaster() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {employees
-                        .filter((emp) => emp && emp.id != null && emp.id !== undefined)
-                        .map((emp) => {
-                          if (!emp || emp.id == null) return null;
+                        .filter((emp) => {
+                          if (!emp) return false;
+                          if (emp.id == null || emp.id === undefined) return false;
                           const empId = String(emp.id);
-                          if (!empId || empId === "" || empId === "undefined" || empId === "null") return null;
+                          return empId && empId !== "" && empId !== "undefined" && empId !== "null";
+                        })
+                        .map((emp) => {
+                          const empId = String(emp.id);
                           return (
                             <SelectItem key={emp.id} value={empId}>
-                              {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
+                              {emp.first_name || ""} {emp.last_name || ""} ({emp.employee_id || "N/A"})
                             </SelectItem>
                           );
-                        })
-                        .filter(Boolean)}
+                        })}
                     </SelectContent>
                   </Select>
               </div>
