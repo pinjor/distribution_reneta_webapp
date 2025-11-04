@@ -397,7 +397,7 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="role_type">Role Type *</Label>
                 <Select
-                  value={formData.role_type}
+                  value={formData.role_type || undefined}
                   onValueChange={(val) => handleChange("role_type", val)}
                 >
                   <SelectTrigger id="role_type">
@@ -428,13 +428,14 @@ export default function RoleMaster() {
                 <div className="space-y-2">
                   <Label htmlFor="parent_id">Parent Role *</Label>
                   <Select
-                    value={formData.parent_id}
+                    value={formData.parent_id || "none"}
                     onValueChange={(val) => handleChange("parent_id", val)}
                   >
                     <SelectTrigger id="parent_id">
                       <SelectValue placeholder="Select parent role" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
                       {parentRoles.map((role) => (
                         <SelectItem key={role.id} value={role.id.toString()}>
                           {role.name} ({role.code})
@@ -452,22 +453,22 @@ export default function RoleMaster() {
 
               <div className="space-y-2">
                 <Label htmlFor="employee_id">Assigned Employee</Label>
-                <Select
-                  value={formData.employee_id}
-                  onValueChange={(val) => handleChange("employee_id", val)}
-                >
-                  <SelectTrigger id="employee_id">
-                    <SelectValue placeholder="Select employee (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>
-                        {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select
+                    value={formData.employee_id || "none"}
+                    onValueChange={(val) => handleChange("employee_id", val)}
+                  >
+                    <SelectTrigger id="employee_id">
+                      <SelectValue placeholder="Select employee (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {employees.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id.toString()}>
+                          {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
               </div>
 
               {showTerritory && (

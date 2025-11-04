@@ -341,7 +341,7 @@ export default function Employees() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="emp-dept">Department *</Label>
-                  <Select value={formData.department} onValueChange={(val) => handleChange("department", val)}>
+                  <Select value={formData.department || undefined} onValueChange={(val) => handleChange("department", val)}>
                     <SelectTrigger id="emp-dept">
                       <SelectValue placeholder="Select dept" />
                     </SelectTrigger>
@@ -357,7 +357,7 @@ export default function Employees() {
               <div className="space-y-2">
                 <Label htmlFor="role_master">Role Master Assignment</Label>
                 <Select 
-                  value={formData.role_master_id} 
+                  value={formData.role_master_id || "none"} 
                   onValueChange={(val) => handleChange("role_master_id", val)}
                 >
                   <SelectTrigger id="role_master">
