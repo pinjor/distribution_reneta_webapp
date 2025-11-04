@@ -132,12 +132,19 @@ export default function RoleMaster() {
 
     try {
       const allRoles = await apiEndpoints.roleMasters.getAll();
-      const filtered = allRoles.filter(
-        (role: RoleMaster) => validParentTypes.includes(role.role_type)
+      // Filter out invalid roles and filter by parent types
+      const filtered = (allRoles || []).filter(
+        (role: any) => {
+          if (!role) return false;
+          if (role.id == null || role.id === undefined) return false;
+          if (!validParentTypes.includes(role.role_type)) return false;
+          return true;
+        }
       );
       setParentRoles(filtered);
     } catch (error) {
       console.error("Failed to fetch Parent Roles:", error);
+      setParentRoles([]);
     }
   };
 
