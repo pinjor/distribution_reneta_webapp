@@ -277,7 +277,7 @@ export default function Products() {
     },
     {
       key: "unit_of_measure",
-      header: "Unit",
+      header: "UOM",
       render: (value) => (
         <Badge variant="outline" className="text-xs">
           {String(value)}
@@ -462,7 +462,7 @@ export default function Products() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="unit">Unit *</Label>
+                  <Label htmlFor="unit">UOM *</Label>
                   <Select value={formData.unit_of_measure} onValueChange={(val) => handleChange("unit_of_measure", val)}>
                     <SelectTrigger id="unit">
                       <SelectValue placeholder="Select" />
