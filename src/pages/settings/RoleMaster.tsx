@@ -71,8 +71,8 @@ export default function RoleMaster() {
   const [formData, setFormData] = useState({
     role_type: "" as RoleType | "",
     name: "",
-    parent_id: "",
-    employee_id: "",
+    parent_id: "none",
+    employee_id: "none",
     territory: "",
     region: "",
     district: "",
@@ -397,7 +397,7 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="role_type">Role Type *</Label>
                 <Select
-                  value={formData.role_type || undefined}
+                  value={formData.role_type && formData.role_type !== "" ? formData.role_type : undefined}
                   onValueChange={(val) => handleChange("role_type", val)}
                 >
                   <SelectTrigger id="role_type">
@@ -428,7 +428,7 @@ export default function RoleMaster() {
                 <div className="space-y-2">
                   <Label htmlFor="parent_id">Parent Role *</Label>
                   <Select
-                    value={formData.parent_id || "none"}
+                    value={formData.parent_id && formData.parent_id !== "" ? formData.parent_id : "none"}
                     onValueChange={(val) => handleChange("parent_id", val)}
                   >
                     <SelectTrigger id="parent_id">
@@ -454,7 +454,7 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="employee_id">Assigned Employee</Label>
                   <Select
-                    value={formData.employee_id || "none"}
+                    value={formData.employee_id && formData.employee_id !== "" ? formData.employee_id : "none"}
                     onValueChange={(val) => handleChange("employee_id", val)}
                   >
                     <SelectTrigger id="employee_id">
