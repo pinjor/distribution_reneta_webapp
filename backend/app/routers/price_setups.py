@@ -40,7 +40,8 @@ def generate_price_setup_code(db: Session) -> str:
 
 @router.get("/", response_model=List[PriceSetupSchema])
 def get_price_setups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    setups = db.query(PriceSetup).filter(PriceSetup.is_active == True).offset(skip).limit(limit).all()
+    # Join with products to ensure relationship is properly loaded
+    setups = db.query(PriceSetup).join(Product).filter(PriceSetup.is_active == True).offset(skip).limit(limit).all()
     return setups
 
 @router.get("/{setup_id}", response_model=PriceSetupSchema)
