@@ -155,7 +155,7 @@ export default function Employees() {
       phone: employee.phone,
       role: employee.role,
       department: employee.department,
-      role_master_id: employeeData.role_master_id?.toString() || "",
+      role_master_id: employeeData.role_master_id?.toString() || "none",
     });
     setNewEmployeeCode(employee.code);
     setEditMode(true);

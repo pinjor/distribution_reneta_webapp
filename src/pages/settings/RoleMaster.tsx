@@ -165,7 +165,7 @@ export default function RoleMaster() {
         return;
       }
 
-      if (formData.role_type !== "NSH" && !formData.parent_id) {
+      if (formData.role_type !== "NSH" && (!formData.parent_id || formData.parent_id === "none")) {
         toast({
           title: "Validation Error",
           description: "Please select a parent role.",
@@ -178,8 +178,8 @@ export default function RoleMaster() {
         code: newRoleCode,
         role_type: formData.role_type,
         name: formData.name,
-        parent_id: formData.parent_id ? parseInt(formData.parent_id) : null,
-        employee_id: formData.employee_id ? parseInt(formData.employee_id) : null,
+        parent_id: formData.parent_id && formData.parent_id !== "none" ? parseInt(formData.parent_id) : null,
+        employee_id: formData.employee_id && formData.employee_id !== "none" ? parseInt(formData.employee_id) : null,
         territory: formData.territory || null,
         region: formData.region || null,
         district: formData.district || null,
