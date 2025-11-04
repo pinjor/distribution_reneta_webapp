@@ -437,16 +437,17 @@ export default function RoleMaster() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {parentRoles
-                        .filter((role) => role.id != null && role.id !== undefined)
+                        .filter((role) => role.id != null && role.id !== undefined && role.id !== "")
                         .map((role) => {
                           const roleId = String(role.id);
-                          if (!roleId || roleId === "") return null;
+                          if (!roleId || roleId === "" || roleId === "undefined" || roleId === "null") return null;
                           return (
                             <SelectItem key={role.id} value={roleId}>
                               {role.name} ({role.code})
                             </SelectItem>
                           );
-                        })}
+                        })
+                        .filter(Boolean)}
                     </SelectContent>
                   </Select>
                   {parentRoles.length === 0 && formData.role_type && (
@@ -469,16 +470,17 @@ export default function RoleMaster() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {employees
-                        .filter((emp) => emp.id != null && emp.id !== undefined)
+                        .filter((emp) => emp.id != null && emp.id !== undefined && emp.id !== "")
                         .map((emp) => {
                           const empId = String(emp.id);
-                          if (!empId || empId === "") return null;
+                          if (!empId || empId === "" || empId === "undefined" || empId === "null") return null;
                           return (
                             <SelectItem key={emp.id} value={empId}>
                               {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
                             </SelectItem>
                           );
-                        })}
+                        })
+                        .filter(Boolean)}
                     </SelectContent>
                   </Select>
               </div>
