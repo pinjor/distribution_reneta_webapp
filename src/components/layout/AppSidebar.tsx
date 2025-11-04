@@ -94,7 +94,7 @@ const menuItems = [
       { title: "Materials", icon: Package2, path: "/settings/materials" },
       { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
       { title: "UOM", icon: Ruler, path: "/settings/uom" },
-      { title: "Primary Packaging", icon: Package, path: "/settings/primary-packaging" },
+      { title: "Primary Packaging", icon: Package2, path: "/settings/primary-packaging" },
     ],
   },
   { title: "Approvals", icon: CheckSquare, path: "/approvals" },

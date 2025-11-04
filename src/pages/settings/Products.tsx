@@ -487,36 +487,62 @@ export default function Products() {
                   <Label htmlFor="unit">UOM *</Label>
                   <Select value={formData.unit_of_measure} onValueChange={(val) => handleChange("unit_of_measure", val)}>
                     <SelectTrigger id="unit">
-                      <SelectValue placeholder="Select" />
+                      <SelectValue placeholder="Select UOM" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PCS">PCS</SelectItem>
-                      <SelectItem value="pack">pack</SelectItem>
-                      <SelectItem value="box">box</SelectItem>
-                      <SelectItem value="kg">kg</SelectItem>
-                      <SelectItem value="liter">liter</SelectItem>
+                      {uoms.length > 0 ? (
+                        uoms.map((uom) => (
+                          <SelectItem key={uom.id} value={uom.name}>
+                            {uom.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <>
+                          <SelectItem value="PCS">PCS</SelectItem>
+                          <SelectItem value="pack">pack</SelectItem>
+                          <SelectItem value="box">box</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="liter">liter</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
+                  {uoms.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Add UOMs in the UOM setup page</p>
+                  )}
                 </div>
-              </div>
-
-              {/* Primary Packaging */}
-              <div className="space-y-2">
-                <Label htmlFor="primary-packaging">Primary Packaging</Label>
-                <Select 
-                  value={formData.primary_packaging} 
-                  onValueChange={(val) => handleChange("primary_packaging", val)}
-                >
-                  <SelectTrigger id="primary-packaging">
-                    <SelectValue placeholder="Select primary packaging" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Bottle">Bottle</SelectItem>
-                    <SelectItem value="Blister">Blister</SelectItem>
-                    <SelectItem value="Vial">Vial</SelectItem>
-                    <SelectItem value="Injection">Injection</SelectItem>
-                  </SelectContent>
-                </Select>
+                
+                {/* Primary Packaging */}
+                <div className="space-y-2">
+                  <Label htmlFor="primary-packaging">Primary Packaging</Label>
+                  <Select 
+                    value={formData.primary_packaging} 
+                    onValueChange={(val) => handleChange("primary_packaging", val)}
+                  >
+                    <SelectTrigger id="primary-packaging">
+                      <SelectValue placeholder="Select primary packaging" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {primaryPackagings.length > 0 ? (
+                        primaryPackagings.map((packaging) => (
+                          <SelectItem key={packaging.id} value={packaging.name}>
+                            {packaging.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <>
+                          <SelectItem value="Bottle">Bottle</SelectItem>
+                          <SelectItem value="Blister">Blister</SelectItem>
+                          <SelectItem value="Vial">Vial</SelectItem>
+                          <SelectItem value="Injection">Injection</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {primaryPackagings.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Add Primary Packagings in the Primary Packaging setup page</p>
+                  )}
+                </div>
               </div>
 
               {/* Pack Size */}
