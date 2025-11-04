@@ -407,8 +407,12 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="role_type">Role Type *</Label>
                 <Select
-                  value={formData.role_type && formData.role_type !== "" ? formData.role_type : undefined}
-                  onValueChange={(val) => handleChange("role_type", val)}
+                  value={formData.role_type && formData.role_type !== "" ? String(formData.role_type) : undefined}
+                  onValueChange={(val) => {
+                    if (val && val !== "") {
+                      handleChange("role_type", val);
+                    }
+                  }}
                 >
                   <SelectTrigger id="role_type">
                     <SelectValue placeholder="Select role type" />
