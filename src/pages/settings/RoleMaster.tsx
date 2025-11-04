@@ -404,11 +404,13 @@ export default function RoleMaster() {
                     <SelectValue placeholder="Select role type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ROLE_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {ROLE_LABELS[type]}
-                      </SelectItem>
-                    ))}
+                    {ROLE_TYPES
+                      .filter((type) => type && type !== "")
+                      .map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {ROLE_LABELS[type]}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
