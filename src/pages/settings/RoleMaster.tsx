@@ -93,7 +93,16 @@ export default function RoleMaster() {
   // Helper to safely get Select value - never return empty string
   const getSelectValue = (value: string | undefined | null): string | undefined => {
     if (!value || value === "" || value === "none") return undefined;
-    return String(value);
+    const strValue = String(value);
+    return strValue && strValue !== "" ? strValue : undefined;
+  };
+
+  // Helper to ensure a value is safe for SelectItem - return null if invalid
+  const safeSelectItemValue = (value: any): string | null => {
+    if (value == null || value === undefined || value === "") return null;
+    const strValue = String(value);
+    if (!strValue || strValue === "" || strValue === "undefined" || strValue === "null") return null;
+    return strValue;
   };
 
   const [newRoleCode, setNewRoleCode] = useState<string>("");
@@ -449,11 +458,16 @@ export default function RoleMaster() {
                   <SelectContent>
                     {ROLE_TYPES
                       .filter((type) => type && type !== "")
-                      .map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {ROLE_LABELS[type]}
-                        </SelectItem>
-                      ))}
+                      .map((type) => {
+                        const safeValue = safeSelectItemValue(type);
+                        if (!safeValue) return null;
+                        return (
+                          <SelectItem key={type} value={safeValue}>
+                            {ROLE_LABELS[type]}
+                          </SelectItem>
+                        );
+                      })
+                      .filter(Boolean)}
                   </SelectContent>
                 </Select>
               </div>
@@ -493,16 +507,15 @@ export default function RoleMaster() {
                           return roleId && roleId !== "" && roleId !== "undefined" && roleId !== "null";
                         })
                         .map((role) => {
-                          const roleId = String(role.id);
-                          // Double-check to ensure we never render with empty string
-                          if (!roleId || roleId === "") return null;
+                          const safeValue = safeSelectItemValue(role.id);
+                          if (!safeValue) return null;
                           return (
-                            <SelectItem key={role.id} value={roleId}>
+                            <SelectItem key={role.id} value={safeValue}>
                               {role.name || "Unnamed"} ({role.code || "N/A"})
                             </SelectItem>
                           );
                         })
-                        .filter((item) => item !== null)}
+                        .filter(Boolean)}
                     </SelectContent>
                   </Select>
                   {parentRoles.length === 0 && formData.role_type && (
@@ -536,16 +549,15 @@ export default function RoleMaster() {
                           return empId && empId !== "" && empId !== "undefined" && empId !== "null";
                         })
                         .map((emp) => {
-                          const empId = String(emp.id);
-                          // Double-check to ensure we never render with empty string
-                          if (!empId || empId === "") return null;
+                          const safeValue = safeSelectItemValue(emp.id);
+                          if (!safeValue) return null;
                           return (
-                            <SelectItem key={emp.id} value={empId}>
+                            <SelectItem key={emp.id} value={safeValue}>
                               {emp.first_name || ""} {emp.last_name || ""} ({emp.employee_id || "N/A"})
                             </SelectItem>
                           );
                         })
-                        .filter((item) => item !== null)}
+                        .filter(Boolean)}
                     </SelectContent>
                   </Select>
               </div>
