@@ -242,18 +242,8 @@ export default function Products() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Define table columns
+  // Define table columns (SKU removed from list as per requirements)
   const columns: ColumnDef<Product>[] = [
-    {
-      key: "sku",
-      header: "SKU",
-      render: (_, product) => (
-        <div className="flex items-center gap-2">
-          <Barcode className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{product.sku}</span>
-        </div>
-      ),
-    },
     {
       key: "name",
       header: "Product Name",
