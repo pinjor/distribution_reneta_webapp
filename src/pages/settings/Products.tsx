@@ -54,8 +54,8 @@ export default function Products() {
   ]);
 
   const [formData, setFormData] = useState({
-    sku: "",
     oldCode: "",
+    newCode: "",
     name: "",
     category: "",
     brand: "",
@@ -76,7 +76,7 @@ export default function Products() {
     mcValue3: "",
   });
   
-  const [newProductCode, setNewProductCode] = useState<string>("");
+  const [newProductSku, setNewProductSku] = useState<string>("");
 
   // Calculate IFC result
   const ifcResult = formData.ifcValue1 && formData.ifcValue2 
@@ -92,15 +92,15 @@ export default function Products() {
     document.title = "Products | App";
   }, []);
 
-  const generateProductCode = (): string => {
-    const existingCodes = products.filter(p => p.code).map(p => p.code!);
-    return generateCode("PROD", existingCodes);
+  const generateProductSku = (): string => {
+    const existingSkus = products.map(p => p.sku);
+    return generateCode("PRD", existingSkus);
   };
 
-  // Generate code when form opens for new product
+  // Generate SKU when form opens for new product
   useEffect(() => {
     if (showAddForm && !editMode) {
-      setNewProductCode(generateProductCode());
+      setNewProductSku(generateProductSku());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
@@ -111,7 +111,6 @@ export default function Products() {
         p.id === selectedProduct.id 
           ? { 
               ...p, 
-              sku: formData.sku,
               name: formData.name,
               category: formData.category,
               brand: formData.brand,
@@ -121,6 +120,7 @@ export default function Products() {
               primaryPackaging: formData.primaryPackaging || undefined,
               productType: formData.productType,
               oldCode: formData.oldCode || undefined,
+              code: formData.newCode || undefined,
               ifcValue1: formData.ifcValue1 ? parseFloat(formData.ifcValue1) : undefined,
               ifcValue2: formData.ifcValue2 ? parseFloat(formData.ifcValue2) : undefined,
               ifcResult: ifcResult || undefined,
@@ -136,11 +136,11 @@ export default function Products() {
         description: "Product information has been updated successfully.",
       });
     } else {
-      const newCode = generateProductCode();
+      const newSku = generateProductSku();
       const newProduct: Product = {
         id: Date.now().toString(),
-        sku: formData.sku,
-        code: newCode,
+        sku: newSku,
+        code: formData.newCode || undefined,
         oldCode: formData.oldCode || undefined,
         name: formData.name,
         category: formData.category,
@@ -162,7 +162,7 @@ export default function Products() {
       setProducts(prev => [...prev, newProduct]);
       toast({
         title: "Product added",
-        description: `New product created with code ${newCode}.`,
+        description: `New product created with SKU ${newSku}.`,
       });
     }
     resetForm();
@@ -171,8 +171,8 @@ export default function Products() {
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setFormData({
-      sku: product.sku,
       oldCode: product.oldCode || "",
+      newCode: product.code || "",
       name: product.name,
       category: product.category,
       brand: product.brand,
@@ -211,8 +211,8 @@ export default function Products() {
 
   const resetForm = () => {
     setFormData({
-      sku: "",
       oldCode: "",
+      newCode: "",
       name: "",
       category: "",
       brand: "",
@@ -232,7 +232,7 @@ export default function Products() {
       mcValue2: "",
       mcValue3: "",
     });
-    setNewProductCode("");
+    setNewProductSku("");
     setEditMode(false);
     setSelectedProduct(null);
     setShowAddForm(false);
@@ -311,7 +311,23 @@ export default function Products() {
         <Card className="card-elevated">
           <CardContent className="p-6">
             <div className="space-y-6 max-w-4xl">
-              {/* Code Fields */}
+              {/* SKU Field - Auto-generated */}
+              <div className="space-y-2">
+                <Label htmlFor="sku" className="flex items-center gap-2">
+                  <Barcode className="h-4 w-4 text-muted-foreground" />
+                  SKU / Product Code *
+                </Label>
+                <Input
+                  id="sku"
+                  value={editMode && selectedProduct?.sku ? selectedProduct.sku : newProductSku}
+                  disabled
+                  className="bg-muted font-mono font-semibold"
+                  placeholder="Auto-generated"
+                />
+                <p className="text-xs text-muted-foreground">Auto-generated SKU (cannot be changed)</p>
+              </div>
+
+              {/* Code Fields - User input */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="old-code">Old Code</Label>
@@ -327,28 +343,15 @@ export default function Products() {
                   <Label htmlFor="new-code">New Code</Label>
                   <Input
                     id="new-code"
-                    value={editMode && selectedProduct?.code ? selectedProduct.code : newProductCode}
-                    disabled
-                    className="bg-muted font-mono font-semibold"
-                    placeholder="Auto-generated"
+                    value={formData.newCode}
+                    onChange={(e) => handleChange("newCode", e.target.value)}
+                    placeholder="Enter new code"
                   />
-                  <p className="text-xs text-muted-foreground">Auto-generated code (cannot be changed)</p>
+                  <p className="text-xs text-muted-foreground">Manually enter the new product code</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sku" className="flex items-center gap-2">
-                    <Barcode className="h-4 w-4 text-muted-foreground" />
-                    SKU / Product Code *
-                  </Label>
-                  <Input
-                    id="sku"
-                    value={formData.sku}
-                    onChange={(e) => handleChange("sku", e.target.value)}
-                    placeholder="PRD-XXX"
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="brand">Brand</Label>
                   <Input
@@ -356,6 +359,15 @@ export default function Products() {
                     value={formData.brand}
                     onChange={(e) => handleChange("brand", e.target.value)}
                     placeholder="Brand name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Product Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    placeholder="Enter product name"
                   />
                 </div>
               </div>
