@@ -219,8 +219,8 @@ export default function RoleMaster() {
     setFormData({
       role_type: role.role_type,
       name: role.name,
-      parent_id: role.parent_id?.toString() || "",
-      employee_id: role.employee_id?.toString() || "",
+      parent_id: role.parent_id?.toString() || "none",
+      employee_id: role.employee_id?.toString() || "none",
       territory: role.territory || "",
       region: role.region || "",
       district: role.district || "",
@@ -277,7 +277,7 @@ export default function RoleMaster() {
     setFormData(prev => {
       if (field === "role_type") {
         // Reset parent_id when role type changes
-        return { ...prev, [field]: value, parent_id: "" };
+        return { ...prev, [field]: value, parent_id: "none" };
       }
       return { ...prev, [field]: value };
     });

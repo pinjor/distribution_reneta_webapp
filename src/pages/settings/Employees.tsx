@@ -116,7 +116,7 @@ export default function Employees() {
         phone: formData.phone || undefined,
         designation: formData.role || undefined,
         department: formData.department || undefined,
-        role_master_id: formData.role_master_id ? parseInt(formData.role_master_id) : undefined,
+        role_master_id: formData.role_master_id && formData.role_master_id !== "none" ? parseInt(formData.role_master_id) : undefined,
         is_active: true,
       };
 
