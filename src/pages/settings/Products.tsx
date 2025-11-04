@@ -371,16 +371,6 @@ export default function Products() {
                   />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="name">Product Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  placeholder="Enter product name"
-                />
-              </div>
 
               {/* Product Type */}
               <div className="space-y-3">
