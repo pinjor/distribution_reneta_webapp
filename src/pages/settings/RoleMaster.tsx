@@ -68,7 +68,17 @@ export default function RoleMaster() {
   const [parentRoles, setParentRoles] = useState<RoleMaster[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    role_type: RoleType | "";
+    name: string;
+    parent_id: string;
+    employee_id: string;
+    territory: string;
+    region: string;
+    district: string;
+    area: string;
+    description: string;
+  }>({
     role_type: "" as RoleType | "",
     name: "",
     parent_id: "none",
@@ -79,6 +89,12 @@ export default function RoleMaster() {
     area: "",
     description: "",
   });
+
+  // Helper to safely get Select value - never return empty string
+  const getSelectValue = (value: string | undefined | null): string | undefined => {
+    if (!value || value === "" || value === "none") return undefined;
+    return String(value);
+  };
 
   const [newRoleCode, setNewRoleCode] = useState<string>("");
 
@@ -99,7 +115,14 @@ export default function RoleMaster() {
     try {
       setLoading(true);
       const data = await apiEndpoints.roleMasters.getAll();
-      setRoles(data);
+      // Strictly filter out any invalid roles - ensure all have valid IDs that can be converted to non-empty strings
+      const validRoles = (data || []).filter((role: any) => {
+        if (!role) return false;
+        if (role.id == null || role.id === undefined) return false;
+        const roleId = String(role.id);
+        return roleId && roleId !== "" && roleId !== "undefined" && roleId !== "null";
+      });
+      setRoles(validRoles);
     } catch (error) {
       console.error("Failed to fetch Role Masters:", error);
       toast({
@@ -107,6 +130,7 @@ export default function RoleMaster() {
         description: "Failed to load Role Masters. Please try again.",
         variant: "destructive",
       });
+      setRoles([]);
     } finally {
       setLoading(false);
     }
@@ -115,8 +139,13 @@ export default function RoleMaster() {
   const fetchEmployees = async () => {
     try {
       const data = await apiEndpoints.employees.getAll();
-      // Filter out any invalid employees
-      const validEmployees = (data || []).filter((emp: any) => emp && emp.id != null && emp.id !== undefined);
+      // Strictly filter out any invalid employees - ensure all have valid IDs that can be converted to non-empty strings
+      const validEmployees = (data || []).filter((emp: any) => {
+        if (!emp) return false;
+        if (emp.id == null || emp.id === undefined) return false;
+        const empId = String(emp.id);
+        return empId && empId !== "" && empId !== "undefined" && empId !== "null";
+      });
       setEmployees(validEmployees);
     } catch (error) {
       console.error("Failed to fetch Employees:", error);
@@ -407,7 +436,7 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="role_type">Role Type *</Label>
                 <Select
-                  value={formData.role_type && formData.role_type !== "" ? String(formData.role_type) : undefined}
+                  value={getSelectValue(formData.role_type)}
                   onValueChange={(val) => {
                     if (val && val !== "") {
                       handleChange("role_type", val);
@@ -444,10 +473,10 @@ export default function RoleMaster() {
                 <div className="space-y-2">
                   <Label htmlFor="parent_id">Parent Role *</Label>
                   <Select
-                    value={formData.parent_id && formData.parent_id !== "" && formData.parent_id !== "none" ? String(formData.parent_id) : "none"}
+                    value={formData.parent_id === "none" || !formData.parent_id || formData.parent_id === "" ? "none" : String(formData.parent_id)}
                     onValueChange={(val) => {
                       if (val && val !== "") {
-                        handleChange("parent_id", val);
+                        handleChange("parent_id", val === "none" ? "none" : val);
                       }
                     }}
                   >
@@ -487,10 +516,10 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="employee_id">Assigned Employee</Label>
                   <Select
-                    value={formData.employee_id && formData.employee_id !== "" && formData.employee_id !== "none" ? String(formData.employee_id) : "none"}
+                    value={formData.employee_id === "none" || !formData.employee_id || formData.employee_id === "" ? "none" : String(formData.employee_id)}
                     onValueChange={(val) => {
                       if (val && val !== "") {
-                        handleChange("employee_id", val);
+                        handleChange("employee_id", val === "none" ? "none" : val);
                       }
                     }}
                   >
