@@ -138,6 +138,34 @@ class Product(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Foreign keys to UOM and PrimaryPackaging (optional for backward compatibility)
+    uom_id = Column(Integer, ForeignKey("uoms.id"), nullable=True)
+    primary_packaging_id = Column(Integer, ForeignKey("primary_packagings.id"), nullable=True)
+    
+    uom = relationship("UOM")
+    primary_packaging_rel = relationship("PrimaryPackaging")
+
+class UOM(Base):
+    __tablename__ = "uoms"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class PrimaryPackaging(Base):
+    __tablename__ = "primary_packagings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Material(Base):
     __tablename__ = "materials"

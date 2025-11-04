@@ -25,6 +25,7 @@ import {
   MapPinned,
   ClipboardList,
   TruckIcon,
+  Ruler,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -92,6 +93,8 @@ const menuItems = [
       { title: "Products", icon: Package, path: "/settings/products" },
       { title: "Materials", icon: Package2, path: "/settings/materials" },
       { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
+      { title: "UOM", icon: Ruler, path: "/settings/uom" },
+      { title: "Primary Packaging", icon: Package, path: "/settings/primary-packaging" },
     ],
   },
   { title: "Approvals", icon: CheckSquare, path: "/approvals" },

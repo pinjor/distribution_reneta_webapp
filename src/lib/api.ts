@@ -135,6 +135,22 @@ export const apiEndpoints = {
     getAll: () => api.get('/shipping-points'),
   },
   
+  uoms: {
+    getAll: () => api.get('/uoms'),
+    getById: (id: number) => api.get(`/uoms/${id}`),
+    create: (data: any) => api.post('/uoms', data),
+    update: (id: number, data: any) => api.put(`/uoms/${id}`, data),
+    delete: (id: number) => api.delete(`/uoms/${id}`),
+  },
+  
+  primaryPackagings: {
+    getAll: () => api.get('/primary-packagings'),
+    getById: (id: number) => api.get(`/primary-packagings/${id}`),
+    create: (data: any) => api.post('/primary-packagings', data),
+    update: (id: number, data: any) => api.put(`/primary-packagings/${id}`, data),
+    delete: (id: number) => api.delete(`/primary-packagings/${id}`),
+  },
+  
   vehicles: {
     getAll: () => api.get('/vehicles'),
     create: (data: any) => api.post('/vehicles', data),

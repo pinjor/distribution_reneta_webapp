@@ -47,6 +47,8 @@ export default function Products() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uoms, setUOMs] = useState<Array<{ id: number; name: string }>>([]);
+  const [primaryPackagings, setPrimaryPackagings] = useState<Array<{ id: number; name: string }>>([]);
 
   const [formData, setFormData] = useState({
     old_code: "",
@@ -79,9 +81,11 @@ export default function Products() {
     ? parseFloat(formData.mc_value1) * parseFloat(formData.mc_value2) * parseFloat(formData.mc_value3)
     : null;
 
-  // Fetch products from API
+  // Fetch products, UOMs, and Primary Packagings from API
   useEffect(() => {
     fetchProducts();
+    fetchUOMs();
+    fetchPrimaryPackagings();
   }, []);
 
   const fetchProducts = async () => {
@@ -98,6 +102,24 @@ export default function Products() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUOMs = async () => {
+    try {
+      const data = await apiEndpoints.uoms.getAll();
+      setUOMs(data);
+    } catch (error) {
+      console.error("Failed to fetch UOMs:", error);
+    }
+  };
+
+  const fetchPrimaryPackagings = async () => {
+    try {
+      const data = await apiEndpoints.primaryPackagings.getAll();
+      setPrimaryPackagings(data);
+    } catch (error) {
+      console.error("Failed to fetch Primary Packagings:", error);
     }
   };
 

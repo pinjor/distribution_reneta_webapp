@@ -221,6 +221,48 @@ class Product(ProductBase):
     class Config:
         from_attributes = True
 
+# UOM schemas
+class UOMBase(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+
+class UOMCreate(UOMBase):
+    pass
+
+class UOMUpdate(UOMBase):
+    pass
+
+class UOM(UOMBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# PrimaryPackaging schemas
+class PrimaryPackagingBase(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+
+class PrimaryPackagingCreate(PrimaryPackagingBase):
+    pass
+
+class PrimaryPackagingUpdate(PrimaryPackagingBase):
+    pass
+
+class PrimaryPackaging(PrimaryPackagingBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 # Vehicle schemas
 class VehicleBase(BaseModel):
     vehicle_id: str
