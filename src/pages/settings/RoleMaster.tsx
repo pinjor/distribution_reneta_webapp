@@ -440,8 +440,12 @@ export default function RoleMaster() {
                 <div className="space-y-2">
                   <Label htmlFor="parent_id">Parent Role *</Label>
                   <Select
-                    value={formData.parent_id && formData.parent_id !== "" ? formData.parent_id : "none"}
-                    onValueChange={(val) => handleChange("parent_id", val)}
+                    value={formData.parent_id && formData.parent_id !== "" && formData.parent_id !== "none" ? String(formData.parent_id) : "none"}
+                    onValueChange={(val) => {
+                      if (val && val !== "") {
+                        handleChange("parent_id", val);
+                      }
+                    }}
                   >
                     <SelectTrigger id="parent_id">
                       <SelectValue placeholder="Select parent role" />
@@ -457,12 +461,15 @@ export default function RoleMaster() {
                         })
                         .map((role) => {
                           const roleId = String(role.id);
+                          // Double-check to ensure we never render with empty string
+                          if (!roleId || roleId === "") return null;
                           return (
                             <SelectItem key={role.id} value={roleId}>
                               {role.name || "Unnamed"} ({role.code || "N/A"})
                             </SelectItem>
                           );
-                        })}
+                        })
+                        .filter((item) => item !== null)}
                     </SelectContent>
                   </Select>
                   {parentRoles.length === 0 && formData.role_type && (
@@ -476,8 +483,12 @@ export default function RoleMaster() {
               <div className="space-y-2">
                 <Label htmlFor="employee_id">Assigned Employee</Label>
                   <Select
-                    value={formData.employee_id && formData.employee_id !== "" ? formData.employee_id : "none"}
-                    onValueChange={(val) => handleChange("employee_id", val)}
+                    value={formData.employee_id && formData.employee_id !== "" && formData.employee_id !== "none" ? String(formData.employee_id) : "none"}
+                    onValueChange={(val) => {
+                      if (val && val !== "") {
+                        handleChange("employee_id", val);
+                      }
+                    }}
                   >
                     <SelectTrigger id="employee_id">
                       <SelectValue placeholder="Select employee (optional)" />
@@ -493,12 +504,15 @@ export default function RoleMaster() {
                         })
                         .map((emp) => {
                           const empId = String(emp.id);
+                          // Double-check to ensure we never render with empty string
+                          if (!empId || empId === "") return null;
                           return (
                             <SelectItem key={emp.id} value={empId}>
                               {emp.first_name || ""} {emp.last_name || ""} ({emp.employee_id || "N/A"})
                             </SelectItem>
                           );
-                        })}
+                        })
+                        .filter((item) => item !== null)}
                     </SelectContent>
                   </Select>
               </div>
