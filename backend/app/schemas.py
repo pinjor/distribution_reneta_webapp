@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
 from decimal import Decimal
 from datetime import date, datetime
+from app.models import RoleTypeEnum
 
 # Authentication schemas
 class LoginRequest(BaseModel):
@@ -118,6 +119,7 @@ class EmployeeCreate(EmployeeBase):
 
 class Employee(EmployeeBase):
     id: int
+    role_master_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     
@@ -288,6 +290,42 @@ class PriceSetup(PriceSetupBase):
     
     class Config:
         from_attributes = True
+
+# RoleMaster schemas
+class RoleMasterBase(BaseModel):
+    code: str
+    role_type: RoleTypeEnum
+    name: str
+    parent_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    territory: Optional[str] = None
+    region: Optional[str] = None
+    district: Optional[str] = None
+    area: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool = True
+
+class RoleMasterCreate(RoleMasterBase):
+    pass
+
+class RoleMasterUpdate(RoleMasterBase):
+    pass
+
+class RoleMaster(RoleMasterBase):
+    id: int
+    parent_name: Optional[str] = None
+    employee_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class RoleHierarchyResponse(BaseModel):
+    """Response model for hierarchy traversal"""
+    current_role: RoleMaster
+    path_to_root: List[RoleMaster] = []
+    subordinates: List[RoleMaster] = []
 
 # Vehicle schemas
 class VehicleBase(BaseModel):

@@ -36,6 +36,7 @@ import ShippingPoints from "./pages/settings/ShippingPoints";
 import UOM from "./pages/settings/UOM";
 import PrimaryPackaging from "./pages/settings/PrimaryPackaging";
 import PriceSetup from "./pages/settings/PriceSetup";
+import RoleMaster from "./pages/settings/RoleMaster";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,7 @@ const App = () => (
               <Route path="/settings/uom" element={<MainLayout><UOM /></MainLayout>} />
               <Route path="/settings/primary-packaging" element={<MainLayout><PrimaryPackaging /></MainLayout>} />
               <Route path="/settings/price-setup" element={<MainLayout><PriceSetup /></MainLayout>} />
+              <Route path="/settings/role-master" element={<MainLayout><RoleMaster /></MainLayout>} />
               <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
             </Routes>
           </BrowserRouter>

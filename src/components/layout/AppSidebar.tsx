@@ -97,6 +97,7 @@ const menuItems = [
       { title: "UOM", icon: Ruler, path: "/settings/uom" },
       { title: "Primary Packaging", icon: Package2, path: "/settings/primary-packaging" },
       { title: "Price Setup", icon: DollarSign, path: "/settings/price-setup" },
+      { title: "Role Master", icon: Users, path: "/settings/role-master" },
     ],
   },
   { title: "Approvals", icon: CheckSquare, path: "/approvals" },

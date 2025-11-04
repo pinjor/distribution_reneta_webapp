@@ -4,6 +4,14 @@ from datetime import datetime
 import enum
 from app.database import Base
 
+class RoleTypeEnum(str, enum.Enum):
+    NSH = "NSH"  # National Sales Head
+    TSM = "TSM"  # Territory Sales Manager
+    RSM = "RSM"  # Regional Sales Manager
+    DSM = "DSM"  # District Sales Manager
+    SM = "SM"    # Sales Manager
+    SO = "SO"    # Sales Officer
+
 class Company(Base):
     __tablename__ = "companies"
     
@@ -55,11 +63,13 @@ class Employee(Base):
     designation = Column(String(100))
     role = Column(String(50), default="user")  # user, admin, manager
     depot_id = Column(Integer, ForeignKey("depots.id"))
+    role_master_id = Column(Integer, ForeignKey("role_masters.id"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     depot = relationship("Depot")
+    role_master = relationship("RoleMaster", back_populates="employees")
 
 class PriorityEnum(str, enum.Enum):
     HIGH = "High"

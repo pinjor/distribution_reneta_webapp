@@ -159,6 +159,19 @@ export const apiEndpoints = {
     delete: (id: number) => api.delete(`/price-setups/${id}`),
   },
   
+  roleMasters: {
+    getAll: (roleType?: string) => api.get(roleType ? `/role-masters?role_type=${roleType}` : '/role-masters'),
+    getById: (id: number) => api.get(`/role-masters/${id}`),
+    create: (data: any) => api.post('/role-masters', data),
+    update: (id: number, data: any) => api.put(`/role-masters/${id}`, data),
+    delete: (id: number) => api.delete(`/role-masters/${id}`),
+    getHierarchy: (id: number) => api.get(`/role-masters/${id}/hierarchy`),
+    getPathToNSH: (id: number) => api.get(`/role-masters/${id}/path-to-nsh`),
+    getSubordinates: (id: number) => api.get(`/role-masters/${id}/subordinates`),
+    getByEmployee: (employeeId: number) => api.get(`/role-masters/by-employee/${employeeId}`),
+    getByType: (roleType: string) => api.get(`/role-masters/by-type/${roleType}`),
+  },
+  
   vehicles: {
     getAll: () => api.get('/vehicles'),
     create: (data: any) => api.post('/vehicles', data),
