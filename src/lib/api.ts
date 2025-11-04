@@ -106,7 +106,10 @@ export const apiEndpoints = {
   
   employees: {
     getAll: () => api.get('/employees'),
+    getById: (id: number) => api.get(`/employees/${id}`),
     create: (data: any) => api.post('/employees', data),
+    update: (id: number, data: any) => api.put(`/employees/${id}`, data),
+    delete: (id: number) => api.delete(`/employees/${id}`),
   },
   
   customers: {

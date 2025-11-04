@@ -195,6 +195,31 @@ class PriceSetup(Base):
     
     product = relationship("Product")
 
+class RoleMaster(Base):
+    __tablename__ = "role_masters"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    role_type = Column(Enum(RoleTypeEnum), nullable=False)
+    name = Column(String(255), nullable=False)
+    parent_id = Column(Integer, ForeignKey("role_masters.id"), nullable=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    territory = Column(String(100))
+    region = Column(String(100))
+    district = Column(String(100))
+    area = Column(String(100))
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Self-referential relationship
+    parent = relationship("RoleMaster", remote_side=[id], backref="children")
+    
+    # Employee relationship (one role can have one employee)
+    assigned_employee = relationship("Employee", foreign_keys=[employee_id])
+    employees = relationship("Employee", foreign_keys="Employee.role_master_id", back_populates="role_master")
+
 class Material(Base):
     __tablename__ = "materials"
     
