@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Employee {
   id: string;
@@ -22,18 +23,22 @@ interface Employee {
   status: "active" | "inactive";
 }
 
+interface RoleMaster {
+  id: number;
+  code: string;
+  name: string;
+  role_type: string;
+}
+
 export default function Employees() {
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [newEmployeeCode, setNewEmployeeCode] = useState<string>("");
-  const [employees, setEmployees] = useState<Employee[]>([
-    { id: "1", code: "EMP-0001", name: "John Smith", email: "john.smith@acme.com", phone: "+1 555-0101", role: "Manager", department: "Warehouse", status: "active" },
-    { id: "2", code: "EMP-0002", name: "Sarah Johnson", email: "sarah.j@acme.com", phone: "+1 555-0102", role: "Supervisor", department: "Distribution", status: "active" },
-    { id: "3", code: "EMP-0003", name: "Mike Davis", email: "mike.d@acme.com", phone: "+1 555-0103", role: "Operator", department: "Warehouse", status: "active" },
-    { id: "4", code: "EMP-0004", name: "Emily Brown", email: "emily.b@acme.com", phone: "+1 555-0104", role: "Driver", department: "Distribution", status: "inactive" },
-  ]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<RoleMaster[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -41,11 +46,51 @@ export default function Employees() {
     phone: "",
     role: "",
     department: "",
+    role_master_id: "",
   });
 
   useEffect(() => {
     document.title = "Employees | App";
+    fetchEmployees();
+    fetchRoles();
   }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const data = await apiEndpoints.employees.getAll();
+      setEmployees(data.map((emp: any) => ({
+        id: emp.id.toString(),
+        code: emp.employee_id || `EMP-${emp.id}`,
+        name: `${emp.first_name} ${emp.last_name || ""}`.trim(),
+        email: emp.email || "",
+        phone: emp.phone || "",
+        role: emp.designation || "",
+        department: emp.department || "",
+        status: emp.is_active ? "active" : "inactive",
+        role_master_id: emp.role_master_id,
+      })));
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load employees. Please try again.",
+        variant: "destructive",
+      });
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const data = await apiEndpoints.roleMasters.getAll();
+      setRoles(data);
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+    }
+  };
 
   const generateEmployeeCode = (): string => {
     const existingCodes = employees.map(e => e.code);
@@ -60,65 +105,80 @@ export default function Employees() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
 
-  const handleAdd = () => {
-    if (editMode && selectedEmployee) {
-      setEmployees(prev => prev.map(e => 
-        e.id === selectedEmployee.id 
-          ? { 
-              ...e, 
-              name: formData.name,
-              email: formData.email,
-              phone: formData.phone,
-              role: formData.role,
-              department: formData.department,
-            }
-          : e
-      ));
-      toast({
-        title: "Employee updated",
-        description: "Employee information has been updated successfully.",
-      });
-    } else {
-      const newCode = generateEmployeeCode();
-      const newEmployee: Employee = {
-        id: Date.now().toString(),
-        code: newCode,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        role: formData.role,
-        department: formData.department,
-        status: "active",
+  const handleAdd = async () => {
+    try {
+      const nameParts = formData.name.split(" ");
+      const employeeData: any = {
+        employee_id: newEmployeeCode || `EMP-${Date.now()}`,
+        first_name: nameParts[0] || formData.name,
+        last_name: nameParts.slice(1).join(" ") || "",
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        designation: formData.role || undefined,
+        department: formData.department || undefined,
+        role_master_id: formData.role_master_id ? parseInt(formData.role_master_id) : undefined,
+        is_active: true,
       };
-      setEmployees(prev => [...prev, newEmployee]);
+
+      if (editMode && selectedEmployee) {
+        await apiEndpoints.employees.update(parseInt(selectedEmployee.id), employeeData);
+        toast({
+          title: "Employee updated",
+          description: "Employee information has been updated successfully.",
+        });
+      } else {
+        await apiEndpoints.employees.create(employeeData);
+        toast({
+          title: "Employee added",
+          description: `New employee created with code ${employeeData.employee_id}.`,
+        });
+      }
+
+      await fetchEmployees();
+      resetForm();
+    } catch (error: any) {
+      console.error("Failed to save employee:", error);
       toast({
-        title: "Employee added",
-        description: `New employee created with code ${newCode}.`,
+        title: "Error",
+        description: error.message || "Failed to save employee. Please try again.",
+        variant: "destructive",
       });
     }
-    resetForm();
   };
 
   const handleEdit = (employee: Employee) => {
     setSelectedEmployee(employee);
+    const employeeData = employee as any;
     setFormData({
       name: employee.name,
       email: employee.email,
       phone: employee.phone,
       role: employee.role,
       department: employee.department,
+      role_master_id: employeeData.role_master_id?.toString() || "",
     });
+    setNewEmployeeCode(employee.code);
     setEditMode(true);
     setShowAddForm(true);
   };
 
-  const handleDelete = (employee: Employee) => {
-    setEmployees(prev => prev.filter(e => e.id !== employee.id));
-    toast({
-      title: "Employee removed",
-      description: "The employee has been deleted.",
-      variant: "destructive",
-    });
+  const handleDelete = async (employee: Employee) => {
+    try {
+      await apiEndpoints.employees.delete(parseInt(employee.id));
+      toast({
+        title: "Employee deleted",
+        description: "The employee has been removed.",
+        variant: "destructive",
+      });
+      await fetchEmployees();
+    } catch (error: any) {
+      console.error("Failed to delete employee:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete employee. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -132,6 +192,7 @@ export default function Employees() {
       phone: "",
       role: "",
       department: "",
+      role_master_id: "",
     });
     setNewEmployeeCode("");
     setEditMode(false);
@@ -265,10 +326,10 @@ export default function Employees() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="emp-role">Role *</Label>
+                  <Label htmlFor="emp-role">Designation *</Label>
                   <Select value={formData.role} onValueChange={(val) => handleChange("role", val)}>
                     <SelectTrigger id="emp-role">
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue placeholder="Select designation" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Manager">Manager</SelectItem>
@@ -291,6 +352,29 @@ export default function Employees() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role_master">Role Master Assignment</Label>
+                <Select 
+                  value={formData.role_master_id} 
+                  onValueChange={(val) => handleChange("role_master_id", val)}
+                >
+                  <SelectTrigger id="role_master">
+                    <SelectValue placeholder="Select role master (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id.toString()}>
+                        {role.name} ({role.code}) - {role.role_type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Assign employee to a role in the sales hierarchy (NSH, TSM, RSM, DSM, SM, SO)
+                </p>
               </div>
 
               <div className="flex justify-end gap-4 pt-6 border-t">

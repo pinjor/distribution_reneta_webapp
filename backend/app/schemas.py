@@ -112,14 +112,17 @@ class EmployeeBase(BaseModel):
     department: Optional[str] = None
     designation: Optional[str] = None
     depot_id: Optional[int] = None
+    role_master_id: Optional[int] = None
     is_active: bool = True
 
 class EmployeeCreate(EmployeeBase):
     pass
 
+class EmployeeUpdate(EmployeeBase):
+    pass
+
 class Employee(EmployeeBase):
     id: int
-    role_master_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     
