@@ -69,7 +69,7 @@ class Employee(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     depot = relationship("Depot")
-    role_master = relationship("RoleMaster", back_populates="employees")
+    role_master = relationship("RoleMaster", foreign_keys=[role_master_id], back_populates="employees")
 
 class PriorityEnum(str, enum.Enum):
     HIGH = "High"
@@ -216,9 +216,11 @@ class RoleMaster(Base):
     # Self-referential relationship
     parent = relationship("RoleMaster", remote_side=[id], backref="children")
     
-    # Employee relationship (one role can have one employee)
-    assigned_employee = relationship("Employee", foreign_keys=[employee_id])
-    employees = relationship("Employee", foreign_keys="Employee.role_master_id", back_populates="role_master")
+    # Employee relationship (one role can have one employee assigned)
+    assigned_employee = relationship("Employee", foreign_keys=[employee_id], uselist=False)
+    
+    # Employees assigned to this role (via role_master_id)
+    employees = relationship("Employee", foreign_keys="Employee.role_master_id", back_populates="role_master", uselist=True)
 
 class Material(Base):
     __tablename__ = "materials"
