@@ -436,11 +436,17 @@ export default function RoleMaster() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {parentRoles.map((role) => (
-                        <SelectItem key={role.id} value={role.id.toString()}>
-                          {role.name} ({role.code})
-                        </SelectItem>
-                      ))}
+                      {parentRoles
+                        .filter((role) => role.id != null && role.id !== undefined)
+                        .map((role) => {
+                          const roleId = String(role.id);
+                          if (!roleId || roleId === "") return null;
+                          return (
+                            <SelectItem key={role.id} value={roleId}>
+                              {role.name} ({role.code})
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
                   {parentRoles.length === 0 && formData.role_type && (
@@ -462,11 +468,17 @@ export default function RoleMaster() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id.toString()}>
-                          {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
-                        </SelectItem>
-                      ))}
+                      {employees
+                        .filter((emp) => emp.id != null && emp.id !== undefined)
+                        .map((emp) => {
+                          const empId = String(emp.id);
+                          if (!empId || empId === "") return null;
+                          return (
+                            <SelectItem key={emp.id} value={empId}>
+                              {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
               </div>
