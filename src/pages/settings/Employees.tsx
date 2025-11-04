@@ -192,7 +192,7 @@ export default function Employees() {
       phone: "",
       role: "",
       department: "",
-      role_master_id: "",
+      role_master_id: "none",
     });
     setNewEmployeeCode("");
     setEditMode(false);
@@ -364,7 +364,7 @@ export default function Employees() {
                     <SelectValue placeholder="Select role master (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.id.toString()}>
                         {role.name} ({role.code}) - {role.role_type}

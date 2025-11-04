@@ -259,8 +259,8 @@ export default function RoleMaster() {
     setFormData({
       role_type: "" as RoleType | "",
       name: "",
-      parent_id: "",
-      employee_id: "",
+      parent_id: "none",
+      employee_id: "none",
       territory: "",
       region: "",
       district: "",
@@ -460,7 +460,7 @@ export default function RoleMaster() {
                     <SelectValue placeholder="Select employee (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {employees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id.toString()}>
                         {emp.first_name} {emp.last_name || ""} ({emp.employee_id})
