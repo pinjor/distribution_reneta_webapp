@@ -38,6 +38,8 @@ interface Product {
   mc_result?: number;
   business_unit?: string;  // Pharma, Purnava, Animal health
   hsn_code?: string;
+  free_goods_threshold?: number;
+  free_goods_quantity?: number;
 }
 
 export default function Products() {
@@ -67,6 +69,8 @@ export default function Products() {
     mc_value1: "",
     mc_value2: "",
     mc_value3: "",
+    free_goods_threshold: "100",
+    free_goods_quantity: "5",
   });
   
   const [newProductSku, setNewProductSku] = useState<string>("");
@@ -157,6 +161,8 @@ export default function Products() {
         mc_value2: formData.mc_value2 ? parseFloat(formData.mc_value2) : undefined,
         mc_value3: formData.mc_value3 ? parseFloat(formData.mc_value3) : undefined,
         mc_result: mcResult || undefined,
+        free_goods_threshold: formData.free_goods_threshold ? parseFloat(formData.free_goods_threshold) : 100,
+        free_goods_quantity: formData.free_goods_quantity ? parseFloat(formData.free_goods_quantity) : 5,
         is_active: true,
       };
 
@@ -205,6 +211,8 @@ export default function Products() {
       mc_value1: product.mc_value1?.toString() || "",
       mc_value2: product.mc_value2?.toString() || "",
       mc_value3: product.mc_value3?.toString() || "",
+      free_goods_threshold: product.free_goods_threshold?.toString() || "100",
+      free_goods_quantity: product.free_goods_quantity?.toString() || "5",
     });
     setNewProductSku(product.sku);
     setEditMode(true);
@@ -252,6 +260,8 @@ export default function Products() {
       mc_value1: "",
       mc_value2: "",
       mc_value3: "",
+      free_goods_threshold: "100",
+      free_goods_quantity: "5",
     });
     setNewProductSku("");
     setEditMode(false);
@@ -621,6 +631,33 @@ export default function Products() {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="free-threshold">Free goods threshold</Label>
+                  <Input
+                    id="free-threshold"
+                    type="number"
+                    min="0"
+                    value={formData.free_goods_threshold}
+                    onChange={(e) => handleChange("free_goods_threshold", e.target.value)}
+                    placeholder="e.g. 100"
+                  />
+                  <p className="text-xs text-muted-foreground">Orders at or above this quantity earn free goods.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="free-quantity">Free goods quantity</Label>
+                  <Input
+                    id="free-quantity"
+                    type="number"
+                    min="0"
+                    value={formData.free_goods_quantity}
+                    onChange={(e) => handleChange("free_goods_quantity", e.target.value)}
+                    placeholder="e.g. 5"
+                  />
+                  <p className="text-xs text-muted-foreground">Units given free when threshold is reached.</p>
                 </div>
               </div>
 

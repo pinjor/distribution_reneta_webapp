@@ -91,7 +91,7 @@ export default function RoleMaster() {
   });
 
   // Helper to safely get Select value - never return empty string
-  const getSelectValue = (value: string | undefined | null): string | undefined => {
+  const getSelectValue = (value: RoleType | "" | undefined | null): string | undefined => {
     if (!value || value === "" || value === "none") return undefined;
     const strValue = String(value);
     return strValue && strValue !== "" ? strValue : undefined;
@@ -344,11 +344,14 @@ export default function RoleMaster() {
     {
       key: "role_type",
       header: "Role Type",
-      render: (value) => (
-        <Badge variant={getBadgeVariant(value as string)}>
-          {ROLE_LABELS[value as RoleType] || value}
-        </Badge>
-      ),
+      render: (value) => {
+        const variant = getBadgeVariant(value as string);
+        return (
+          <Badge variant={variant || undefined}>
+            {ROLE_LABELS[value as RoleType] || value}
+          </Badge>
+        );
+      },
     },
     {
       key: "name",
@@ -457,7 +460,7 @@ export default function RoleMaster() {
                   </SelectTrigger>
                   <SelectContent>
                     {ROLE_TYPES
-                      .filter((type) => type && type !== "")
+                      .filter((type): type is RoleType => type !== "" && type !== null && type !== undefined)
                       .map((type) => {
                         const safeValue = safeSelectItemValue(type);
                         if (!safeValue) return null;

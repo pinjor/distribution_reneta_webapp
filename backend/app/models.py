@@ -76,6 +76,14 @@ class PriorityEnum(str, enum.Enum):
     MEDIUM = "Medium"
     LOW = "Low"
 
+
+class OrderStatusEnum(str, enum.Enum):
+    DRAFT = "Draft"
+    SUBMITTED = "Submitted"
+    APPROVED = "Approved"
+    PARTIALLY_APPROVED = "Partially Approved"
+
+
 class Customer(Base):
     __tablename__ = "customers"
     
@@ -84,6 +92,8 @@ class Customer(Base):
     code = Column(String(50), unique=True, nullable=False)
     type = Column(String(50), default="Retailer")
     address = Column(Text)
+    ship_to_party = Column(Text)
+    sold_to_party = Column(Text)
     city = Column(String(100))
     state = Column(String(100))
     pincode = Column(String(20))
@@ -133,6 +143,8 @@ class Product(Base):
     hsn_code = Column(String(20))
     unit_of_measure = Column(String(20), default="PCS")
     base_price = Column(Numeric(15, 2), default=0)
+    free_goods_threshold = Column(Numeric(12, 2), default=100)
+    free_goods_quantity = Column(Numeric(12, 2), default=5)
     primary_packaging = Column(String(50))  # Bottle, Blister, Vial, Injection
     product_type_commercial = Column(Boolean, default=False)
     product_type_sample = Column(Boolean, default=False)
@@ -387,6 +399,217 @@ class StockIssuanceItem(Base):
     
     issuance = relationship("StockIssuance", back_populates="items")
     product = relationship("Product")
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String(50), nullable=True)
+    depot_code = Column(String(50), nullable=False)
+    depot_name = Column(String(255), nullable=False)
+    customer_id = Column(String(50), nullable=False)
+    customer_name = Column(String(255), nullable=False)
+    customer_code = Column(String(50), nullable=True)
+    pso_id = Column(String(50), nullable=False)
+    pso_name = Column(String(255), nullable=False)
+    pso_code = Column(String(50), nullable=True)
+    delivery_date = Column(Date, nullable=False)
+    status = Column(Enum(OrderStatusEnum), nullable=False, default=OrderStatusEnum.DRAFT)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"))
+    old_code = Column(String(50), nullable=False)
+    new_code = Column(String(50))
+    product_name = Column(String(255), nullable=False)
+    pack_size = Column(String(100))
+    quantity = Column(Numeric(12, 2), nullable=False)
+    trade_price = Column(Numeric(12, 2), nullable=False, default=0)
+    delivery_date = Column(Date, nullable=False)
+    selected = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    order = relationship("Order", back_populates="items")
+
+
+class ReceiptSourceEnum(str, enum.Enum):
+    FACTORY = "FACTORY"
+    DEPOT = "DEPOT"
+    RETURN = "RETURN"
+
+
+class ProductReceiptStatus(str, enum.Enum):
+    DRAFT = "Draft"
+    APPROVED = "Approved"
+
+
+class ProductReceipt(Base):
+    __tablename__ = "product_receipts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receipt_number = Column(String(50), unique=True, nullable=False)
+    source_type = Column(Enum(ReceiptSourceEnum), nullable=False)
+    target_depot_id = Column(Integer, ForeignKey("depots.id"))
+    to_address = Column(Text)
+    tfa_number = Column(String(50))
+    iso_number = Column(String(50))
+    shipment_mode = Column(String(100))
+    delivery_person = Column(String(100))
+    vehicle_info = Column(String(100))
+    issued_date = Column(Date)
+    vat_number = Column(String(50))
+    remarks = Column(Text)
+    status = Column(Enum(ProductReceiptStatus), default=ProductReceiptStatus.DRAFT)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    depot = relationship("Depot")
+    items = relationship("ProductReceiptItem", back_populates="receipt", cascade="all, delete-orphan")
+
+
+class ProductReceiptItem(Base):
+    __tablename__ = "product_receipt_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receipt_id = Column(Integer, ForeignKey("product_receipts.id", ondelete="CASCADE"))
+    legacy_code = Column(String(50))
+    item_code = Column(String(50))
+    item_name = Column(String(255))
+    pack_size = Column(String(50))
+    uom = Column(String(20))
+    expiry_date = Column(Date)
+    batch_number = Column(String(100))
+    number_of_ifc = Column(Numeric(12, 2), default=0)
+    depot_quantity = Column(Numeric(12, 2), default=0)
+    ifc_per_full_mc = Column(Numeric(12, 2), default=0)
+    number_of_full_mc = Column(Numeric(12, 2), default=0)
+    ifc_in_loose_mc = Column(Numeric(12, 2), default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    receipt = relationship("ProductReceipt", back_populates="items")
+
+
+class DeliveryStatusEnum(str, enum.Enum):
+    DRAFT = "Draft"
+    PACKING = "Packing"
+    LOADING = "Loading"
+    SHIPPED = "Shipped"
+    DELIVERED = "Delivered"
+
+
+class DeliveryOrder(Base):
+    __tablename__ = "delivery_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    delivery_number = Column(String(50), unique=True, nullable=False)
+    ship_to_party = Column(String(255))
+    sold_to_party = Column(String(255))
+    delivery_date = Column(Date, nullable=False)
+    planned_dispatch_time = Column(String(10))
+    vehicle_info = Column(String(100))
+    driver_name = Column(String(100))
+    warehouse_no = Column(String(50))
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    status = Column(Enum(DeliveryStatusEnum), default=DeliveryStatusEnum.DRAFT)
+    remarks = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    order = relationship("Order")
+    vehicle = relationship("Vehicle")
+    driver = relationship("Driver")
+    items = relationship("DeliveryOrderItem", back_populates="delivery", cascade="all, delete-orphan")
+
+
+class DeliveryOrderItem(Base):
+    __tablename__ = "delivery_order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    delivery_id = Column(Integer, ForeignKey("delivery_orders.id", ondelete="CASCADE"))
+    order_item_id = Column(Integer, ForeignKey("order_items.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product_name = Column(String(255), nullable=False)
+    legacy_code = Column(String(50))
+    new_code = Column(String(50))
+    pack_size = Column(String(50))
+    uom = Column(String(20))
+    batch_number = Column(String(100), nullable=False)
+    expiry_date = Column(Date)
+    ordered_quantity = Column(Numeric(10, 2), nullable=False)
+    delivery_quantity = Column(Numeric(10, 2), nullable=False)
+    picked_quantity = Column(Numeric(10, 2), nullable=False)
+    available_stock = Column(Numeric(10, 2), default=0)
+    free_goods_threshold = Column(Numeric(12, 2), default=100)
+    free_goods_quantity = Column(Numeric(12, 2), default=5)
+    free_goods_awarded = Column(Numeric(12, 2), default=0)
+    product_rate = Column(Numeric(12, 2), default=0)
+    trade_amount = Column(Numeric(14, 2), default=0)
+    vat_amount = Column(Numeric(14, 2), default=0)
+    status = Column(String(50), default="Pending")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    delivery = relationship("DeliveryOrder", back_populates="items")
+    order_item = relationship("OrderItem")
+    product = relationship("Product")
+
+
+class PickingOrderStatusEnum(str, enum.Enum):
+    DRAFT = "Draft"
+    APPROVED = "Approved"
+
+
+class PickingOrder(Base):
+    __tablename__ = "picking_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_number = Column(String(50), unique=True, nullable=False)
+    loading_no = Column(String(50))
+    loading_date = Column(Date)
+    area = Column(String(100))
+    delivery_by = Column(String(150))
+    vehicle_no = Column(String(100))
+    remarks = Column(Text)
+    status = Column(String(50), default=PickingOrderStatusEnum.DRAFT.value)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    deliveries = relationship(
+        "PickingOrderDelivery",
+        back_populates="picking_order",
+        cascade="all, delete-orphan",
+    )
+
+
+class PickingOrderDelivery(Base):
+    __tablename__ = "picking_order_deliveries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    picking_order_id = Column(Integer, ForeignKey("picking_orders.id", ondelete="CASCADE"))
+    delivery_id = Column(Integer, ForeignKey("delivery_orders.id", ondelete="SET NULL"))
+    memo_no = Column(String(100))
+    value = Column(Numeric(14, 2), default=0)
+    status = Column(String(50))
+    pso = Column(String(100))
+    remarks = Column(Text)
+    cash = Column(Numeric(14, 2), default=0)
+    dues = Column(Numeric(14, 2), default=0)
+    amend = Column(Numeric(14, 2), default=0)
+    returns = Column(Numeric(14, 2), default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    picking_order = relationship("PickingOrder", back_populates="deliveries")
+    delivery = relationship("DeliveryOrder")
+
 
 class VehicleLoading(Base):
     __tablename__ = "vehicle_loadings"

@@ -1,5 +1,16 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost/api';
 
+const buildQuery = (params?: Record<string, any>): string => {
+  if (!params) return "";
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    searchParams.append(key, String(value));
+  });
+  const queryString = searchParams.toString();
+  return queryString ? `?${queryString}` : "";
+};
+
 class ApiClient {
   private baseUrl: string;
 
@@ -34,15 +45,35 @@ class ApiClient {
       const response = await fetch(url, config);
       if (!response.ok) {
         if (response.status === 401) {
-          // Unauthorized - clear tokens
           localStorage.removeItem("token");
           sessionStorage.removeItem("token");
           localStorage.removeItem("user");
           throw new Error("Authentication required");
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+
+        let message = `Request failed with status ${response.status}`;
+        try {
+          const contentType = response.headers.get("Content-Type") || "";
+          if (contentType.includes("application/json")) {
+            const body = await response.json();
+            message = body?.detail || body?.message || body?.error || message;
+          } else {
+            const text = await response.text();
+            if (text) message = text;
+          }
+        } catch (parseError) {
+          console.warn("Failed to parse error response", parseError);
+        }
+
+        const error = new Error(message);
+        (error as any).status = response.status;
+        throw error;
       }
-      return await response.json();
+      const contentType = response.headers.get("Content-Type") || "";
+      if (contentType.includes("application/json")) {
+        return await response.json();
+      }
+      return await response.text();
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
@@ -174,7 +205,46 @@ export const apiEndpoints = {
     getByEmployee: (employeeId: number) => api.get(`/role-masters/by-employee/${employeeId}`),
     getByType: (roleType: string) => api.get(`/role-masters/by-type/${roleType}`),
   },
-  
+
+  orders: {
+    getAll: () => api.get('/orders'),
+    getById: (id: number | string) => api.get(`/orders/${id}`),
+    create: (data: any) => api.post('/orders', data),
+    update: (id: number | string, data: any) => api.put(`/orders/${id}`, data),
+    submit: (id: number | string) => api.post(`/orders/${id}/submit`, {}),
+    approve: (data: any) => api.post('/orders/approve', data),
+    delete: (id: number | string) => api.delete(`/orders/${id}`),
+  },
+
+  productReceipts: {
+    getAll: (params?: Record<string, any>) => api.get(`/product-receipts${buildQuery(params)}`),
+    getById: (id: number | string) => api.get(`/product-receipts/${id}`),
+    create: (data: any) => api.post('/product-receipts', data),
+    update: (id: number | string, data: any) => api.put(`/product-receipts/${id}`, data),
+    approve: (id: number | string) => api.post(`/product-receipts/${id}/approve`, {}),
+    delete: (id: number | string) => api.delete(`/product-receipts/${id}`),
+    report: (id: number | string) => api.get(`/product-receipts/${id}/report`),
+  },
+
+  deliveryOrders: {
+    getAll: (params?: Record<string, any>) => api.get(`/delivery-orders${buildQuery(params)}`),
+    getById: (id: number | string) => api.get(`/delivery-orders/${id}`),
+    create: (data: any) => api.post('/delivery-orders', data),
+    createFromOrder: (orderId: number | string, params?: Record<string, any>) =>
+      api.post(`/delivery-orders/from-order/${orderId}${buildQuery(params)}`, {}),
+    update: (id: number | string, data: any) => api.put(`/delivery-orders/${id}`, data),
+    delete: (id: number | string) => api.delete(`/delivery-orders/${id}`),
+    track: (orderId: number | string) => api.get(`/delivery-orders/tracking/${orderId}`),
+  },
+
+  pickingOrders: {
+    getAll: () => api.get('/picking-orders'),
+    getById: (id: number | string) => api.get(`/picking-orders/${id}`),
+    create: (data: any) => api.post('/picking-orders', data),
+    approve: (id: number | string) => api.post(`/picking-orders/${id}/approve`, {}),
+    report: (id: number | string) => api.get(`/picking-orders/${id}/report`),
+  },
+
   vehicles: {
     getAll: () => api.get('/vehicles'),
     create: (data: any) => api.post('/vehicles', data),
@@ -187,6 +257,12 @@ export const apiEndpoints = {
   
   routes: {
     getAll: () => api.get('/routes'),
+  },
+
+  masterData: {
+    employees: () => api.get('/employees'),
+    vehicles: () => api.get('/vehicles'),
+    routes: () => api.get('/routes'),
   },
   
   // Stock operations

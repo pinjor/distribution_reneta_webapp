@@ -9,10 +9,10 @@ services:
       POSTGRES_USER: swift_user
       POSTGRES_PASSWORD: swift_password
     ports:
-      - "5432:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      #- ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - swift_network
     healthcheck:

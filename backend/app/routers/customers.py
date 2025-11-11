@@ -68,7 +68,10 @@ def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
         # Check if provided code already exists
         if db.query(Customer).filter(Customer.code == customer_data["code"]).first():
             raise HTTPException(status_code=400, detail=f"Customer with code {customer_data['code']} already exists")
-    
+
+    if not customer_data.get("sold_to_party"):
+        customer_data["sold_to_party"] = customer_data.get("address")
+
     db_customer = Customer(**customer_data)
     db.add(db_customer)
     db.commit()
@@ -93,6 +96,10 @@ def update_customer(customer_id: int, customer: CustomerCreate, db: Session = De
     # Update customer fields
     for key, value in customer_data.items():
         setattr(db_customer, key, value)
+
+    if "address" in customer_data and "sold_to_party" not in customer_data:
+        if not db_customer.sold_to_party or db_customer.sold_to_party == db_customer.address:
+            db_customer.sold_to_party = db_customer.address
     
     db.commit()
     db.refresh(db_customer)

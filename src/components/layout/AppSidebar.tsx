@@ -27,6 +27,8 @@ import {
   TruckIcon,
   Ruler,
   DollarSign,
+  PackageCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -80,6 +82,28 @@ const menuItems = [
       { title: "Drivers", icon: Users, path: "/distribution/drivers" },
       { title: "Route Planning", icon: MapPin, path: "/distribution/routes" },
       { title: "Reconciliation", icon: GitCompare, path: "/distribution/reconciliation" },
+    ],
+  },
+  {
+    title: "Receive Product",
+    icon: Package2,
+    subItems: [
+      { title: "Receive from Factory", icon: PlusCircle, path: "/receive/factory" },
+      { title: "Receive from Depot", icon: PackagePlus, path: "/receive/depot" },
+      { title: "Stock Return Receive", icon: PackageMinus, path: "/receive/return" },
+      { title: "All Receipts", icon: ClipboardList, path: "/receive/list" },
+    ],
+  },
+  {
+    title: "Order Management",
+    icon: ClipboardList,
+    subItems: [
+      { title: "Order", icon: PlusCircle, path: "/orders/new" },
+      { title: "Order List", icon: List, path: "/orders" },
+      { title: "Delivery Orders", icon: TruckIcon, path: "/orders/delivery" },
+      { title: "Packing", icon: PackageCheck, path: "/orders/packing" },
+      { title: "Picking", icon: ClipboardCheck, path: "/orders/picking" },
+      { title: "Order Tracking", icon: MapPinned, path: "/orders/tracking" },
     ],
   },
   {

@@ -22,6 +22,8 @@ interface Customer {
   phone: string;
   address?: string;
   city?: string;
+  shipToParty?: string;
+  soldToParty?: string;
   priority?: string;
   deliveryStatus?: string;
   creditStatus?: string;
@@ -47,6 +49,7 @@ export default function Customers() {
   const [creditCash, setCreditCash] = useState(false);
   const [creditCredit, setCreditCredit] = useState(true);
   const [paymentDays, setPaymentDays] = useState<string>("");
+  const [soldToEditedManually, setSoldToEditedManually] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -55,6 +58,8 @@ export default function Customers() {
     phone: "",
     address: "",
     city: "",
+    shipToParty: "",
+    soldToParty: "",
   });
   
   const [customerType, setCustomerType] = useState({
@@ -64,20 +69,27 @@ export default function Customers() {
     hospital: false,
     others: false,
   });
-  const [customers, setCustomers] = useState<Customer[]>([
-    { id: "1", code: "CUST-0001", name: "Global Retail Inc", company: "Retail", email: "orders@globalretail.com", phone: "+1 555-1001", address: "123 Main Street", city: "New York", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
-    { id: "2", code: "CUST-0002", name: "Premium Foods Co", company: "Food & Beverage", email: "supply@premiumfoods.com", phone: "+1 555-1002", address: "456 Commerce Ave", city: "Los Angeles", priority: "Medium", deliveryStatus: "Open", creditStatus: "Cash" },
-    { id: "3", code: "CUST-0003", name: "Tech Solutions Ltd", company: "Technology", email: "logistics@techsol.com", phone: "+1 555-1003", address: "789 Tech Park", city: "San Francisco", priority: "High", deliveryStatus: "Block", creditStatus: "Credit" },
-    { id: "4", code: "CUST-0004", name: "Manufacturing Plus", company: "Manufacturing", email: "contact@mfgplus.com", phone: "+1 555-1004", address: "321 Industrial Blvd", city: "Chicago", priority: "Low", deliveryStatus: "Open", creditStatus: "Credit" },
-    { id: "5", code: "CUST-0005", name: "Retail World Corp", company: "Retail", email: "info@retailworld.com", phone: "+1 555-1005", address: "654 Shopping Center", city: "Miami", priority: "Medium", deliveryStatus: "Open", creditStatus: "Cash" },
-    { id: "6", code: "CUST-0006", name: "Supply Chain Pro", company: "Logistics", email: "contact@supplypro.com", phone: "+1 555-1006", address: "987 Warehouse Rd", city: "Dallas", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
-    { id: "7", code: "CUST-0007", name: "Consumer Goods Inc", company: "Consumer", email: "sales@consumergoods.com", phone: "+1 555-1007", address: "147 Market St", city: "Boston", priority: "Medium", deliveryStatus: "Block", creditStatus: "Credit" },
-    { id: "8", code: "CUST-0008", name: "Distribution Hub", company: "Distribution", email: "info@disthub.com", phone: "+1 555-1008", address: "258 Distribution Way", city: "Seattle", priority: "Low", deliveryStatus: "Open", creditStatus: "Cash" },
-    { id: "9", code: "CUST-0009", name: "Trade Partners Ltd", company: "Trading", email: "contact@tradepartners.com", phone: "+1 555-1009", address: "369 Trade Center", city: "Houston", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
-    { id: "10", code: "CUST-0010", name: "Merchant Solutions", company: "Merchant", email: "info@merchantsol.com", phone: "+1 555-1010", address: "741 Business Park", city: "Atlanta", priority: "Medium", deliveryStatus: "Open", creditStatus: "Credit" },
-    { id: "11", code: "CUST-0011", name: "Wholesale Express", company: "Wholesale", email: "sales@wholesaleexp.com", phone: "+1 555-1011", address: "852 Wholesale Ave", city: "Phoenix", priority: "High", deliveryStatus: "Block", creditStatus: "Cash" },
-    { id: "12", code: "CUST-0012", name: "Bulk Distributors", company: "Bulk", email: "contact@bulkdist.com", phone: "+1 555-1012", address: "963 Bulk Center", city: "Detroit", priority: "Low", deliveryStatus: "Open", creditStatus: "Credit" },
-  ]);
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    const base: Customer[] = [
+      { id: "1", code: "CUST-0001", name: "Global Retail Inc", company: "Retail", email: "orders@globalretail.com", phone: "+1 555-1001", address: "123 Main Street", city: "New York", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
+      { id: "2", code: "CUST-0002", name: "Premium Foods Co", company: "Food & Beverage", email: "supply@premiumfoods.com", phone: "+1 555-1002", address: "456 Commerce Ave", city: "Los Angeles", priority: "Medium", deliveryStatus: "Open", creditStatus: "Cash" },
+      { id: "3", code: "CUST-0003", name: "Tech Solutions Ltd", company: "Technology", email: "logistics@techsol.com", phone: "+1 555-1003", address: "789 Tech Park", city: "San Francisco", priority: "High", deliveryStatus: "Block", creditStatus: "Credit" },
+      { id: "4", code: "CUST-0004", name: "Manufacturing Plus", company: "Manufacturing", email: "contact@mfgplus.com", phone: "+1 555-1004", address: "321 Industrial Blvd", city: "Chicago", priority: "Low", deliveryStatus: "Open", creditStatus: "Credit" },
+      { id: "5", code: "CUST-0005", name: "Retail World Corp", company: "Retail", email: "info@retailworld.com", phone: "+1 555-1005", address: "654 Shopping Center", city: "Miami", priority: "Medium", deliveryStatus: "Open", creditStatus: "Cash" },
+      { id: "6", code: "CUST-0006", name: "Supply Chain Pro", company: "Logistics", email: "contact@supplypro.com", phone: "+1 555-1006", address: "987 Warehouse Rd", city: "Dallas", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
+      { id: "7", code: "CUST-0007", name: "Consumer Goods Inc", company: "Consumer", email: "sales@consumergoods.com", phone: "+1 555-1007", address: "147 Market St", city: "Boston", priority: "Medium", deliveryStatus: "Block", creditStatus: "Credit" },
+      { id: "8", code: "CUST-0008", name: "Distribution Hub", company: "Distribution", email: "info@disthub.com", phone: "+1 555-1008", address: "258 Distribution Way", city: "Seattle", priority: "Low", deliveryStatus: "Open", creditStatus: "Cash" },
+      { id: "9", code: "CUST-0009", name: "Trade Partners Ltd", company: "Trading", email: "contact@tradepartners.com", phone: "+1 555-1009", address: "369 Trade Center", city: "Houston", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
+      { id: "10", code: "CUST-0010", name: "Merchant Solutions", company: "Merchant", email: "info@merchantsol.com", phone: "+1 555-1010", address: "741 Business Park", city: "Atlanta", priority: "Medium", deliveryStatus: "Open", creditStatus: "Credit" },
+      { id: "11", code: "CUST-0011", name: "Wholesale Express", company: "Wholesale", email: "sales@wholesaleexp.com", phone: "+1 555-1011", address: "852 Wholesale Ave", city: "Phoenix", priority: "High", deliveryStatus: "Block", creditStatus: "Cash" },
+      { id: "12", code: "CUST-0012", name: "Bulk Distributors", company: "Bulk", email: "contact@bulkdist.com", phone: "+1 555-1012", address: "963 Bulk Center", city: "Detroit", priority: "Low", deliveryStatus: "Open", creditStatus: "Credit" },
+    ];
+    return base.map((customer) => ({
+      ...customer,
+      shipToParty: customer.address,
+      soldToParty: customer.address,
+    }));
+  });
 
   useEffect(() => {
     document.title = "Customers | App";
@@ -103,6 +115,8 @@ export default function Customers() {
               phone: formData.phone,
               address: formData.address,
               city: formData.city,
+              shipToParty: formData.shipToParty,
+              soldToParty: formData.soldToParty || formData.address,
               priority: priority,
               deliveryStatus: deliveryStatus,
               creditStatus: creditStatus,
@@ -126,6 +140,8 @@ export default function Customers() {
         phone: formData.phone,
         address: formData.address,
         city: formData.city,
+        shipToParty: formData.shipToParty,
+        soldToParty: formData.soldToParty || formData.address,
         priority: priority,
         deliveryStatus: deliveryStatus,
         creditStatus: creditStatus,
@@ -140,7 +156,23 @@ export default function Customers() {
     }
     resetForm();
   };
-  
+
+  const handleAddressChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      address: value,
+      soldToParty: soldToEditedManually ? prev.soldToParty : value,
+    }));
+  };
+
+  const handleSoldToChange = (value: string) => {
+    setSoldToEditedManually(true);
+    setFormData(prev => ({
+      ...prev,
+      soldToParty: value,
+    }));
+  };
+
   // Generate code when form opens for new customer
   useEffect(() => {
     if (showAddForm && !editMode) {
@@ -158,6 +190,8 @@ export default function Customers() {
       phone: customer.phone,
       address: customer.address || "",
       city: customer.city || "",
+      shipToParty: customer.shipToParty || "",
+      soldToParty: customer.soldToParty || customer.address || "",
     });
     setPriority(customer.priority || "Medium");
     setDeliveryBlock(customer.deliveryStatus === "Block");
@@ -165,6 +199,9 @@ export default function Customers() {
     setCreditCash(customer.creditStatus === "Cash");
     setCreditCredit(customer.creditStatus === "Credit");
     setPaymentDays(customer.paymentDays?.toString() || "");
+    setSoldToEditedManually(
+      !!customer.soldToParty && customer.soldToParty !== customer.address
+    );
     setCustomerType(customer.customerType || {
       chemistShop: false,
       institution: false,
@@ -188,6 +225,8 @@ export default function Customers() {
       phone: "",
       address: "",
       city: "",
+      shipToParty: "",
+      soldToParty: "",
     });
     setPriority("Medium");
     setDeliveryBlock(false);
@@ -206,6 +245,7 @@ export default function Customers() {
     setSelectedCustomer(null);
     setNewCustomerCode("");
     setShowAddForm(false);
+    setSoldToEditedManually(false);
   };
 
   const handleDelete = (customer: Customer) => {
@@ -244,6 +284,20 @@ export default function Customers() {
           <Phone className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm">{customer.phone}</span>
         </div>
+      ),
+    },
+    {
+      key: "shipToParty",
+      header: "Ship To",
+      render: (_, customer) => (
+        <span className="text-xs text-muted-foreground">{customer.shipToParty || "—"}</span>
+      ),
+    },
+    {
+      key: "soldToParty",
+      header: "Sold To",
+      render: (_, customer) => (
+        <span className="text-xs text-muted-foreground">{customer.soldToParty || customer.address || "—"}</span>
       ),
     },
     {
@@ -459,8 +513,30 @@ export default function Customers() {
                     id="cust-address" 
                     placeholder="123 Main Street" 
                     value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                    onChange={(e) => handleAddressChange(e.target.value)}
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cust-ship-to">Ship to party</Label>
+                  <Input
+                    id="cust-ship-to"
+                    placeholder="Warehouse / Delivery address"
+                    value={formData.shipToParty}
+                    onChange={(e) => setFormData(prev => ({ ...prev, shipToParty: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cust-sold-to">Sold to party</Label>
+                  <Input
+                    id="cust-sold-to"
+                    placeholder="Defaults to customer address"
+                    value={formData.soldToParty}
+                    onChange={(e) => handleSoldToChange(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Auto-filled from address; you can override if billing differs.</p>
                 </div>
               </div>
 

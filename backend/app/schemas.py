@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
 from decimal import Decimal
 from datetime import date, datetime
-from app.models import RoleTypeEnum
+from app.models import RoleTypeEnum, OrderStatusEnum, ReceiptSourceEnum, ProductReceiptStatus, DeliveryStatusEnum
 
 # Authentication schemas
 class LoginRequest(BaseModel):
@@ -135,6 +135,8 @@ class CustomerBase(BaseModel):
     code: Optional[str] = None  # Auto-generated if not provided
     type: str = "Retailer"
     address: Optional[str] = None
+    ship_to_party: Optional[str] = None
+    sold_to_party: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
@@ -196,8 +198,10 @@ class ProductBase(BaseModel):
     business_unit: Optional[str] = None  # Pharma, Purnava, Animal health
     category: Optional[str] = None
     hsn_code: Optional[str] = None
-    unit_of_measure: str = "PCS"
-    base_price: Decimal = 0
+    unit_of_measure: Optional[str] = None
+    base_price: Decimal = Decimal("0")
+    free_goods_threshold: Decimal = Decimal("100")
+    free_goods_quantity: Decimal = Decimal("5")
     primary_packaging: Optional[str] = None
     product_type_commercial: bool = False
     product_type_sample: bool = False
@@ -396,3 +400,325 @@ class StockLedger(StockLedgerBase):
     class Config:
         from_attributes = True
 
+
+# Order schemas
+class OrderItemBase(BaseModel):
+    old_code: str
+    new_code: Optional[str] = None
+    product_name: str
+    pack_size: Optional[str] = None
+    quantity: Decimal
+    trade_price: Decimal = 0
+    delivery_date: date
+    selected: bool = True
+
+
+class OrderItemCreate(OrderItemBase):
+    id: Optional[int] = None
+
+
+class OrderItem(OrderItemBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrderBase(BaseModel):
+    depot_code: str
+    depot_name: str
+    customer_id: str
+    customer_name: str
+    customer_code: Optional[str] = None
+    pso_id: str
+    pso_name: str
+    pso_code: Optional[str] = None
+    delivery_date: date
+    notes: Optional[str] = None
+
+
+class OrderCreate(OrderBase):
+    items: List[OrderItemCreate]
+    status: Optional[OrderStatusEnum] = None
+
+
+class OrderUpdate(BaseModel):
+    depot_code: Optional[str] = None
+    depot_name: Optional[str] = None
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_code: Optional[str] = None
+    pso_id: Optional[str] = None
+    pso_name: Optional[str] = None
+    pso_code: Optional[str] = None
+    delivery_date: Optional[date] = None
+    notes: Optional[str] = None
+    status: Optional[OrderStatusEnum] = None
+    items: Optional[List[OrderItemCreate]] = None
+
+
+class Order(OrderBase):
+    id: int
+    order_number: Optional[str] = None
+    status: OrderStatusEnum
+    created_at: datetime
+    updated_at: datetime
+    items: List[OrderItem]
+
+    class Config:
+        from_attributes = True
+
+
+class OrderApprovalRequest(BaseModel):
+    order_ids: List[int]
+    order_number: Optional[str] = None
+
+
+class OrderApprovalResponse(BaseModel):
+    order_number: str
+    orders: List[Order]
+
+
+# Product receipt schemas
+class ProductReceiptItemBase(BaseModel):
+    legacy_code: Optional[str] = None
+    item_code: Optional[str] = None
+    item_name: str
+    pack_size: Optional[str] = None
+    uom: Optional[str] = None
+    expiry_date: Optional[date] = None
+    batch_number: Optional[str] = None
+    number_of_ifc: Decimal = Decimal("0")
+    depot_quantity: Decimal = Decimal("0")
+    ifc_per_full_mc: Decimal = Decimal("0")
+    number_of_full_mc: Decimal = Decimal("0")
+    ifc_in_loose_mc: Decimal = Decimal("0")
+
+
+class ProductReceiptItemCreate(ProductReceiptItemBase):
+    id: Optional[int] = None
+
+
+class ProductReceiptItem(ProductReceiptItemBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProductReceiptBase(BaseModel):
+    receipt_number: Optional[str] = None
+    source_type: ReceiptSourceEnum
+    target_depot_id: Optional[int] = None
+    to_address: Optional[str] = None
+    tfa_number: Optional[str] = None
+    iso_number: Optional[str] = None
+    shipment_mode: Optional[str] = None
+    delivery_person: Optional[str] = None
+    vehicle_info: Optional[str] = None
+    issued_date: Optional[date] = None
+    vat_number: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class ProductReceiptCreate(ProductReceiptBase):
+    items: List[ProductReceiptItemCreate]
+
+
+class ProductReceiptUpdate(BaseModel):
+    source_type: Optional[ReceiptSourceEnum] = None
+    target_depot_id: Optional[int] = None
+    to_address: Optional[str] = None
+    tfa_number: Optional[str] = None
+    iso_number: Optional[str] = None
+    shipment_mode: Optional[str] = None
+    delivery_person: Optional[str] = None
+    vehicle_info: Optional[str] = None
+    issued_date: Optional[date] = None
+    vat_number: Optional[str] = None
+    remarks: Optional[str] = None
+    items: Optional[List[ProductReceiptItemCreate]] = None
+
+
+class ProductReceipt(ProductReceiptBase):
+    id: int
+    receipt_number: str
+    status: ProductReceiptStatus
+    created_at: datetime
+    updated_at: datetime
+    items: List[ProductReceiptItem]
+
+    class Config:
+        from_attributes = True
+
+
+class ProductReceiptListResponse(BaseModel):
+    data: List[ProductReceipt]
+    total: int
+
+
+class ProductReceiptApprovalResponse(BaseModel):
+    id: int
+    receipt_number: str
+    status: ProductReceiptStatus
+    approved_at: datetime
+
+
+# Delivery order schemas
+class DeliveryOrderItemBase(BaseModel):
+    order_item_id: int
+    product_id: int
+    product_name: str
+    legacy_code: Optional[str] = None
+    new_code: Optional[str] = None
+    pack_size: Optional[str] = None
+    uom: Optional[str] = None
+    batch_number: str
+    expiry_date: Optional[date] = None
+    ordered_quantity: Decimal
+    delivery_quantity: Decimal
+    picked_quantity: Decimal
+    available_stock: Decimal = Decimal("0")
+    status: Optional[str] = "Pending"
+    free_goods_threshold: Optional[Decimal] = None
+    free_goods_quantity: Optional[Decimal] = None
+    free_goods_awarded: Optional[Decimal] = None
+    product_rate: Optional[Decimal] = None
+    trade_amount: Optional[Decimal] = None
+    vat_amount: Optional[Decimal] = None
+
+
+class DeliveryOrderItemCreate(DeliveryOrderItemBase):
+    pass
+
+
+class DeliveryOrderItem(DeliveryOrderItemBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DeliveryOrderBase(BaseModel):
+    order_id: int
+    delivery_number: Optional[str] = None
+    ship_to_party: Optional[str] = None
+    sold_to_party: Optional[str] = None
+    delivery_date: date
+    planned_dispatch_time: Optional[str] = None
+    vehicle_info: Optional[str] = None
+    driver_name: Optional[str] = None
+    warehouse_no: Optional[str] = None
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    status: DeliveryStatusEnum = DeliveryStatusEnum.DRAFT
+    remarks: Optional[str] = None
+
+
+class DeliveryOrderCreate(DeliveryOrderBase):
+    items: List[DeliveryOrderItemCreate] = []
+
+
+class DeliveryOrderUpdate(BaseModel):
+    ship_to_party: Optional[str] = None
+    sold_to_party: Optional[str] = None
+    delivery_date: Optional[date] = None
+    planned_dispatch_time: Optional[str] = None
+    vehicle_info: Optional[str] = None
+    driver_name: Optional[str] = None
+    warehouse_no: Optional[str] = None
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    status: Optional[DeliveryStatusEnum] = None
+    remarks: Optional[str] = None
+    items: Optional[List[DeliveryOrderItemCreate]] = None
+
+
+class DeliveryOrder(DeliveryOrderBase):
+    id: int
+    status: DeliveryStatusEnum
+    created_at: datetime
+    updated_at: datetime
+    items: List[DeliveryOrderItem]
+
+    class Config:
+        from_attributes = True
+
+
+class DeliveryOrderListResponse(BaseModel):
+    data: List[DeliveryOrder]
+    total: int
+
+
+class PickingOrderDeliveryBase(BaseModel):
+    delivery_id: int
+    memo_no: Optional[str] = None
+    value: Optional[Decimal] = None
+    status: Optional[str] = None
+    pso: Optional[str] = None
+    remarks: Optional[str] = None
+    cash: Optional[Decimal] = None
+    dues: Optional[Decimal] = None
+    amend: Optional[Decimal] = None
+    returns: Optional[Decimal] = None
+
+
+class PickingOrderDeliveryCreate(PickingOrderDeliveryBase):
+    pass
+
+
+class PickingOrderDelivery(PickingOrderDeliveryBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PickingOrderBase(BaseModel):
+    order_number: Optional[str] = None
+    loading_no: Optional[str] = None
+    loading_date: Optional[date] = None
+    area: Optional[str] = None
+    delivery_by: Optional[str] = None
+    vehicle_no: Optional[str] = None
+    remarks: Optional[str] = None
+    status: Optional[str] = "Draft"
+
+
+class PickingOrderCreate(PickingOrderBase):
+    deliveries: List[PickingOrderDeliveryCreate]
+
+
+class PickingOrder(PickingOrderBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    deliveries: List[PickingOrderDelivery]
+
+    class Config:
+        from_attributes = True
+
+
+class PickingOrderListResponse(BaseModel):
+    data: List[PickingOrder]
+    total: int
+
+
+class DeliveryProgressNode(BaseModel):
+    key: str
+    label: str
+    status: str
+    timestamp: Optional[datetime] = None
+
+
+class DeliveryTrackingResponse(BaseModel):
+    order_id: int
+    order_number: Optional[str]
+    delivery_number: Optional[str]
+    current_status: DeliveryStatusEnum
+    steps: List[DeliveryProgressNode]
+ 

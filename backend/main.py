@@ -7,8 +7,8 @@ from app.database import engine, Base
 from app.routers import (
     auth, companies, depots, employees, customers, vendors,
     products, materials, shipping_points, uoms, primary_packagings, price_setups,
-    role_masters,
-    vehicles, drivers, routes,
+    role_masters, orders, product_receipts, delivery_orders,
+    vehicles, drivers, routes, picking_orders,
     stock_receipt, stock_issuance, vehicle_loading,
     stock_adjustment, stock_maintenance,
     dashboard, analytics, billing
@@ -59,6 +59,10 @@ app.include_router(uoms.router, prefix="/api/uoms", tags=["UOMs"])
 app.include_router(primary_packagings.router, prefix="/api/primary-packagings", tags=["Primary Packagings"])
 app.include_router(price_setups.router, prefix="/api/price-setups", tags=["Price Setups"])
 app.include_router(role_masters.router, prefix="/api/role-masters", tags=["Role Masters"])
+app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
+app.include_router(product_receipts.router, prefix="/api/product-receipts", tags=["Product Receipts"])
+app.include_router(delivery_orders.router, prefix="/api/delivery-orders", tags=["Delivery Orders"])
+app.include_router(picking_orders.router, prefix="/api/picking-orders", tags=["Picking Orders"])
 app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"])
 app.include_router(drivers.router, prefix="/api/drivers", tags=["Drivers"])
 app.include_router(routes.router, prefix="/api/routes", tags=["Routes"])

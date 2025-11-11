@@ -1,287 +1,318 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { MapPinned, ArrowLeft, Navigation } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapPinned, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
-import { generateCode } from "@/utils/codeGenerator";
-import { getBadgeVariant } from "@/utils/badgeColors";
 
-interface ShippingPoint {
+interface DepotRoute {
   id: string;
+  depotCode: string;
+  depotName: string;
+  routeCode: string;
+  routeName: string;
+}
+
+interface DepotOption {
   code: string;
   name: string;
-  address: string;
-  city: string;
-  zone: string;
-  capacity: string;
-  status: "active" | "inactive" | "maintenance";
 }
+
+const DEPOT_STORAGE_KEY = "depotMasterData";
+
+const defaultDepotOptions: DepotOption[] = [
+  { code: "120", name: "Kushtia Depot" },
+  { code: "107", name: "Khulna Depot" },
+];
+
+const initialRoutes: DepotRoute[] = [
+  { id: "20045", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20045", routeName: "Vangura - 2" },
+  { id: "20046", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20046", routeName: "Rajbari - 1" },
+  { id: "20047", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20047", routeName: "Rajbari - 2" },
+  { id: "20048", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20048", routeName: "Pangsha - 1" },
+  { id: "20049", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20049", routeName: "Pangsha - 2" },
+  { id: "20050", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20050", routeName: "Baliakandi" },
+  { id: "07001", depotCode: "107", depotName: "Khulna Depot", routeCode: "07001", routeName: "Heraj Market" },
+  { id: "07002", depotCode: "107", depotName: "Khulna Depot", routeCode: "07002", routeName: "Moylapota" },
+  { id: "07003", depotCode: "107", depotName: "Khulna Depot", routeCode: "07003", routeName: "Gollamari Sachibunia" },
+  { id: "07004", depotCode: "107", depotName: "Khulna Depot", routeCode: "07004", routeName: "Shishu Hospital+ Rupsha" },
+  { id: "07005", depotCode: "107", depotName: "Khulna Depot", routeCode: "07005", routeName: "Shantidham" },
+  { id: "07006", depotCode: "107", depotName: "Khulna Depot", routeCode: "07006", routeName: "KMCH" },
+];
 
 export default function ShippingPoints() {
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [selectedPoint, setSelectedPoint] = useState<ShippingPoint | null>(null);
-  const [newPointCode, setNewPointCode] = useState<string>("");
-  const [shippingPoints, setShippingPoints] = useState<ShippingPoint[]>([
-    { id: "1", code: "SP-0001", name: "Downtown Hub", address: "500 Main St", city: "New York, NY", zone: "Zone A", capacity: "200 orders/day", status: "active" },
-    { id: "2", code: "SP-0002", name: "Airport Terminal", address: "Terminal 2, Gate 5", city: "Newark, NJ", zone: "Zone B", capacity: "150 orders/day", status: "active" },
-    { id: "3", code: "SP-0003", name: "Port Facility", address: "Port 12, Dock 8", city: "Jersey City, NJ", zone: "Zone C", capacity: "300 orders/day", status: "maintenance" },
-    { id: "4", code: "SP-0004", name: "Suburban Center", address: "45 Commerce Blvd", city: "Stamford, CT", zone: "Zone D", capacity: "100 orders/day", status: "active" },
-  ]);
-
+  const [selectedRoute, setSelectedRoute] = useState<DepotRoute | null>(null);
+  const [routes, setRoutes] = useState<DepotRoute[]>(initialRoutes);
+  const [depotOptions, setDepotOptions] = useState<DepotOption[]>(() => {
+    if (typeof window === "undefined") {
+      return defaultDepotOptions;
+    }
+    try {
+      const stored = window.localStorage.getItem(DEPOT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Array<{ code?: string; name?: string }>;
+        if (Array.isArray(parsed)) {
+          const mapped = parsed
+            .filter((item) => item?.code && item?.name)
+            .map((item) => ({ code: String(item.code), name: String(item.name) }));
+          if (mapped.length > 0) {
+            return mapped;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to parse depot options", error);
+    }
+    return defaultDepotOptions;
+  });
   const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    city: "",
-    zone: "",
-    capacity: "",
+    depotCode: "",
+    routeCode: "",
+    routeName: "",
   });
 
   useEffect(() => {
-    document.title = "Shipping Points | App";
+    document.title = "Shipping Routes | App";
   }, []);
 
-  const generatePointCode = (): string => {
-    const existingCodes = shippingPoints.map(p => p.code);
-    return generateCode("SP", existingCodes);
+  const refreshDepotOptions = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(DEPOT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Array<{ code?: string; name?: string }>;
+        if (Array.isArray(parsed)) {
+          const mapped = parsed
+            .filter((item) => item?.code && item?.name)
+            .map((item) => ({ code: String(item.code), name: String(item.name) }));
+          if (mapped.length > 0) {
+            setDepotOptions(mapped);
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to refresh depot options", error);
+    }
+    setDepotOptions(defaultDepotOptions);
+  }, []);
+
+  useEffect(() => {
+    refreshDepotOptions();
+    if (typeof window === "undefined") return;
+    window.addEventListener("depot-data-updated", refreshDepotOptions);
+    window.addEventListener("storage", refreshDepotOptions);
+    return () => {
+      window.removeEventListener("depot-data-updated", refreshDepotOptions);
+      window.removeEventListener("storage", refreshDepotOptions);
+    };
+  }, [refreshDepotOptions]);
+
+  const resetForm = () => {
+    setFormData({ depotCode: "", routeCode: "", routeName: "" });
+    setSelectedRoute(null);
+    setEditMode(false);
+    setShowAddForm(false);
   };
 
-  // Generate code when form opens for new point
-  useEffect(() => {
-    if (showAddForm && !editMode) {
-      setNewPointCode(generatePointCode());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAddForm, editMode]);
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleAdd = () => {
-    if (editMode && selectedPoint) {
-      setShippingPoints(prev => prev.map(p => 
-        p.id === selectedPoint.id 
-          ? { 
-              ...p, 
-              name: formData.name,
-              address: formData.address,
-              city: formData.city,
-              zone: formData.zone,
-              capacity: formData.capacity,
-            }
-          : p
-      ));
+    if (!formData.depotCode || !formData.routeCode || !formData.routeName) {
       toast({
-        title: "Shipping point updated",
-        description: "Shipping point information has been updated successfully.",
+        title: "Missing information",
+        description: "Please provide depot, route code, and route name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const depotInfo = depotOptions.find((option) => option.code === formData.depotCode);
+    if (!depotInfo) {
+      toast({
+        title: "Invalid depot",
+        description: "Please select a valid depot.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editMode && selectedRoute) {
+      setRoutes((prev) =>
+        prev.map((route) =>
+          route.id === selectedRoute.id
+            ? {
+                ...route,
+                depotCode: depotInfo.code,
+                depotName: depotInfo.name,
+                routeCode: formData.routeCode,
+                routeName: formData.routeName,
+              }
+            : route,
+        ),
+      );
+      toast({
+        title: "Route updated",
+        description: "Depot route information has been updated successfully.",
       });
     } else {
-      const newCode = generatePointCode();
-      const newPoint: ShippingPoint = {
-        id: Date.now().toString(),
-        code: newCode,
-        name: formData.name,
-        address: formData.address,
-        city: formData.city,
-        zone: formData.zone,
-        capacity: formData.capacity,
-        status: "active",
+      const exists = routes.some((route) => route.routeCode === formData.routeCode);
+      if (exists) {
+        toast({
+          title: "Duplicate route code",
+          description: "This route code already exists. Please use a different code.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const newRoute: DepotRoute = {
+        id: formData.routeCode,
+        depotCode: depotInfo.code,
+        depotName: depotInfo.name,
+        routeCode: formData.routeCode,
+        routeName: formData.routeName,
       };
-      setShippingPoints(prev => [...prev, newPoint]);
+
+      setRoutes((prev) => [...prev, newRoute]);
       toast({
-        title: "Shipping point added",
-        description: `New location created with code ${newCode}.`,
+        title: "Route added",
+        description: `New route ${newRoute.routeCode} - ${newRoute.routeName} created for ${depotInfo.name}.`,
       });
     }
+
     resetForm();
   };
 
-  const handleEdit = (point: ShippingPoint) => {
-    setSelectedPoint(point);
+  const handleEdit = (route: DepotRoute) => {
+    setSelectedRoute(route);
     setFormData({
-      name: point.name,
-      address: point.address,
-      city: point.city,
-      zone: point.zone,
-      capacity: point.capacity,
+      depotCode: route.depotCode,
+      routeCode: route.routeCode,
+      routeName: route.routeName,
     });
     setEditMode(true);
     setShowAddForm(true);
   };
 
-  const handleDelete = (point: ShippingPoint) => {
-    setShippingPoints(prev => prev.filter(p => p.id !== point.id));
+  const handleDelete = (route: DepotRoute) => {
+    setRoutes((prev) => prev.filter((item) => item.id !== route.id));
     toast({
-      title: "Shipping point deleted",
-      description: "The location has been removed.",
+      title: "Route deleted",
+      description: "The depot route has been removed.",
       variant: "destructive",
     });
   };
 
-  const handleCancel = () => {
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      address: "",
-      city: "",
-      zone: "",
-      capacity: "",
-    });
-    setNewPointCode("");
-    setEditMode(false);
-    setSelectedPoint(null);
-    setShowAddForm(false);
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Define table columns
-  const columns: ColumnDef<ShippingPoint>[] = [
+  const columns: ColumnDef<DepotRoute>[] = [
     {
-      key: "name",
-      header: "Name",
-      render: (_, point) => (
-        <span className="font-medium">{point.name}</span>
-      ),
+      key: "depotName",
+      header: "Depot Name",
+      render: (_, route) => <span className="font-medium">{`${route.depotCode} - ${route.depotName}`}</span>,
     },
     {
-      key: "address",
-      header: "Location",
-      render: (_, point) => (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm">
-            <Navigation className="h-3 w-3 text-muted-foreground" />
-            {point.address}
-          </div>
-          <div className="text-sm text-muted-foreground">{point.city}</div>
-        </div>
-      ),
+      key: "routeCode",
+      header: "Route Code",
     },
     {
-      key: "zone",
-      header: "Zone",
-      render: (value) => (
-        <Badge variant="outline" className="text-xs">
-          {String(value)}
-        </Badge>
-      ),
+      key: "routeName",
+      header: "Route Name",
     },
     {
-      key: "capacity",
-      header: "Capacity",
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (value) => (
-        <Badge variant={getBadgeVariant(value)}>
-          {String(value)}
-        </Badge>
-      ),
+      key: "completeRouteName",
+      header: "Complete Route Name",
+      render: (_, route) => <span>{`${route.routeCode} - ${route.routeName}`}</span>,
     },
   ];
 
-  // Show form page if showAddForm is true
   if (showAddForm) {
+    const depotPreview = depotOptions.find((option) => option.code === formData.depotCode);
+
     return (
       <main className="p-6">
         <header className="mb-6">
           <div className="flex items-center gap-3 mb-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancel}
-              className="gap-2"
-            >
+            <Button variant="ghost" size="sm" onClick={resetForm} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
             <MapPinned className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Shipping Point" : "Add Shipping Point"}
+              {editMode ? "Edit Shipping Route" : "Add Shipping Route"}
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            {editMode ? "Update shipping point information" : "Create a new distribution or delivery location"}
+            {editMode ? "Update depot aligned shipping route information" : "Create a new route for the selected depot"}
           </p>
         </header>
 
         <Card className="card-elevated">
           <CardContent className="p-6">
-            <div className="space-y-6 max-w-4xl">
-              {/* Code Field - Auto-generated */}
+            <div className="space-y-6 max-w-3xl">
               <div className="space-y-2">
-                <Label htmlFor="code">Point Code *</Label>
-                <Input
-                  id="code"
-                  value={editMode && selectedPoint?.code ? selectedPoint.code : newPointCode}
-                  disabled
-                  className="bg-muted font-mono font-semibold"
-                  placeholder="Auto-generated"
-                />
-                <p className="text-xs text-muted-foreground">Auto-generated code (cannot be changed)</p>
+                <Label htmlFor="sp-depot">Depot *</Label>
+                <Select value={formData.depotCode} onValueChange={(value) => handleChange("depotCode", value)}>
+                  <SelectTrigger id="sp-depot">
+                    <SelectValue placeholder="Select depot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {depotOptions.map((option) => (
+                      <SelectItem key={option.code} value={option.code}>
+                        {`${option.code} - ${option.name}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sp-zone">Zone</Label>
+                <Label htmlFor="sp-route-code">Route Code *</Label>
                 <Input
-                  id="sp-zone"
-                  value={formData.zone}
-                  onChange={(e) => handleChange("zone", e.target.value)}
-                  placeholder="Zone A"
+                  id="sp-route-code"
+                  value={formData.routeCode}
+                  onChange={(e) => handleChange("routeCode", e.target.value)}
+                  placeholder="Enter route code"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="sp-name">Location Name *</Label>
+                <Label htmlFor="sp-route-name">Route Name *</Label>
                 <Input
-                  id="sp-name"
-                  value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  placeholder="Downtown Hub"
+                  id="sp-route-name"
+                  value={formData.routeName}
+                  onChange={(e) => handleChange("routeName", e.target.value)}
+                  placeholder="Enter route name"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="sp-address">Address</Label>
+                <Label htmlFor="sp-complete-name">Complete Route Name</Label>
                 <Input
-                  id="sp-address"
-                  value={formData.address}
-                  onChange={(e) => handleChange("address", e.target.value)}
-                  placeholder="123 Main Street"
+                  id="sp-complete-name"
+                  value={formData.routeCode && formData.routeName ? `${formData.routeCode} - ${formData.routeName}` : ""}
+                  readOnly
+                  className="bg-muted"
+                  placeholder="Route code and name preview"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sp-city">City, State</Label>
-                <Input
-                  id="sp-city"
-                  value={formData.city}
-                  onChange={(e) => handleChange("city", e.target.value)}
-                  placeholder="New York, NY"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sp-capacity">Capacity</Label>
-                <Input
-                  id="sp-capacity"
-                  value={formData.capacity}
-                  onChange={(e) => handleChange("capacity", e.target.value)}
-                  placeholder="200 orders/day"
-                />
+
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p>Selected depot: {depotPreview ? `${depotPreview.code} - ${depotPreview.name}` : "Not selected"}</p>
               </div>
 
               <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Point" : "Create Point"}
-                </Button>
+                <Button onClick={handleAdd}>{editMode ? "Update Route" : "Create Route"}</Button>
               </div>
             </div>
           </CardContent>
@@ -290,31 +321,30 @@ export default function ShippingPoints() {
     );
   }
 
-  // Show list view
   return (
     <main className="p-6">
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <MapPinned className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Shipping Points</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Shipping Routes</h1>
         </div>
-        <p className="text-sm text-muted-foreground">Manage distribution nodes and delivery locations</p>
+        <p className="text-sm text-muted-foreground">Manage depot specific shipping routes and alignment</p>
       </header>
 
       <MasterDataTable
-        title="All Shipping Points"
-        description={`Total locations: ${shippingPoints.length}`}
-        data={shippingPoints}
+        title="Depot Shipping Routes"
+        description={`Total routes: ${routes.length}`}
+        data={routes}
         columns={columns}
-        searchPlaceholder="Search locations..."
-        searchFields={["name", "code", "city", "zone"]}
+        searchPlaceholder="Search routes..."
+        searchFields={["depotName", "routeCode", "routeName"]}
         itemsPerPage={10}
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No shipping points found"
+        emptyMessage="No routes found"
         showCode={true}
-        codeKey="code"
+        codeKey="routeCode"
       />
     </main>
   );

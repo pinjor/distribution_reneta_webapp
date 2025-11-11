@@ -78,6 +78,44 @@
    - License information
    - Route assignments
 
+4. **Order Management** ✅
+    - Order entry (with and without reference) hooked to backend API
+    - Searchable dropdowns for depots/customers/PSOs/products
+    - Draft saving, submission, line-item inclusion toggles, batch approval
+    - Order list with expand/collapse and real-time status updates
+ 
+ 5. **Order List** ✅
+    - Displays live backend data
+    - Submit/approve workflows generate order numbers
+    - Checkbox-driven inclusion logic per order and per line item
+
+6. **Receive Product Module** ✅
+    - New sidebar section with forms for factory, depot, and stock-return receipts
+    - Backed by `/api/product-receipts` with draft/edit/approve/workflow
+    - Approval posts quantities into the stock ledger
+    - Printable receive report matching supply-chain layout
+ 
+7. **Delivery Orders & Tracking** ✅
+    - Delivery order tables with FEFO batch allocation from live stock ledger
+    - `/api/delivery-orders` endpoints for listing, auto-creating from order, updating, and tracking progress
+    - Delivery workspace UI with SAP-style tabs (Packing, Loading, Shipment) and editable batch/quantity table
+    - Order tracking dashboard showing quotation→delivery process flow and real-time status badges
+
+### 🆕 Receive Product Workflows
+
+- `POST /api/product-receipts` – create draft receipts for factory/depot/return
+- `PUT /api/product-receipts/{id}` – edit drafts
+- `POST /api/product-receipts/{id}/approve` – finalizes receipt and updates stock
+- `GET /api/product-receipts` – consolidated listing with filters
+- Printable report: `/receive/report/:id`
+
+### 🚀 Deployment & Seeding
+
+- New FastAPI router `/api/orders` with SQLAlchemy models for `orders` and `order_items`
+- Deployment guide: see `docs/DEPLOYMENT.md` for Docker build/run instructions and health checks
+- Master data seeding script `backend/db/seed_master_data.py` (idempotent) populates depots, customers, PSOs, and products used by the order module
+- Frontend automatically surfaces validation and API failures through inline messaging and toasts
+
 ### 🐳 Docker Services
 
 All services running and healthy:
