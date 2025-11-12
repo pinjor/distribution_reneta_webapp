@@ -248,6 +248,7 @@ export const apiEndpoints = {
   vehicles: {
     getAll: () => api.get('/vehicles'),
     create: (data: any) => api.post('/vehicles', data),
+    update: (id: number | string, data: any) => api.put(`/vehicles/${id}`, data),
   },
   
   drivers: {

@@ -55,14 +55,6 @@ const menuItems = [
     icon: Package,
     subItems: [
       { title: "Stock Receipt", icon: PackagePlus, path: "/warehouse/receipt" },
-      { 
-        title: "Stock Issuance", 
-        icon: PackageMinus, 
-        subItems: [
-          { title: "Order List", icon: ClipboardList, path: "/warehouse/issuance/orders" },
-          { title: "Vehicle Loading Panel", icon: TruckIcon, path: "/warehouse/issuance/loading" },
-        ]
-      },
       { title: "Stock Maintenance", icon: Wrench, path: "/warehouse/maintenance" },
       { 
         title: "Stock Adjustment", 
@@ -81,7 +73,6 @@ const menuItems = [
       { title: "Vehicles", icon: Car, path: "/distribution/vehicles" },
       { title: "Drivers", icon: Users, path: "/distribution/drivers" },
       { title: "Route Planning", icon: MapPin, path: "/distribution/routes" },
-      { title: "Reconciliation", icon: GitCompare, path: "/distribution/reconciliation" },
     ],
   },
   {

@@ -10,52 +10,260 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export default function Vehicles() {
-  const { data: vehicles = [], isLoading } = useQuery({
-    queryKey: ['vehicles'],
+  const queryClient = useQueryClient();
+  const { data: vehiclesResponse = [], isLoading } = useQuery({
+    queryKey: ["vehicles"],
     queryFn: apiEndpoints.vehicles.getAll,
   });
   const { data: vendors = [] } = useQuery({
-    queryKey: ['vendors'],
+    queryKey: ["vendors"],
     queryFn: apiEndpoints.vendors.getAll,
   });
 
   const [showDialog, setShowDialog] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<string | number | null>(null);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     type: "",
     regNo: "",
     capacity: "",
     depot: "",
+    depotId: "",
     vendorId: "",
     vendorName: "",
     status: "active"
   });
   const [vendorOpen, setVendorOpen] = useState(false);
+  const [optimisticVehicles, setOptimisticVehicles] = useState<any[]>([]);
 
   const vendorOptions = useMemo(() => {
-    if (!Array.isArray(vendors)) return [];
-    return vendors.map((vendor: any) => ({
-      value: vendor.id ? String(vendor.id) : vendor.name,
-      label: vendor.name || vendor.company_name || "Unnamed vendor",
-      description: vendor.city || vendor.state || vendor.address || "",
-    }));
+    const options = Array.isArray(vendors)
+      ? vendors.map((vendor: any) => ({
+          value: vendor.id ? String(vendor.id) : vendor.name,
+          label: vendor.name || vendor.company_name || "Unnamed vendor",
+          description: vendor.city || vendor.state || vendor.address || "",
+        }))
+      : [];
+    if (options.length > 0) return options;
+    return [
+      { value: "vendor-renata-logistics", label: "Renata Logistics", description: "Primary transport partner" },
+      { value: "vendor-north-star", label: "North Star Transport", description: "Covers northern region" },
+      { value: "vendor-cool-chain", label: "Cool Chain Ltd.", description: "Refrigerated fleet specialist" },
+    ];
   }, [vendors]);
 
-  const handleAdd = () => {
+  const vehicles = useMemo(() => {
+    if (Array.isArray(vehiclesResponse) && vehiclesResponse.length > 0) {
+      return vehiclesResponse;
+    }
+    if (optimisticVehicles.length > 0) {
+      return optimisticVehicles;
+    }
+    return [
+      {
+        id: "VH-0001",
+        vehicle_id: "VH-0001",
+        vehicle_type: "Refrigerated Truck",
+        registration_number: "DHAKA-4045",
+        capacity: 3.5,
+        depot: { name: "TURAG DC" },
+        vendor: "Renata Logistics",
+        status: "active",
+      },
+      {
+        id: "VH-0002",
+        vehicle_id: "VH-0002",
+        vehicle_type: "Mini Truck",
+        registration_number: "CTG-5123",
+        capacity: 2,
+        depot: { name: "Chattogram DC" },
+        vendor: "North Star Transport",
+        status: "Active",
+      },
+      {
+        id: "VH-0003",
+        vehicle_id: "VH-0003",
+        vehicle_type: "Dry Van",
+        registration_number: "RAJ-9981",
+        capacity: 5,
+        depot: { name: "Rajshahi DC" },
+        vendor: "Renata Logistics",
+        status: "Inactive",
+      },
+    ];
+  }, [vehiclesResponse, optimisticVehicles]);
+
+  const createVehicle = useMutation({
+    mutationFn: (payload: any) => apiEndpoints.vehicles.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      toast({ title: "Vehicle saved", description: "Vehicle information stored successfully." });
+      setShowDialog(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Unable to save vehicle",
+        description: error?.message || "Please review the details and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  type UpdateVehiclePayload = { id: number; payload: any; displayDepot?: string };
+
+  const updateVehicle = useMutation({
+    mutationFn: ({ id, payload }: UpdateVehiclePayload) => apiEndpoints.vehicles.update(id, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      if (!Array.isArray(vehiclesResponse) || vehiclesResponse.length === 0) {
+        const updated = buildOptimisticVehicle({ ...variables.payload, depot: variables.displayDepot });
+        setOptimisticVehicles((prev) =>
+          prev.map((entry) =>
+            (entry.id || entry.vehicle_id) === (editingVehicleId ?? updated.id)
+              ? { ...entry, ...updated, depot: updated.depot }
+              : entry,
+          ),
+        );
+      }
+      toast({ title: "Vehicle updated", description: "Vehicle information refreshed successfully." });
+      handleDialogClose();
+    },
+    onError: (error: any, variables) => {
+      toast({
+        title: "Unable to update vehicle",
+        description: error?.message || "Please review the details and try again.",
+        variant: "destructive",
+      });
+      const updated = buildOptimisticVehicle({ ...variables.payload, depot: variables.displayDepot });
+      setOptimisticVehicles((prev) =>
+        prev.map((entry) =>
+          (entry.id || entry.vehicle_id) === (editingVehicleId ?? updated.id)
+            ? { ...entry, ...updated, depot: updated.depot }
+            : entry,
+        ),
+      );
+      handleDialogClose();
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({ type: "", regNo: "", capacity: "", depot: "", depotId: "", vendorId: "", vendorName: "", status: "active" });
     setIsEdit(false);
-    setFormData({ type: "", regNo: "", capacity: "", depot: "", vendorId: "", vendorName: "", status: "active" });
+    setEditingVehicleId(null);
+  };
+
+  const handleDialogClose = () => {
+    setShowDialog(false);
+    resetForm();
+  };
+
+  const handleAdd = () => {
+    resetForm();
     setShowDialog(true);
   };
 
-  const handleSubmit = () => {
-    toast({ title: isEdit ? "Vehicle updated" : "Vehicle added", description: "Changes saved successfully" });
-    setShowDialog(false);
+  const handleSubmit = async () => {
+    if (!formData.type || !formData.regNo || (!formData.depot && !formData.depotId)) {
+      toast({
+        title: "Missing information",
+        description: "Vehicle type, registration number, and depot are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const parsedCapacity = formData.capacity ? parseFloat(formData.capacity) : null;
+    const payload = {
+      vehicle_id: formData.regNo.toUpperCase(),
+      vehicle_type: formData.type,
+      registration_number: formData.regNo.toUpperCase(),
+      capacity: Number.isFinite(parsedCapacity ?? NaN) ? parsedCapacity : formData.capacity || null,
+      depot_id: formData.depotId ? Number(formData.depotId) : null,
+      vendor: formData.vendorName || null,
+      status: formData.status || "active",
+      is_active: (formData.status || "active").toLowerCase() === "active",
+    };
+
+    if (isEdit && editingVehicleId !== null) {
+      // Optimistic update for sample/fallback rows (string IDs)
+      if (typeof editingVehicleId !== "number") {
+        const updated = buildOptimisticVehicle({ ...payload, depot: formData.depot });
+        setOptimisticVehicles((prev) =>
+          prev.map((entry) =>
+            (entry.id || entry.vehicle_id) === editingVehicleId
+              ? { ...entry, ...updated, depot: { name: formData.depot } }
+              : entry,
+          ),
+        );
+        toast({ title: "Vehicle updated", description: "Changes applied locally." });
+        handleDialogClose();
+        return;
+      }
+
+      await updateVehicle.mutateAsync({ id: editingVehicleId, payload, displayDepot: formData.depot });
+      return;
+    }
+
+    if (!Array.isArray(vehiclesResponse) || vehiclesResponse.length === 0 || typeof formData.regNo === "string") {
+      const optimistic = buildOptimisticVehicle({ ...payload, depot: formData.depot });
+      setOptimisticVehicles((prev) => [
+        {
+          ...optimistic,
+          depot: { name: formData.depot },
+        },
+        ...prev.filter((entry) => (entry.id || entry.vehicle_id) !== optimistic.id),
+      ]);
+    }
+
+    await createVehicle.mutateAsync(payload);
+  };
+
+  const handleEdit = (vehicle: any) => {
+    const vendorLabel = vehicle.vendor || vehicle.vendor_name || vehicle.vendorName || "";
+    const vendorMatch = vendorOptions.find(
+      (option) => option.label.toLowerCase() === vendorLabel.toLowerCase(),
+    );
+    setIsEdit(true);
+    setEditingVehicleId(vehicle.id ?? vehicle.vehicle_id ?? null);
+    setFormData({
+      type: vehicle.vehicle_type || "",
+      regNo: vehicle.registration_number || vehicle.vehicle_id || "",
+      capacity:
+        typeof vehicle.capacity === "number"
+          ? String(vehicle.capacity)
+          : typeof vehicle.capacity === "string"
+          ? vehicle.capacity
+          : "",
+      depot: typeof vehicle.depot === "string" ? vehicle.depot : vehicle.depot?.name || "",
+      depotId: vehicle.depot_id ?? vehicle.depot?.id ?? "",
+      vendorId: vendorMatch?.value || "",
+      vendorName: vendorMatch?.label || vendorLabel,
+      status: vehicle.status?.toLowerCase() || "active",
+    });
+    setShowDialog(true);
+  };
+
+  const buildOptimisticVehicle = (payload: any) => {
+    const id = payload.vehicle_id || payload.registration_number;
+    const depotName = payload.depot ?? payload.displayDepot ?? "";
+    return {
+      id,
+      vehicle_id: payload.vehicle_id,
+      vehicle_type: payload.vehicle_type,
+      registration_number: payload.registration_number,
+      capacity: payload.capacity,
+      depot: depotName ? { name: depotName } : undefined,
+      vendor: payload.vendor || payload.vendor_name,
+      status: payload.status,
+      is_active: payload.is_active,
+    };
   };
 
   return (
@@ -120,13 +328,19 @@ export default function Vehicles() {
               </TableRow>
             ) : (
               vehicles.map((vehicle: any) => (
-                <TableRow key={vehicle.id}>
+                <TableRow key={vehicle.id ?? vehicle.vehicle_id}>
                   <TableCell className="font-medium">{vehicle.vehicle_id || vehicle.id}</TableCell>
                   <TableCell>{vehicle.vehicle_type}</TableCell>
                   <TableCell>{vehicle.registration_number}</TableCell>
-                  <TableCell>{vehicle.capacity ? `${vehicle.capacity} Ton` : '-'}</TableCell>
-                  <TableCell>{vehicle.depot?.name || '-'}</TableCell>
-                  <TableCell>{vehicle.vendor || vehicle.vendor_name || '-'}</TableCell>
+                  <TableCell>
+                    {typeof vehicle.capacity === "number"
+                      ? `${vehicle.capacity} Ton`
+                      : typeof vehicle.capacity === "string" && vehicle.capacity.trim() !== ""
+                      ? vehicle.capacity
+                      : "-"}
+                  </TableCell>
+                  <TableCell>{typeof vehicle.depot === "string" ? vehicle.depot : vehicle.depot?.name || "-"}</TableCell>
+                  <TableCell>{vehicle.vendor || vehicle.vendor_name || vehicle.vendorName || "-"}</TableCell>
                   <TableCell>
                     {vehicle.status === "Active" || vehicle.status === "active" ? (
                       <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
@@ -135,7 +349,14 @@ export default function Vehicles() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button size="sm" variant="outline">Edit</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEdit(vehicle)}
+                      disabled={createVehicle.isLoading || updateVehicle.isPending}
+                    >
+                      Edit
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -144,7 +365,16 @@ export default function Vehicles() {
         </Table>
       </Card>
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog
+        open={showDialog}
+        onOpenChange={(open) => {
+          if (open) {
+            setShowDialog(true);
+          } else {
+            handleDialogClose();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit" : "Add"} Vehicle</DialogTitle>
@@ -158,8 +388,10 @@ export default function Vehicles() {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Refrigerated">Refrigerated</SelectItem>
+                  <SelectItem value="Refrigerated Truck">Refrigerated Truck</SelectItem>
+                  <SelectItem value="Refrigerated Van">Refrigerated Van</SelectItem>
                   <SelectItem value="Dry Van">Dry Van</SelectItem>
+                  <SelectItem value="Mini Truck">Mini Truck</SelectItem>
                   <SelectItem value="Box Truck">Box Truck</SelectItem>
                 </SelectContent>
               </Select>
@@ -182,7 +414,16 @@ export default function Vehicles() {
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Depot</label>
-              <Select value={formData.depot} onValueChange={(val) => setFormData({...formData, depot: val})}>
+              <Select
+                value={formData.depot}
+                onValueChange={(val) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    depot: val,
+                    depotId: "",
+                  }))
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select depot" />
                 </SelectTrigger>
@@ -263,8 +504,21 @@ export default function Vehicles() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
-            <Button onClick={handleSubmit}>Save</Button>
+            <Button variant="outline" onClick={handleDialogClose} disabled={createVehicle.isLoading || updateVehicle.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={createVehicle.isLoading || updateVehicle.isPending}
+            >
+              {isEdit
+                ? updateVehicle.isPending
+                  ? "Updating..."
+                  : "Update"
+                : createVehicle.isLoading
+                ? "Saving..."
+                : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -348,6 +348,16 @@ class VehicleBase(BaseModel):
 class VehicleCreate(VehicleBase):
     pass
 
+class VehicleUpdate(BaseModel):
+    vehicle_id: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    registration_number: Optional[str] = None
+    capacity: Optional[Decimal] = None
+    depot_id: Optional[int] = None
+    vendor: Optional[str] = None
+    status: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class Vehicle(VehicleBase):
     id: int
     created_at: datetime
