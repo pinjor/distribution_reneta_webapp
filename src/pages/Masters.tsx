@@ -1,4 +1,4 @@
-import { Building2, MapPin, Users, User, Truck as TruckIcon, Package, Navigation } from "lucide-react";
+import { Building2, MapPin, Users, User, Truck as TruckIcon, Navigation } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,6 @@ const vendors = [
   { code: "V002", name: "QuickMove Logistics", contact: "+91-9876543221", contract: "Valid till Mar 2026" },
 ];
 
-const materials = [
-  { code: "MAT001", name: "Paracetamol 500mg", uom: "Tablets", storage: "Ambient" },
-  { code: "MAT002", name: "Insulin Vials", uom: "Vials", storage: "Cold (-20°C)" },
-];
-
 export default function Masters() {
   return (
     <div className="space-y-6">
@@ -44,13 +39,12 @@ export default function Masters() {
 
       <Card className="p-6">
         <Tabs defaultValue="company">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="company">Company</TabsTrigger>
             <TabsTrigger value="depot">Depot</TabsTrigger>
             <TabsTrigger value="employee">Employee</TabsTrigger>
             <TabsTrigger value="customer">Customer</TabsTrigger>
             <TabsTrigger value="vendor">Vendor</TabsTrigger>
-            <TabsTrigger value="material">Material</TabsTrigger>
             <TabsTrigger value="shipping">Shipping</TabsTrigger>
           </TabsList>
 
@@ -217,40 +211,6 @@ export default function Masters() {
                     <TableCell>{vendor.name}</TableCell>
                     <TableCell>{vendor.contact}</TableCell>
                     <TableCell>{vendor.contract}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline">Edit</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TabsContent>
-
-          <TabsContent value="material" className="mt-6">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold">Material Master</h2>
-              </div>
-              <Button>Add Material</Button>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Unit of Measure</TableHead>
-                  <TableHead>Storage Condition</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {materials.map((material) => (
-                  <TableRow key={material.code}>
-                    <TableCell className="font-medium">{material.code}</TableCell>
-                    <TableCell>{material.name}</TableCell>
-                    <TableCell>{material.uom}</TableCell>
-                    <TableCell>{material.storage}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline">Edit</Button>
                     </TableCell>

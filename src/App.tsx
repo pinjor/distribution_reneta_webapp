@@ -46,7 +46,6 @@ import Employees from "./pages/settings/Employees";
 import Customers from "./pages/settings/Customers";
 import Vendors from "./pages/settings/Vendors";
 import Products from "./pages/settings/Products";
-import Materials from "./pages/settings/Materials";
 import ShippingPoints from "./pages/settings/ShippingPoints";
 import UOM from "./pages/settings/UOM";
 import PrimaryPackaging from "./pages/settings/PrimaryPackaging";
@@ -105,7 +104,6 @@ const App = () => (
               <Route path="/settings/customers" element={<MainLayout><Customers /></MainLayout>} />
               <Route path="/settings/vendors" element={<MainLayout><Vendors /></MainLayout>} />
               <Route path="/settings/products" element={<MainLayout><Products /></MainLayout>} />
-              <Route path="/settings/materials" element={<MainLayout><Materials /></MainLayout>} />
               <Route path="/settings/shipping-points" element={<MainLayout><ShippingPoints /></MainLayout>} />
               <Route path="/settings/uom" element={<MainLayout><UOM /></MainLayout>} />
               <Route path="/settings/primary-packaging" element={<MainLayout><PrimaryPackaging /></MainLayout>} />

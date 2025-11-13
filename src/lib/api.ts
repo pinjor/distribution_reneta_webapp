@@ -161,10 +161,6 @@ export const apiEndpoints = {
     delete: (id: number) => api.delete(`/products/${id}`),
   },
   
-  materials: {
-    getAll: () => api.get('/materials'),
-  },
-  
   shippingPoints: {
     getAll: () => api.get('/shipping-points'),
   },

@@ -51,7 +51,7 @@ import { useState, useEffect } from "react";
 const menuItems = [
   { title: "Dashboard", icon: Home, path: "/" },
   {
-    title: "Warehouse",
+    title: "Stock Management",
     icon: Package,
     subItems: [
       { title: "Stock Receipt", icon: PackagePlus, path: "/warehouse/receipt" },
@@ -89,8 +89,8 @@ const menuItems = [
     title: "Order Management",
     icon: ClipboardList,
     subItems: [
-      { title: "Order", icon: PlusCircle, path: "/orders/new" },
-      { title: "Order List", icon: List, path: "/orders" },
+      { title: "Sales Order", icon: PlusCircle, path: "/orders/new" },
+      { title: "Sales Order List", icon: List, path: "/orders" },
       { title: "Delivery Orders", icon: TruckIcon, path: "/orders/delivery" },
       { title: "Packing", icon: PackageCheck, path: "/orders/packing" },
       { title: "Picking", icon: ClipboardCheck, path: "/orders/picking" },
@@ -107,7 +107,6 @@ const menuItems = [
       { title: "Customers", icon: UserCheck, path: "/settings/customers" },
       { title: "Vendors", icon: Users, path: "/settings/vendors" },
       { title: "Products", icon: Package, path: "/settings/products" },
-      { title: "Materials", icon: Package2, path: "/settings/materials" },
       { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
       { title: "UOM", icon: Ruler, path: "/settings/uom" },
       { title: "Primary Packaging", icon: Package2, path: "/settings/primary-packaging" },
