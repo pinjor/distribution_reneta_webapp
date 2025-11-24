@@ -219,10 +219,6 @@ export default function ShippingPoints() {
       render: (_, route) => <span className="font-medium">{`${route.depotCode} - ${route.depotName}`}</span>,
     },
     {
-      key: "routeCode",
-      header: "Route Code",
-    },
-    {
       key: "routeName",
       header: "Route Name",
     },

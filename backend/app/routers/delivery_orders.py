@@ -370,61 +370,98 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
         )
 
     steps: List[schemas.DeliveryProgressNode] = []
+    # Sales Order
     steps.append(
         schemas.DeliveryProgressNode(
-            key="quotation",
-            label="Order Created",
+            key="sales_order",
+            label="Sales Order",
             status="completed" if order.status != models.OrderStatusEnum.DRAFT else "pending",
             timestamp=order.created_at,
         )
     )
-    steps.append(
-        schemas.DeliveryProgressNode(
-            key="processing",
-            label="Processing",
-            status="completed" if order.status in [models.OrderStatusEnum.SUBMITTED, models.OrderStatusEnum.APPROVED, models.OrderStatusEnum.PARTIALLY_APPROVED] else "pending",
-            timestamp=order.updated_at,
-        )
-    )
+    # Delivery Order
     if delivery:
-        status_map = {
-            models.DeliveryStatusEnum.PACKING: ("Packing", "current"),
-            models.DeliveryStatusEnum.LOADING: ("Loading", "current"),
-            models.DeliveryStatusEnum.SHIPPED: ("Shipped", "completed"),
-            models.DeliveryStatusEnum.DELIVERED: ("Delivered", "completed"),
-        }
-        for key, label in [
-            ("packing", "Packing"),
-            ("loading", "Loading"),
-            ("shipping", "Shipping"),
-            ("delivered", "Delivered"),
-        ]:
-            status_flag = "pending"
-            timestamp = None
-            if delivery.status == models.DeliveryStatusEnum.DELIVERED:
-                status_flag = "completed"
-                timestamp = delivery.updated_at
-            elif delivery.status.name.upper().startswith(label[:3].upper()):
-                status_flag = "current"
-                timestamp = delivery.updated_at
-            elif delivery.status in [models.DeliveryStatusEnum.SHIPPED, models.DeliveryStatusEnum.DELIVERED] and label in ["Packing", "Loading", "Shipping"]:
-                status_flag = "completed"
-            steps.append(
-                schemas.DeliveryProgressNode(
-                    key=key,
-                    label=label,
-                    status=status_flag,
-                    timestamp=timestamp,
-                )
+        steps.append(
+            schemas.DeliveryProgressNode(
+                key="delivery_order",
+                label="Delivery Order",
+                status="completed",
+                timestamp=delivery.created_at,
             )
+        )
     else:
-        steps.extend(
-            [
-                schemas.DeliveryProgressNode(key="packing", label="Packing", status="pending"),
-                schemas.DeliveryProgressNode(key="loading", label="Loading", status="pending"),
-                schemas.DeliveryProgressNode(key="shipping", label="Shipping", status="pending"),
-                schemas.DeliveryProgressNode(key="delivered", label="Delivered", status="pending"),
-            ]
+        steps.append(
+            schemas.DeliveryProgressNode(
+                key="delivery_order",
+                label="Delivery Order",
+                status="pending",
+            )
+        )
+    # Picking
+    if delivery:
+        picking_status = "pending"
+        if delivery.status in [models.DeliveryStatusEnum.PACKING, models.DeliveryStatusEnum.LOADING, models.DeliveryStatusEnum.SHIPPED, models.DeliveryStatusEnum.DELIVERED]:
+            picking_status = "completed"
+        if delivery.status == models.DeliveryStatusEnum.PACKING:
+            picking_status = "current"
+        steps.append(
+            schemas.DeliveryProgressNode(
+                key="picking",
+                label="Picking",
+                status=picking_status,
+                timestamp=delivery.updated_at if picking_status != "pending" else None,
+            )
+        )
+    else:
+        steps.append(
+            schemas.DeliveryProgressNode(key="picking", label="Picking", status="pending")
+        )
+    # Loading
+    if delivery:
+        loading_status = "pending"
+        if delivery.status in [models.DeliveryStatusEnum.LOADING, models.DeliveryStatusEnum.SHIPPED, models.DeliveryStatusEnum.DELIVERED]:
+            loading_status = "completed" if delivery.status != models.DeliveryStatusEnum.LOADING else "current"
+        steps.append(
+            schemas.DeliveryProgressNode(
+                key="loading",
+                label="Loading",
+                status=loading_status,
+                timestamp=delivery.updated_at if loading_status != "pending" else None,
+            )
+        )
+    else:
+        steps.append(
+            schemas.DeliveryProgressNode(key="loading", label="Loading", status="pending")
+        )
+    # Delivered
+    if delivery:
+        delivered_status = "pending"
+        if delivery.status == models.DeliveryStatusEnum.DELIVERED:
+            delivered_status = "completed"
+        steps.append(
+            schemas.DeliveryProgressNode(
+                key="delivered",
+                label="Delivered",
+                status=delivered_status,
+                timestamp=delivery.updated_at if delivered_status == "completed" else None,
+            )
+        )
+    else:
+        steps.append(
+            schemas.DeliveryProgressNode(key="delivered", label="Delivered", status="pending")
+        )
+    # Collected
+    if delivery and delivery.status == models.DeliveryStatusEnum.DELIVERED:
+        steps.append(
+            schemas.DeliveryProgressNode(
+                key="collected",
+                label="Collected",
+                status="pending",
+            )
+        )
+    else:
+        steps.append(
+            schemas.DeliveryProgressNode(key="collected", label="Collected", status="pending")
         )
 
     return schemas.DeliveryTrackingResponse(

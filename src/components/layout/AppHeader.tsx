@@ -42,7 +42,7 @@ export function AppHeader() {
               <Button variant="ghost" size="icon" className="relative rounded-button">
                 <Bell className="h-5 w-5" />
                 <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-destructive text-destructive-foreground text-xs">
-                  3
+                  2
                 </Badge>
               </Button>
             </DropdownMenuTrigger>
@@ -53,12 +53,6 @@ export function AppHeader() {
                 <div className="font-medium text-sm">Expiry Alert</div>
                 <div className="text-xs text-muted-foreground">
                   5 batches expiring in next 7 days
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <div className="font-medium text-sm">Pending Approval</div>
-                <div className="text-xs text-muted-foreground">
-                  Stock adjustment request #SA-1234
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
@@ -81,7 +75,7 @@ export function AppHeader() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">John Doe</p>
+                  <p className="text-sm font-medium">Mohammad Rahman</p>
                   <p className="text-xs text-muted-foreground">Warehouse Manager</p>
                   <p className="text-xs text-muted-foreground">Central Depot</p>
                 </div>

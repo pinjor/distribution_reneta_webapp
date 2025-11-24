@@ -1,4 +1,4 @@
-import { Package, Truck, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { Package, Truck, CheckCircle, Clock } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { StockChart } from "@/components/dashboard/StockChart";
 import { DispatchChart } from "@/components/dashboard/DispatchChart";
@@ -55,12 +55,6 @@ const Dashboard = () => {
           icon={CheckCircle}
           description="Successfully completed"
           trend={!isLoading && kpis?.delivered_today > 0 ? { value: 0, direction: "up" } : undefined}
-        />
-        <KPICard
-          title="Pending Approvals"
-          value={isLoading ? "..." : formatNumber(kpis?.pending_approvals)}
-          icon={AlertTriangle}
-          description="Requiring action"
         />
       </div>
 

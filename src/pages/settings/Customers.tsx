@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Customer {
   id: string;
@@ -50,6 +51,7 @@ export default function Customers() {
   const [creditCredit, setCreditCredit] = useState(true);
   const [paymentDays, setPaymentDays] = useState<string>("");
   const [soldToEditedManually, setSoldToEditedManually] = useState(false);
+  const [companies, setCompanies] = useState<Array<{ id: number; name: string; code: string }>>([]);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -93,7 +95,17 @@ export default function Customers() {
 
   useEffect(() => {
     document.title = "Customers | App";
+    fetchCompanies();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const data = await apiEndpoints.companies.getAll();
+      setCompanies(data);
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+    }
+  };
 
   const generateCustomerCode = (): string => {
     const existingCodes = customers.map(c => c.code);
@@ -382,13 +394,27 @@ export default function Customers() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cust-company">Industry / Type</Label>
-                  <Input 
-                    id="cust-company" 
-                    placeholder="Retail, Manufacturing, etc." 
-                    value={formData.company}
-                    onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                  />
+                  <Label htmlFor="cust-company">Company *</Label>
+                  <Select 
+                    value={formData.company} 
+                    onValueChange={(val) => setFormData(prev => ({ ...prev, company: val }))}
+                  >
+                    <SelectTrigger id="cust-company">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.length > 0 ? (
+                        companies.map((company) => (
+                          <SelectItem key={company.id} value={company.name}>
+                            {company.name} ({company.code})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No companies available</div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Select company from master data</p>
                 </div>
               </div>
 

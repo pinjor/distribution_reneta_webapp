@@ -128,6 +128,27 @@ def get_all_subordinates(role_id: int, db: Session) -> List[RoleMaster]:
     get_children(role_id)
     return subordinates
 
+def serialize_role_master(role: RoleMaster) -> dict:
+    """Helper function to properly serialize RoleMaster model to dict"""
+    return {
+        "id": role.id,
+        "code": role.code,
+        "role_type": role.role_type,
+        "name": role.name,
+        "parent_id": role.parent_id,
+        "employee_id": role.employee_id,
+        "territory": role.territory,
+        "region": role.region,
+        "district": role.district,
+        "area": role.area,
+        "description": role.description,
+        "is_active": role.is_active,
+        "created_at": role.created_at,
+        "updated_at": role.updated_at,
+        "parent_name": role.parent.name if role.parent else None,
+        "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
+    }
+
 @router.get("/", response_model=List[RoleMasterSchema])
 def get_role_masters(
     skip: int = 0,
@@ -146,12 +167,25 @@ def get_role_masters(
     # Enrich with parent and employee names
     result = []
     for role in roles:
-        role_dict = {
-            **role.__dict__,
+        role_data = {
+            "id": role.id,
+            "code": role.code,
+            "role_type": role.role_type,
+            "name": role.name,
+            "parent_id": role.parent_id,
+            "employee_id": role.employee_id,
+            "territory": role.territory,
+            "region": role.region,
+            "district": role.district,
+            "area": role.area,
+            "description": role.description,
+            "is_active": role.is_active,
+            "created_at": role.created_at,
+            "updated_at": role.updated_at,
             "parent_name": role.parent.name if role.parent else None,
             "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
         }
-        result.append(RoleMasterSchema(**role_dict))
+        result.append(RoleMasterSchema(**role_data))
     
     return result
 
@@ -162,13 +196,8 @@ def get_role_master(role_id: int, db: Session = Depends(get_db)):
     if not role:
         raise HTTPException(status_code=404, detail="Role master not found")
     
-    role_dict = {
-        **role.__dict__,
-        "parent_name": role.parent.name if role.parent else None,
-        "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
-    }
-    
-    return RoleMasterSchema(**role_dict)
+    role_data = serialize_role_master(role)
+    return RoleMasterSchema(**role_data)
 
 @router.post("/", response_model=RoleMasterSchema)
 def create_role_master(role: RoleMasterCreate, db: Session = Depends(get_db)):
@@ -203,13 +232,8 @@ def create_role_master(role: RoleMasterCreate, db: Session = Depends(get_db)):
             employee.role_master_id = db_role.id
             db.commit()
     
-    role_dict = {
-        **db_role.__dict__,
-        "parent_name": db_role.parent.name if db_role.parent else None,
-        "employee_name": db_role.assigned_employee.first_name + " " + (db_role.assigned_employee.last_name or "") if db_role.assigned_employee else None
-    }
-    
-    return RoleMasterSchema(**role_dict)
+    role_data = serialize_role_master(db_role)
+    return RoleMasterSchema(**role_data)
 
 @router.put("/{role_id}", response_model=RoleMasterSchema)
 def update_role_master(role_id: int, role: RoleMasterUpdate, db: Session = Depends(get_db)):
@@ -266,13 +290,8 @@ def update_role_master(role_id: int, role: RoleMasterUpdate, db: Session = Depen
             employee.role_master_id = db_role.id
             db.commit()
     
-    role_dict = {
-        **db_role.__dict__,
-        "parent_name": db_role.parent.name if db_role.parent else None,
-        "employee_name": db_role.assigned_employee.first_name + " " + (db_role.assigned_employee.last_name or "") if db_role.assigned_employee else None
-    }
-    
-    return RoleMasterSchema(**role_dict)
+    role_data = serialize_role_master(db_role)
+    return RoleMasterSchema(**role_data)
 
 @router.delete("/{role_id}")
 def delete_role_master(role_id: int, db: Session = Depends(get_db)):
@@ -311,32 +330,20 @@ def get_role_hierarchy(role_id: int, db: Session = Depends(get_db)):
     subordinates = get_all_subordinates(role_id, db)
     
     # Convert to schema format
-    role_dict = {
-        **role.__dict__,
-        "parent_name": role.parent.name if role.parent else None,
-        "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
-    }
+    role_data = serialize_role_master(role)
     
     path_schemas = []
     for r in path_to_root:
-        r_dict = {
-            **r.__dict__,
-            "parent_name": r.parent.name if r.parent else None,
-            "employee_name": r.assigned_employee.first_name + " " + (r.assigned_employee.last_name or "") if r.assigned_employee else None
-        }
-        path_schemas.append(RoleMasterSchema(**r_dict))
+        r_data = serialize_role_master(r)
+        path_schemas.append(RoleMasterSchema(**r_data))
     
     sub_schemas = []
     for r in subordinates:
-        r_dict = {
-            **r.__dict__,
-            "parent_name": r.parent.name if r.parent else None,
-            "employee_name": r.assigned_employee.first_name + " " + (r.assigned_employee.last_name or "") if r.assigned_employee else None
-        }
-        sub_schemas.append(RoleMasterSchema(**r_dict))
+        r_data = serialize_role_master(r)
+        sub_schemas.append(RoleMasterSchema(**r_data))
     
     return RoleHierarchyResponse(
-        current_role=RoleMasterSchema(**role_dict),
+        current_role=RoleMasterSchema(**role_data),
         path_to_root=path_schemas,
         subordinates=sub_schemas
     )
@@ -348,12 +355,8 @@ def get_path_to_nsh_endpoint(role_id: int, db: Session = Depends(get_db)):
     
     result = []
     for role in path:
-        role_dict = {
-            **role.__dict__,
-            "parent_name": role.parent.name if role.parent else None,
-            "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
-        }
-        result.append(RoleMasterSchema(**role_dict))
+        role_data = serialize_role_master(role)
+        result.append(RoleMasterSchema(**role_data))
     
     return result
 
@@ -364,12 +367,8 @@ def get_subordinates(role_id: int, db: Session = Depends(get_db)):
     
     result = []
     for role in subordinates:
-        role_dict = {
-            **role.__dict__,
-            "parent_name": role.parent.name if role.parent else None,
-            "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
-        }
-        result.append(RoleMasterSchema(**role_dict))
+        role_data = serialize_role_master(role)
+        result.append(RoleMasterSchema(**role_data))
     
     return result
 
@@ -387,13 +386,8 @@ def get_role_by_employee(employee_id: int, db: Session = Depends(get_db)):
     if not role:
         raise HTTPException(status_code=404, detail="Role master not found")
     
-    role_dict = {
-        **role.__dict__,
-        "parent_name": role.parent.name if role.parent else None,
-        "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
-    }
-    
-    return RoleMasterSchema(**role_dict)
+    role_data = serialize_role_master(role)
+    return RoleMasterSchema(**role_data)
 
 @router.get("/by-type/{role_type}", response_model=List[RoleMasterSchema])
 def get_roles_by_type(role_type: RoleTypeEnum, db: Session = Depends(get_db)):
@@ -405,12 +399,8 @@ def get_roles_by_type(role_type: RoleTypeEnum, db: Session = Depends(get_db)):
     
     result = []
     for role in roles:
-        role_dict = {
-            **role.__dict__,
-            "parent_name": role.parent.name if role.parent else None,
-            "employee_name": role.assigned_employee.first_name + " " + (role.assigned_employee.last_name or "") if role.assigned_employee else None
-        }
-        result.append(RoleMasterSchema(**role_dict))
+        role_data = serialize_role_master(role)
+        result.append(RoleMasterSchema(**role_data))
     
     return result
 

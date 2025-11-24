@@ -10,12 +10,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { masterData } from "@/lib/masterData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2 } from "lucide-react";
 
-import type { ProductOption, DepotOption } from "@/lib/masterData";
+// Product and Depot option types
+type ProductOption = {
+  id: string;
+  code: string;
+  oldCode: string;
+  newCode: string;
+  name: string;
+  packSize: string;
+};
+
+type DepotOption = {
+  id: number | string;
+  code: string;
+  name: string;
+};
 
 type ReceiptSource = "FACTORY" | "DEPOT" | "RETURN";
 
@@ -97,12 +110,29 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
       try {
         setLoading(true);
         const [depotData, productData] = await Promise.all([
-          masterData.getDepots(),
-          masterData.getProducts(),
+          apiEndpoints.depots.getAll(),
+          apiEndpoints.products.getAll(),
         ]);
         if (!mounted) return;
-        setDepots(depotData);
-        setProducts(productData);
+        // Handle different response structures
+        const depotsArray = Array.isArray(depotData) ? depotData : (depotData.data || []);
+        const productsArray = Array.isArray(productData) ? productData : (productData.data || []);
+        
+        // Map to expected format
+        setDepots(depotsArray.map((d: any) => ({
+          id: d.id,
+          code: d.code || String(d.id),
+          name: d.name,
+        })));
+        
+        setProducts(productsArray.map((p: any) => ({
+          id: String(p.id),
+          code: p.code || p.new_code || p.old_code || String(p.id),
+          oldCode: p.old_code || "",
+          newCode: p.new_code || p.code || "",
+          name: p.name || "",
+          packSize: p.primary_packaging || p.unit_of_measure || "",
+        })));
       } catch (error) {
         console.error("Failed to load master data", error);
         toast({ title: "Unable to load master data", variant: "destructive" });
@@ -187,6 +217,7 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
       ...prev,
       productCode: selectedProduct.id,
       legacyCode: selectedProduct.oldCode || "",
+      itemCode: selectedProduct.newCode || selectedProduct.code || "",
       itemName: selectedProduct.name,
       packSize: selectedProduct.packSize || "",
       uom: "IFC",
@@ -326,51 +357,158 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
           <CardTitle className="text-base font-semibold">Receipt details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label>Receipt number</Label>
-              <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
-            </div>
-            <div className="space-y-2">
-              <Label>Issued date</Label>
-              <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>TFA number</Label>
-              <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>ISO number</Label>
-              <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Depot</Label>
-              <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select depot" />
-                </SelectTrigger>
-                <SelectContent>
-                  {depots.map((depot) => (
-                    <SelectItem key={depot.code} value={String(depot.id ?? depot.code)}>
-                      {depot.name} ({depot.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Shipment mode</Label>
-              <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Delivery person</Label>
-              <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
-            </div>
-          </div>
-
+          {sourceType === "FACTORY" && (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="space-y-2">
+                  <Label>Receipt number</Label>
+                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Issued date</Label>
+                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Factory Name</Label>
+                  <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} placeholder="Enter factory name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Factory Code</Label>
+                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter factory code" />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Depot</Label>
+                  <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select depot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {depots.map((depot) => (
+                        <SelectItem key={depot.code} value={String(depot.id ?? depot.code)}>
+                          {depot.name} ({depot.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Shipment mode</Label>
+                  <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delivery person</Label>
+                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
+          {sourceType === "DEPOT" && (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="space-y-2">
+                  <Label>Receipt number</Label>
+                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Issued date</Label>
+                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Source Depot</Label>
+                  <Select value={form.tfaNumber} onValueChange={(value) => handleHeaderChange("tfaNumber", value)} disabled={loading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select source depot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {depots.map((depot) => (
+                        <SelectItem key={depot.code} value={String(depot.id ?? depot.code)}>
+                          {depot.name} ({depot.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Transfer Note</Label>
+                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter transfer note number" />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Target Depot</Label>
+                  <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select target depot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {depots.map((depot) => (
+                        <SelectItem key={depot.code} value={String(depot.id ?? depot.code)}>
+                          {depot.name} ({depot.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Vehicle / Truck no.</Label>
+                  <Input value={form.vehicleInfo} onChange={(e) => handleHeaderChange("vehicleInfo", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Driver Name</Label>
+                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
+          {sourceType === "RETURN" && (
+            <>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="space-y-2">
+                  <Label>Receipt number</Label>
+                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Return date</Label>
+                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Return From</Label>
+                  <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} placeholder="Enter return source" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Invoice Number</Label>
+                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter original invoice number" />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Depot</Label>
+                  <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select depot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {depots.map((depot) => (
+                        <SelectItem key={depot.code} value={String(depot.id ?? depot.code)}>
+                          {depot.name} ({depot.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Return Reason</Label>
+                  <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} placeholder="Enter return reason" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Received By</Label>
+                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
+                </div>
+              </div>
+            </>
+          )}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Vehicle / Truck no.</Label>
@@ -408,7 +546,7 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
                 <SelectContent>
                   {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
-                      {product.oldCode || product.id} — {product.name}
+                      {product.oldCode || ""} / {product.newCode || product.code || ""} — {product.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -515,6 +653,11 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
         <Button variant="outline" disabled={saving || loading} onClick={() => handleSave(true)}>
           Save & Close
         </Button>
+        {sourceType === "RETURN" && (
+          <Button variant="outline" disabled={!receiptId || saving || loading}>
+            Generate Invoice
+          </Button>
+        )}
         <Button disabled={!receiptId || saving || loading} onClick={handleApprove}>
           Approve
         </Button>

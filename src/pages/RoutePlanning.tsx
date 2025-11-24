@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { MapPin, Truck, Navigation } from "lucide-react";
+import { MapPin, Truck, Navigation, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
 
 const routes = [
   { id: "RT-001", name: "Route A (North)", stops: 5, distance: "45 km", status: "in-progress" },
@@ -15,7 +17,7 @@ const routes = [
 
 const stops = [
   { id: "ST-001", name: "Chennai Medical", address: "Anna Nagar", status: "pending" },
-  { id: "ST-002", name: "Apollo Pharmacy", address: "T Nagar", status: "pending" },
+  { id: "ST-002", name: "Rahman Pharmacy", address: "T Nagar", status: "pending" },
   { id: "ST-003", name: "City Hospital", address: "Adyar", status: "pending" },
 ];
 
@@ -25,6 +27,26 @@ export default function RoutePlanning() {
   const [selectedDriver, setSelectedDriver] = useState("");
   const [date, setDate] = useState("");
   const { toast } = useToast();
+
+  // Load master data
+  const { data: depots = [], isLoading: depotsLoading } = useQuery({
+    queryKey: ['depots'],
+    queryFn: apiEndpoints.depots.getAll,
+  });
+
+  const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({
+    queryKey: ['vehicles'],
+    queryFn: apiEndpoints.vehicles.getAll,
+  });
+
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ['drivers'],
+    queryFn: apiEndpoints.drivers.getAll,
+  });
+
+  const depotsList = depots.data || depots || [];
+  const vehiclesList = vehicles.data || vehicles || [];
+  const driversList = drivers.data || drivers || [];
 
   const handleDispatch = () => {
     toast({ title: "Route dispatched", description: "Delivery slip sent to driver" });
@@ -43,14 +65,20 @@ export default function RoutePlanning() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Depot</label>
-            <Select value={selectedDepot} onValueChange={setSelectedDepot}>
+            <Select value={selectedDepot} onValueChange={setSelectedDepot} disabled={depotsLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select depot" />
+                <SelectValue placeholder={depotsLoading ? "Loading..." : depotsList.length === 0 ? "No depots available" : "Select depot"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="depot1">Chennai Main</SelectItem>
-                <SelectItem value="depot2">Chennai South</SelectItem>
-                <SelectItem value="depot3">Chennai North</SelectItem>
+                {depotsList.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">No depots available</div>
+                ) : (
+                  depotsList.map((depot: any) => (
+                    <SelectItem key={depot.id} value={String(depot.id)}>
+                      {depot.name || depot.depot_name || `Depot ${depot.id}`}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -62,26 +90,42 @@ export default function RoutePlanning() {
 
           <div>
             <label className="text-sm font-medium mb-2 block">Vehicle</label>
-            <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
+            <Select value={selectedVehicle} onValueChange={setSelectedVehicle} disabled={vehiclesLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select vehicle" />
+                <SelectValue placeholder={vehiclesLoading ? "Loading..." : vehiclesList.length === 0 ? "No vehicles available" : "Select vehicle"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="vh1">TN-01-AB-1234 (5 Ton)</SelectItem>
-                <SelectItem value="vh2">TN-02-CD-5678 (10 Ton)</SelectItem>
+                {vehiclesList.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">No vehicles available</div>
+                ) : (
+                  vehiclesList.map((vehicle: any) => (
+                    <SelectItem key={vehicle.id} value={String(vehicle.id)}>
+                      {vehicle.reg_no || vehicle.registration_number || `Vehicle ${vehicle.id}`} 
+                      {vehicle.capacity ? ` (${vehicle.capacity})` : ""}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <div>
             <label className="text-sm font-medium mb-2 block">Driver</label>
-            <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+            <Select value={selectedDriver} onValueChange={setSelectedDriver} disabled={driversLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select driver" />
+                <SelectValue placeholder={driversLoading ? "Loading..." : driversList.length === 0 ? "No drivers available" : "Select driver"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="dr1">Rajesh Kumar</SelectItem>
-                <SelectItem value="dr2">Suresh Babu</SelectItem>
+                {driversList.length === 0 ? (
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground">No drivers available</div>
+                ) : (
+                  driversList.map((driver: any) => (
+                    <SelectItem key={driver.id} value={String(driver.id)}>
+                      {driver.name || driver.driver_name || `Driver ${driver.id}`}
+                      {driver.license_number ? ` (${driver.license_number})` : ""}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

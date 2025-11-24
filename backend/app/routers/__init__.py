@@ -22,12 +22,11 @@ from . import (
     stock_adjustment,
     stock_maintenance,
     dashboard,
-    analytics,
-    billing,
     drivers,
     vehicles,
     routes,
     picking_orders,
+    invoices,
 )
 
 from . import product_receipts, delivery_orders  # noqa: F401

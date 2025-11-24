@@ -9,7 +9,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import Approvals from "./pages/Approvals";
 import StockReceipt from "./pages/StockReceipt";
 import StockIssuance from "./pages/StockIssuance";
 import OrderEntry from "./pages/orders/OrderEntry";
@@ -37,9 +36,16 @@ import Vehicles from "./pages/Vehicles";
 import Drivers from "./pages/Drivers";
 import RoutePlanning from "./pages/RoutePlanning";
 import Reconciliation from "./pages/Reconciliation";
-import Billing from "./pages/Billing";
-import Analytics from "./pages/Analytics";
 import Masters from "./pages/Masters";
+import DepotDeliveryList from "./pages/delivery/DepotDeliveryList";
+import DepotDeliveryForm from "./pages/delivery/DepotDeliveryForm";
+import DepotDeliveryDetail from "./pages/delivery/DepotDeliveryDetail";
+import SampleGiftDeliveryList from "./pages/delivery/SampleGiftDeliveryList";
+import SampleGiftDeliveryForm from "./pages/delivery/SampleGiftDeliveryForm";
+import SampleGiftDeliveryDetail from "./pages/delivery/SampleGiftDeliveryDetail";
+import ExportDeliveryList from "./pages/delivery/ExportDeliveryList";
+import ExportDeliveryForm from "./pages/delivery/ExportDeliveryForm";
+import ExportDeliveryDetail from "./pages/delivery/ExportDeliveryDetail";
 import Company from "./pages/settings/Company";
 import Depot from "./pages/settings/Depot";
 import Employees from "./pages/settings/Employees";
@@ -67,7 +73,6 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/" element={<MainLayout><Dashboard /></MainLayout>} />
-              <Route path="/approvals" element={<MainLayout><Approvals /></MainLayout>} />
               <Route path="/warehouse/receipt" element={<MainLayout><StockReceipt /></MainLayout>} />
               <Route path="/warehouse/issuance" element={<MainLayout><StockIssuance /></MainLayout>} />
               <Route path="/orders/new" element={<MainLayout><OrderEntry /></MainLayout>} />
@@ -75,12 +80,22 @@ const App = () => (
               <Route path="/orders/delivery" element={<MainLayout><DeliveryOrderList /></MainLayout>} />
               <Route path="/orders/delivery/:id" element={<MainLayout><DeliveryOrderDetail /></MainLayout>} />
               <Route path="/orders/tracking" element={<MainLayout><OrderTrackingPage /></MainLayout>} />
-              <Route path="/orders/packing" element={<MainLayout><PackingBoard /></MainLayout>} />
-              <Route path="/orders/packing/report" element={<MainLayout><PackingReport /></MainLayout>} />
-              <Route path="/orders/picking" element={<MainLayout><PickingOrdersList /></MainLayout>} />
-              <Route path="/orders/picking/new" element={<MainLayout><PickingOrderCreate /></MainLayout>} />
-              <Route path="/orders/picking/:id" element={<MainLayout><PickingOrderDetail /></MainLayout>} />
-              <Route path="/orders/picking/:id/print" element={<MainLayout><PickingOrderPrint /></MainLayout>} />
+              <Route path="/orders/picking" element={<MainLayout><PackingBoard /></MainLayout>} />
+              <Route path="/orders/picking/report" element={<MainLayout><PackingReport /></MainLayout>} />
+              <Route path="/orders/loading-request" element={<MainLayout><PickingOrdersList /></MainLayout>} />
+              <Route path="/orders/loading-request/new" element={<MainLayout><PickingOrderCreate /></MainLayout>} />
+              <Route path="/orders/loading-request/:id" element={<MainLayout><PickingOrderDetail /></MainLayout>} />
+              <Route path="/orders/loading-request/:id/print" element={<MainLayout><PickingOrderPrint /></MainLayout>} />
+              <Route path="/orders/loading-list" element={<MainLayout><VehicleLoading /></MainLayout>} />
+              <Route path="/delivery/depot" element={<MainLayout><DepotDeliveryList /></MainLayout>} />
+              <Route path="/delivery/depot/new" element={<MainLayout><DepotDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/depot/:id" element={<MainLayout><DepotDeliveryDetail /></MainLayout>} />
+              <Route path="/delivery/sample-gift" element={<MainLayout><SampleGiftDeliveryList /></MainLayout>} />
+              <Route path="/delivery/sample-gift/new" element={<MainLayout><SampleGiftDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/sample-gift/:id" element={<MainLayout><SampleGiftDeliveryDetail /></MainLayout>} />
+              <Route path="/delivery/export" element={<MainLayout><ExportDeliveryList /></MainLayout>} />
+              <Route path="/delivery/export/new" element={<MainLayout><ExportDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/export/:id" element={<MainLayout><ExportDeliveryDetail /></MainLayout>} />
               <Route path="/receive/factory" element={<MainLayout><ReceiveFactory /></MainLayout>} />
               <Route path="/receive/depot" element={<MainLayout><ReceiveDepot /></MainLayout>} />
               <Route path="/receive/return" element={<MainLayout><ReceiveReturn /></MainLayout>} />
@@ -95,8 +110,6 @@ const App = () => (
               <Route path="/distribution/drivers" element={<MainLayout><Drivers /></MainLayout>} />
               <Route path="/distribution/routes" element={<MainLayout><RoutePlanning /></MainLayout>} />
               <Route path="/distribution/reconciliation" element={<MainLayout><Reconciliation /></MainLayout>} />
-              <Route path="/billing" element={<MainLayout><Billing /></MainLayout>} />
-              <Route path="/analytics" element={<MainLayout><Analytics /></MainLayout>} />
               <Route path="/masters" element={<MainLayout><Masters /></MainLayout>} />
               <Route path="/settings/company" element={<MainLayout><Company /></MainLayout>} />
               <Route path="/settings/depot" element={<MainLayout><Depot /></MainLayout>} />

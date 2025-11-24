@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useNavigate } from "react-router-dom";
 
 const companies = [
   { code: "C001", name: "PharmaCorp India Ltd", address: "Mumbai, Maharashtra" },
@@ -10,17 +11,17 @@ const companies = [
 ];
 
 const depots = [
-  { code: "D001", name: "Chennai Main Depot", company: "PharmaCorp India Ltd", capacity: "50000 units" },
-  { code: "D002", name: "Chennai South Depot", company: "PharmaCorp India Ltd", capacity: "30000 units" },
+  { code: "D001", name: "Chennai Main Depot", company: "Reneta Pharmaceuticals Limited", capacity: "50000 units" },
+  { code: "D002", name: "Chennai South Depot", company: "Reneta Pharmaceuticals Limited", capacity: "30000 units" },
 ];
 
 const employees = [
-  { id: "E001", name: "Rajesh Kumar", username: "rkumar", role: "Warehouse Manager", depot: "Chennai Main" },
-  { id: "E002", name: "Priya Sharma", username: "psharma", role: "Dispatcher", depot: "Chennai South" },
+  { id: "E001", name: "Mohammad Rahman", username: "rkumar", role: "Warehouse Manager", depot: "Chennai Main" },
+  { id: "E002", name: "Fatema Khatun", username: "psharma", role: "Dispatcher", depot: "Chennai South" },
 ];
 
 const customers = [
-  { code: "CU001", name: "Apollo Pharmacy", type: "Retail", contact: "+91-9876543210", depot: "Chennai Main" },
+  { code: "CU001", name: "Rahman Pharmacy", type: "Retail", contact: "+91-9876543210", depot: "Chennai Main" },
   { code: "CU002", name: "City Hospital", type: "Institution", contact: "+91-9876543211", depot: "Chennai South" },
 ];
 
@@ -30,6 +31,8 @@ const vendors = [
 ];
 
 export default function Masters() {
+  const navigate = useNavigate();
+  
   return (
     <div className="space-y-6">
       <div>
@@ -54,7 +57,7 @@ export default function Masters() {
                 <Building2 className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold">Company Master</h2>
               </div>
-              <Button>Add Company</Button>
+              <Button onClick={() => navigate("/settings/company")}>Manage Companies</Button>
             </div>
             <Table>
               <TableHeader>
@@ -72,7 +75,7 @@ export default function Masters() {
                     <TableCell>{company.name}</TableCell>
                     <TableCell>{company.address}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate("/settings/company")}>Edit</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -86,7 +89,7 @@ export default function Masters() {
                 <MapPin className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold">Depot/Plant Master</h2>
               </div>
-              <Button>Add Depot</Button>
+              <Button onClick={() => navigate("/settings/depot")}>Manage Depots</Button>
             </div>
             <Table>
               <TableHeader>
@@ -106,7 +109,7 @@ export default function Masters() {
                     <TableCell>{depot.company}</TableCell>
                     <TableCell>{depot.capacity}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate("/settings/depot")}>Edit</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -120,7 +123,7 @@ export default function Masters() {
                 <Users className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold">Employee & Role Assignment</h2>
               </div>
-              <Button>Add Employee</Button>
+              <Button onClick={() => navigate("/settings/employees")}>Manage Employees</Button>
             </div>
             <Table>
               <TableHeader>
@@ -142,7 +145,7 @@ export default function Masters() {
                     <TableCell>{emp.role}</TableCell>
                     <TableCell>{emp.depot}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate("/settings/employees")}>Edit</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -156,7 +159,7 @@ export default function Masters() {
                 <User className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold">Customer Setup</h2>
               </div>
-              <Button>Add Customer</Button>
+              <Button onClick={() => navigate("/settings/customers")}>Manage Customers</Button>
             </div>
             <Table>
               <TableHeader>
@@ -178,7 +181,7 @@ export default function Masters() {
                     <TableCell>{customer.contact}</TableCell>
                     <TableCell>{customer.depot}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate("/settings/customers")}>Edit</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -192,7 +195,7 @@ export default function Masters() {
                 <TruckIcon className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold">Transport Vendor Master</h2>
               </div>
-              <Button>Add Vendor</Button>
+              <Button onClick={() => navigate("/settings/vendors")}>Manage Vendors</Button>
             </div>
             <Table>
               <TableHeader>
@@ -212,7 +215,7 @@ export default function Masters() {
                     <TableCell>{vendor.contact}</TableCell>
                     <TableCell>{vendor.contract}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">Edit</Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate("/settings/vendors")}>Edit</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -226,7 +229,7 @@ export default function Masters() {
                 <Navigation className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold">Shipping Point Master</h2>
               </div>
-              <Button>Add Shipping Point</Button>
+              <Button onClick={() => navigate("/settings/shipping-points")}>Manage Shipping Points</Button>
             </div>
             <Table>
               <TableHeader>
@@ -243,7 +246,7 @@ export default function Masters() {
                   <TableCell>Chennai Port</TableCell>
                   <TableCell>Chennai Main Depot</TableCell>
                   <TableCell>
-                    <Button size="sm" variant="outline">Edit</Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate("/settings/shipping-points")}>Edit</Button>
                   </TableCell>
                 </TableRow>
               </TableBody>

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import (
     StockLedger, StockIssuance, VehicleLoading,
-    Invoice, StockAdjustment
+    Invoice
 )
 from app.redis_cache import cache_get, cache_set
 
@@ -38,17 +38,11 @@ async def get_dashboard_kpis(db: Session = Depends(get_db)):
         Invoice.status == "Paid"
     ).scalar() or 0
     
-    # Pending Approvals
-    pending_approvals = db.query(func.count(StockAdjustment.id)).filter(
-        StockAdjustment.status == "Pending"
-    ).scalar() or 0
-    
     result = {
         "total_stock": int(total_stock),
         "orders_today": orders_today,
         "dispatched_today": dispatched_today,
-        "delivered_today": delivered_today,
-        "pending_approvals": pending_approvals
+        "delivered_today": delivered_today
     }
     
     # Cache for 5 minutes

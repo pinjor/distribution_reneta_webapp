@@ -38,6 +38,7 @@ export default function Employees() {
   const [newEmployeeCode, setNewEmployeeCode] = useState<string>("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<RoleMaster[]>([]);
+  const [depots, setDepots] = useState<Array<{ id: number; name: string; code: string }>>([]);
   const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
@@ -46,6 +47,7 @@ export default function Employees() {
     phone: "",
     role: "",
     department: "",
+    depot_id: "",
     role_master_id: "",
   });
 
@@ -53,6 +55,7 @@ export default function Employees() {
     document.title = "Employees | App";
     fetchEmployees();
     fetchRoles();
+    fetchDepots();
   }, []);
 
   const fetchEmployees = async () => {
@@ -89,6 +92,15 @@ export default function Employees() {
       setRoles(data);
     } catch (error) {
       console.error("Failed to fetch roles:", error);
+    }
+  };
+
+  const fetchDepots = async () => {
+    try {
+      const data = await apiEndpoints.depots.getAll();
+      setDepots(data);
+    } catch (error) {
+      console.error("Failed to fetch depots:", error);
     }
   };
 
@@ -351,6 +363,26 @@ export default function Employees() {
                       <SelectItem value="Admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp-depot">Depot *</Label>
+                  <Select value={formData.depot_id || undefined} onValueChange={(val) => handleChange("depot_id", val)}>
+                    <SelectTrigger id="emp-depot">
+                      <SelectValue placeholder="Select depot" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {depots.length > 0 ? (
+                        depots.map((depot) => (
+                          <SelectItem key={depot.id} value={String(depot.id)}>
+                            {depot.name} ({depot.code})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No depots available</div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Select depot from master data</p>
                 </div>
               </div>
 

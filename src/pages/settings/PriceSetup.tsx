@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, ArrowLeft } from "lucide-react";
+import { Tag, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { apiEndpoints } from "@/lib/api";
@@ -244,7 +244,7 @@ export default function PriceSetup() {
       header: "Trade Price",
       render: (value) => (
         <span className="text-muted-foreground">
-          {value ? `₹${Number(value).toFixed(2)}` : "-"}
+          {value ? `${Number(value).toFixed(2)}` : "-"}
         </span>
       ),
     },
@@ -253,7 +253,7 @@ export default function PriceSetup() {
       header: "Unit Price",
       render: (value) => (
         <span className="text-muted-foreground">
-          {value ? `₹${Number(value).toFixed(2)}` : "-"}
+          {value ? `${Number(value).toFixed(2)}` : "-"}
         </span>
       ),
     },
@@ -262,7 +262,7 @@ export default function PriceSetup() {
       header: "IFC Price",
       render: (value) => (
         <span className="text-muted-foreground">
-          {value ? `₹${Number(value).toFixed(2)}` : "-"}
+          {value ? `${Number(value).toFixed(2)}` : "-"}
         </span>
       ),
     },
@@ -271,7 +271,7 @@ export default function PriceSetup() {
       header: "MC Price",
       render: (value) => (
         <span className="text-muted-foreground">
-          {value ? `₹${Number(value).toFixed(2)}` : "-"}
+          {value ? `${Number(value).toFixed(2)}` : "-"}
         </span>
       ),
     },
@@ -309,7 +309,7 @@ export default function PriceSetup() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <DollarSign className="h-6 w-6 text-primary" />
+            <Tag className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold text-foreground">
               {editMode ? "Edit Price Setup" : "Add New Price Setup"}
             </h1>
@@ -324,7 +324,7 @@ export default function PriceSetup() {
             <div className="space-y-6 max-w-2xl">
               <div className="space-y-2">
                 <Label htmlFor="code" className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <Tag className="h-4 w-4 text-muted-foreground" />
                   Code *
                 </Label>
                 <Input
@@ -450,7 +450,7 @@ export default function PriceSetup() {
     <main className="p-6">
       <header className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <DollarSign className="h-6 w-6 text-primary" />
+          <Tag className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-semibold text-foreground">Price Setup Management</h1>
         </div>
         <p className="text-sm text-muted-foreground">Manage price setups for products</p>

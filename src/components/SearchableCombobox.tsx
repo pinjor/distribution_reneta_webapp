@@ -44,8 +44,8 @@ export default function SearchableCombobox({
   const selected = options.find((option) => option.value === value);
 
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+    <div className={label ? "space-y-2" : ""}>
+      {label && <Label className="text-sm font-medium text-muted-foreground">{label}</Label>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild disabled={disabled}>
           <Button

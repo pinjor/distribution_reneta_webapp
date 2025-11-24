@@ -227,7 +227,7 @@ export default function StockMaintenance() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold mb-2">Stock Maintenance</h1>
+            <h1 className="text-3xl font-semibold mb-2">Stock Management</h1>
             <p className="text-muted-foreground">
               {activeTab === "products"
                 ? "Product-level availability across all depots and batches."

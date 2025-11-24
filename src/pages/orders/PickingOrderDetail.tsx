@@ -53,8 +53,8 @@ export default function PickingOrderDetail() {
       const response = await apiEndpoints.pickingOrders.getById(id);
       setOrder(response);
     } catch (error) {
-      console.error("Failed to load picking order", error);
-      toast({ title: "Unable to load picking order", variant: "destructive" });
+      console.error("Failed to load loading request", error);
+      toast({ title: "Unable to load loading request", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -70,10 +70,14 @@ export default function PickingOrderDetail() {
       setApproving(true);
       const response = await apiEndpoints.pickingOrders.approve(id);
       setOrder(response);
-      toast({ title: "Picking order approved" });
+      toast({ title: "Loading request approved", description: "Order moved to loading list" });
+      // Navigate to loading list after approval
+      setTimeout(() => {
+        navigate("/orders/loading-list");
+      }, 1500);
     } catch (error) {
-      console.error("Failed to approve picking order", error);
-      toast({ title: "Unable to approve picking order", variant: "destructive" });
+      console.error("Failed to approve loading request", error);
+      toast({ title: "Unable to approve loading request", variant: "destructive" });
     } finally {
       setApproving(false);
     }
@@ -120,14 +124,18 @@ export default function PickingOrderDetail() {
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
-        <Button variant="outline" onClick={() => navigate(`/orders/picking/${order.id}/print`)}>
+        <Button variant="outline" onClick={() => navigate(`/orders/loading-request/${order.id}/print`)}>
           <Printer className="h-4 w-4 mr-2" />
           Print loading report
         </Button>
-        {order.status !== "Approved" && (
+        {order.status !== "Approved" ? (
           <Button onClick={handleApprove} disabled={approving}>
             {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
             Approve
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={() => navigate("/orders/loading-list")}>
+            Go to Loading List
           </Button>
         )}
       </div>

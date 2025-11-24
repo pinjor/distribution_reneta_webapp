@@ -126,7 +126,7 @@ export default function DeliveryOrderList() {
           <Button variant="outline" onClick={fetchDeliveries} disabled={loading}>
             Refresh
           </Button>
-          <Button variant="outline" onClick={() => navigate("/orders/packing")}>
+          <Button variant="outline" onClick={() => navigate("/orders/picking")}>
             Packing Queue
           </Button>
           <Button onClick={() => setShowCreateDialog(true)}>

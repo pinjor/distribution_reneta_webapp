@@ -490,6 +490,51 @@ class OrderApprovalResponse(BaseModel):
     orders: List[Order]
 
 
+# Stock Adjustment schemas
+class StockAdjustmentItemBase(BaseModel):
+    product_id: int
+    batch: Optional[str] = None
+    quantity_change: Decimal
+
+
+class StockAdjustmentItemCreate(StockAdjustmentItemBase):
+    pass
+
+
+class StockAdjustmentItem(StockAdjustmentItemBase):
+    id: int
+    adjustment_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class StockAdjustmentBase(BaseModel):
+    adjustment_date: date
+    depot_id: int
+    adjustment_type: Optional[str] = None
+    reason: Optional[str] = None
+    status: Optional[str] = "Pending"
+
+
+class StockAdjustmentCreate(StockAdjustmentBase):
+    items: List[StockAdjustmentItemCreate]
+
+
+class StockAdjustment(StockAdjustmentBase):
+    id: int
+    adjustment_number: str
+    submitted_by: Optional[int] = None
+    approved_by: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    items: List[StockAdjustmentItem] = []
+    
+    class Config:
+        from_attributes = True
+
+
 # Product receipt schemas
 class ProductReceiptItemBase(BaseModel):
     legacy_code: Optional[str] = None

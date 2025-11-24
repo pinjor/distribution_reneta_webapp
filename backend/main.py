@@ -11,7 +11,7 @@ from app.routers import (
     vehicles, drivers, routes, picking_orders,
     stock_receipt, stock_issuance, vehicle_loading,
     stock_adjustment, stock_maintenance,
-    dashboard, analytics, billing
+    dashboard, invoices
 )
 
 # Redis client
@@ -43,6 +43,7 @@ app.add_middleware(
     allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include routers
@@ -72,8 +73,7 @@ app.include_router(vehicle_loading.router, prefix="/api/vehicle/loadings", tags=
 app.include_router(stock_adjustment.router, prefix="/api/stock/adjustments", tags=["Stock Adjustments"])
 app.include_router(stock_maintenance.router, prefix="/api/stock/maintenance", tags=["Stock Maintenance"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
-app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
-app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
+app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
 
 @app.get("/")
 async def root():

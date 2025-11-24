@@ -33,14 +33,14 @@ export default function Reconciliation() {
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Cash Expected</p>
           <p className="text-2xl font-semibold">
-            ₹{(reconciliationData.reduce((sum, r) => sum + r.cashExpected, 0) / 1000).toFixed(0)}K
+            {(reconciliationData.reduce((sum, r) => sum + r.cashExpected, 0) / 1000).toFixed(0)}K
           </p>
         </Card>
 
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-1">Cash Collected</p>
           <p className="text-2xl font-semibold text-success">
-            ₹{(reconciliationData.reduce((sum, r) => sum + r.cashCollected, 0) / 1000).toFixed(0)}K
+            {(reconciliationData.reduce((sum, r) => sum + r.cashCollected, 0) / 1000).toFixed(0)}K
           </p>
         </Card>
       </div>
@@ -68,10 +68,10 @@ export default function Reconciliation() {
                 <TableCell>{route.deliveries}</TableCell>
                 <TableCell>{route.planned}</TableCell>
                 <TableCell>{route.delivered}</TableCell>
-                <TableCell>₹{route.cashExpected.toLocaleString()}</TableCell>
-                <TableCell>₹{route.cashCollected.toLocaleString()}</TableCell>
+                <TableCell>{route.cashExpected.toLocaleString()}</TableCell>
+                <TableCell>{route.cashCollected.toLocaleString()}</TableCell>
                 <TableCell className={route.variance < 0 ? "text-destructive font-semibold" : "text-success"}>
-                  {route.variance === 0 ? "✓" : `₹${route.variance.toLocaleString()}`}
+                  {route.variance === 0 ? "✓" : `${route.variance.toLocaleString()}`}
                 </TableCell>
                 <TableCell>
                   {route.status === "complete" && (
@@ -138,12 +138,12 @@ export default function Reconciliation() {
           <div className="space-y-3">
             <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
               <p className="text-sm text-muted-foreground mb-1">Collected as Expected</p>
-              <p className="text-xl font-semibold text-success">₹25,000</p>
+              <p className="text-xl font-semibold text-success">25,000</p>
               <p className="text-xs text-muted-foreground mt-1">1 route</p>
             </div>
             <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
               <p className="text-sm text-muted-foreground mb-1">Shortfall</p>
-              <p className="text-xl font-semibold text-destructive">₹10,000</p>
+              <p className="text-xl font-semibold text-destructive">10,000</p>
               <p className="text-xs text-muted-foreground mt-1">2 routes with variance</p>
             </div>
           </div>

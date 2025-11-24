@@ -387,7 +387,7 @@ export default function OrderEntry() {
   const productOptions: ComboboxOption[] = products.map((product) => ({
     value: product.oldCode,
     label: `${product.oldCode} — ${product.name}`,
-    description: `${product.newCode || "-"} • ${product.packSize}${product.tradePrice ? ` • ৳${product.tradePrice}` : ""}`,
+    description: `${product.newCode || "-"} • ${product.packSize}${product.tradePrice ? ` • ${product.tradePrice}` : ""}`,
     payload: product,
   }));
 

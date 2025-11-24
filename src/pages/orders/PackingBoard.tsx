@@ -82,7 +82,7 @@ export default function PackingBoard() {
       setDeliveries(mapped);
       setSelectedIds((prev) => prev.filter((id) => mapped.some((delivery) => delivery.id === id)));
     } catch (error) {
-      console.error("Failed to load packing deliveries", error);
+      console.error("Failed to load picking deliveries", error);
       toast({ title: "Unable to load deliveries", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -132,7 +132,7 @@ export default function PackingBoard() {
       toast({ title: "Select at least one delivery", variant: "destructive" });
       return;
     }
-    navigate("/orders/picking/new", { state: { deliveryIds: selectedIds } });
+    navigate("/orders/loading-request/new", { state: { deliveryIds: selectedIds } });
   };
 
   const handlePrintPackingReport = () => {
@@ -140,7 +140,7 @@ export default function PackingBoard() {
       toast({ title: "Select deliveries to include in the report", variant: "destructive" });
       return;
     }
-    navigate(`/orders/packing/report?deliveryIds=${selectedIds.join(",")}`);
+    navigate(`/orders/picking/report?deliveryIds=${selectedIds.join(",")}`);
   };
 
   const selectedSummary = useMemo(() => {
@@ -158,9 +158,9 @@ export default function PackingBoard() {
     <main className="p-6 space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Packing Queue</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Picking Queue</h1>
           <p className="text-muted-foreground">
-            Select confirmed delivery orders to create picking challans and print packing slips.
+            Select confirmed delivery orders to create picking challans and print picking slips.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -169,7 +169,7 @@ export default function PackingBoard() {
             Refresh
           </Button>
           <Button variant="outline" onClick={handlePrintPackingReport} disabled={selectedIds.length === 0}>
-            Packing Report
+            Picking Report
           </Button>
           <Button onClick={handleNavigateToPicking} disabled={selectedIds.length === 0}>
             Generate Picking Challan

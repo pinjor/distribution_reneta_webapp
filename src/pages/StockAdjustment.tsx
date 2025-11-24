@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FileText, Clock, CheckCircle, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
 
 const adjustmentRequests = [
-  { id: "ADJ-001", product: "Paracetamol 500mg", batch: "BTH-2024-001", qty: -50, reason: "Damaged", status: "pending", date: "2025-01-15", submittedBy: "John Doe" },
-  { id: "ADJ-002", product: "Amoxicillin 250mg", batch: "BTH-2024-003", qty: 100, reason: "Found", status: "approved", date: "2025-01-14", submittedBy: "Jane Smith" },
-  { id: "ADJ-003", product: "Insulin Vials", batch: "BTH-2024-002", qty: -25, reason: "Expired", status: "rejected", date: "2025-01-13", submittedBy: "Mike Johnson" },
+  { id: "ADJ-001", product: "Paracetamol 500mg", batch: "BTH-2024-001", qty: -50, reason: "Damaged", status: "pending", date: "2025-01-15", submittedBy: "Mohammad Rahman" },
+  { id: "ADJ-002", product: "Amoxicillin 250mg", batch: "BTH-2024-003", qty: 100, reason: "Found", status: "approved", date: "2025-01-14", submittedBy: "Fatema Khatun" },
+  { id: "ADJ-003", product: "Insulin Vials", batch: "BTH-2024-002", qty: -25, reason: "Expired", status: "rejected", date: "2025-01-13", submittedBy: "Abdul Karim" },
 ];
 
 export default function StockAdjustment() {
@@ -25,6 +27,36 @@ export default function StockAdjustment() {
     reason: "",
     remarks: ""
   });
+  const [batches, setBatches] = useState<any[]>([]);
+
+  // Load products from API
+  const { data: productsResponse, isLoading: productsLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: apiEndpoints.products.getAll,
+  });
+
+  // Load stock ledger for batches
+  const { data: stockLedgerResponse, isLoading: stockLoading } = useQuery({
+    queryKey: ['stock-ledger'],
+    queryFn: apiEndpoints.stockMaintenance.getLedger,
+  });
+
+  const products = productsResponse?.data || productsResponse || [];
+  
+  // Extract unique batches from stock ledger
+  useEffect(() => {
+    if (stockLedgerResponse) {
+      const stockData = stockLedgerResponse.data || stockLedgerResponse || [];
+      const uniqueBatches = Array.from(
+        new Set(
+          stockData
+            .map((item: any) => item.batch || item.batch_number)
+            .filter((batch: any) => batch)
+        )
+      ).map((batch: string) => ({ batch }));
+      setBatches(uniqueBatches);
+    }
+  }, [stockLedgerResponse]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,28 +94,51 @@ export default function StockAdjustment() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Product</label>
-              <Select value={formData.product} onValueChange={(val) => setFormData({...formData, product: val})}>
+              <Select value={formData.product} onValueChange={(val) => setFormData({...formData, product: val})} disabled={productsLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
+                  <SelectValue placeholder={productsLoading ? "Loading..." : products.length === 0 ? "No products available" : "Select product"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="para">Paracetamol 500mg</SelectItem>
-                  <SelectItem value="amox">Amoxicillin 250mg</SelectItem>
-                  <SelectItem value="insulin">Insulin Vials</SelectItem>
+                  {productsLoading ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </div>
+                  ) : products.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No products available</div>
+                  ) : (
+                    products.map((product: any) => (
+                      <SelectItem key={product.id} value={String(product.id)}>
+                        {product.name || product.product_name}
+                        {product.code ? ` (${product.code})` : ""}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div>
               <label className="text-sm font-medium mb-2 block">Batch Number</label>
-              <Select value={formData.batch} onValueChange={(val) => setFormData({...formData, batch: val})}>
+              <Select value={formData.batch} onValueChange={(val) => setFormData({...formData, batch: val})} disabled={stockLoading || batches.length === 0}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select batch" />
+                  <SelectValue placeholder={stockLoading ? "Loading..." : batches.length === 0 ? "No batches available" : "Select batch"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BTH-2024-001">BTH-2024-001</SelectItem>
-                  <SelectItem value="BTH-2024-002">BTH-2024-002</SelectItem>
-                  <SelectItem value="BTH-2024-003">BTH-2024-003</SelectItem>
+                  {stockLoading ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </div>
+                  ) : batches.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No batches available</div>
+                  ) : (
+                    batches.map((item: any) => (
+                      <SelectItem key={item.batch} value={item.batch}>
+                        {item.batch}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>

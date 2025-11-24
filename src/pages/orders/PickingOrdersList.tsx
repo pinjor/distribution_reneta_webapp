@@ -38,8 +38,8 @@ export default function PickingOrdersList() {
       const response = await apiEndpoints.pickingOrders.getAll();
       setOrders(response.data || []);
     } catch (error) {
-      console.error("Failed to load picking orders", error);
-      toast({ title: "Unable to load picking orders", variant: "destructive" });
+      console.error("Failed to load loading requests", error);
+      toast({ title: "Unable to load loading requests", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -52,11 +52,11 @@ export default function PickingOrdersList() {
   const handleApprove = async (id: number) => {
     try {
       await apiEndpoints.pickingOrders.approve(id);
-      toast({ title: "Picking order approved" });
+      toast({ title: "Loading request approved" });
       fetchOrders();
     } catch (error) {
-      console.error("Failed to approve picking order", error);
-      toast({ title: "Unable to approve picking order", variant: "destructive" });
+      console.error("Failed to approve loading request", error);
+      toast({ title: "Unable to approve loading request", variant: "destructive" });
     }
   };
 
@@ -64,9 +64,9 @@ export default function PickingOrdersList() {
     <main className="p-6 space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Picking Orders</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Loading Request</h1>
           <p className="text-muted-foreground">
-            Track generated picking challans and continue to the loading report once approved.
+            Track generated picking challans and continue to the loading list once approved.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -74,7 +74,7 @@ export default function PickingOrdersList() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={() => navigate("/orders/packing")}>
+          <Button onClick={() => navigate("/orders/picking")}>
             <PlusCircle className="h-4 w-4 mr-2" />
             Create picking challan
           </Button>
@@ -91,7 +91,7 @@ export default function PickingOrdersList() {
       ) : orders.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            No picking orders yet. Select deliveries from the packing queue to generate the first challan.
+            No loading requests yet. Select deliveries from the picking queue to generate the first challan.
           </CardContent>
         </Card>
       ) : (
@@ -143,14 +143,14 @@ export default function PickingOrdersList() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => navigate(`/orders/picking/${order.id}`)}
+                            onClick={() => navigate(`/orders/loading-request/${order.id}`)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => navigate(`/orders/picking/${order.id}/print`)}
+                            onClick={() => navigate(`/orders/loading-request/${order.id}/print`)}
                           >
                             <Printer className="h-4 w-4" />
                           </Button>

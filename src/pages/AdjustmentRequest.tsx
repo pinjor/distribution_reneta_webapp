@@ -1,207 +1,298 @@
 import { useState } from "react";
-import { FileText, Search, Filter } from "lucide-react";
+import { Search, Printer, Trash2, CheckCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
 
-const adjustmentRequests = [
+interface AdjustmentRequest {
+  id: string;
+  voucherNo: string;
+  voucherDate: string;
+  store: string;
+  status: "pending" | "submitted";
+}
+
+const mockAdjustments: AdjustmentRequest[] = [
   {
-    id: "ADJ-001",
-    date: "2024-01-15",
-    type: "Damaged Stock",
-    items: 3,
-    totalVariance: -150,
+    id: "1",
+    voucherNo: "ADJ411250947",
+    voucherDate: "23/11/2025",
+    store: "Hospital Dispensary Satkania",
     status: "pending",
-    requestedBy: "John Doe",
   },
   {
-    id: "ADJ-002",
-    date: "2024-01-14",
-    type: "Expired Stock",
-    items: 2,
-    totalVariance: -500,
-    status: "approved",
-    requestedBy: "Jane Smith",
-  },
-  {
-    id: "ADJ-003",
-    date: "2024-01-13",
-    type: "Stock Found",
-    items: 1,
-    totalVariance: 200,
+    id: "2",
+    voucherNo: "ADJ406250935",
+    voucherDate: "18/06/2025",
+    store: "Medical Store(BGHS)",
     status: "pending",
-    requestedBy: "Mike Johnson",
   },
   {
-    id: "ADJ-004",
-    date: "2024-01-12",
-    type: "System Correction",
-    items: 4,
-    totalVariance: -75,
-    status: "rejected",
-    requestedBy: "Sarah Williams",
+    id: "3",
+    voucherNo: "ADJ406250934",
+    voucherDate: "18/06/2025",
+    store: "Medical Store(BGHS)",
+    status: "pending",
+  },
+  {
+    id: "4",
+    voucherNo: "ADJ406250933",
+    voucherDate: "18/06/2025",
+    store: "Medical Store(BGHS)",
+    status: "submitted",
+  },
+  {
+    id: "5",
+    voucherNo: "ADJ406250932",
+    voucherDate: "18/06/2025",
+    store: "Medical Store(BGHS)",
+    status: "pending",
+  },
+  {
+    id: "6",
+    voucherNo: "ADJ406250931",
+    voucherDate: "18/06/2025",
+    store: "Medical Store(BGHS)",
+    status: "submitted",
+  },
+  {
+    id: "7",
+    voucherNo: "ADJ406250930",
+    voucherDate: "16/06/2025",
+    store: "Hospital Dispensary Satkania",
+    status: "pending",
   },
 ];
 
 export default function AdjustmentRequest() {
+  const [selectedStore, setSelectedStore] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"pending" | "approved">("pending");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredRequests = adjustmentRequests.filter((request) => {
-    const matchesSearch =
-      request.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      request.requestedBy.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" || request.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
+  // Load depots/stores
+  const { data: depotsResponse, isLoading: depotsLoading } = useQuery({
+    queryKey: ['depots'],
+    queryFn: apiEndpoints.depots.getAll,
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-warning/10 text-warning border-warning/20";
-      case "approved":
-        return "bg-success/10 text-success border-success/20";
-      case "rejected":
-        return "bg-destructive/10 text-destructive border-destructive/20";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
+  const depots = depotsResponse?.data || depotsResponse || [];
+
+  const filteredAdjustments = mockAdjustments.filter((adj) => {
+    const matchesStore = !selectedStore || adj.store.toLowerCase().includes(selectedStore.toLowerCase());
+    // Map "approved" filter to "submitted" status in data
+    const matchesStatus = statusFilter === "approved" 
+      ? adj.status === "submitted" 
+      : adj.status === statusFilter;
+    const matchesSearch =
+      !searchQuery ||
+      adj.voucherNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      adj.store.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Date filtering would go here if needed
+    const matchesDate = true; // Simplified for now
+
+    return matchesStore && matchesStatus && matchesSearch && matchesDate;
+  });
+
+  const handleSearch = () => {
+    // Search logic is handled by filteredAdjustments
   };
 
-  const getVarianceColor = (variance: number) => {
-    if (variance > 0) return "text-success";
-    if (variance < 0) return "text-destructive";
-    return "text-muted-foreground";
+  const handleClear = () => {
+    setSelectedStore("");
+    setFromDate("");
+    setToDate("");
+    setSearchQuery("");
+  };
+
+  const handlePrint = (voucherNo: string) => {
+    console.log("Print voucher:", voucherNo);
+    // Implement print functionality
+  };
+
+  const handleDelete = (id: string) => {
+    console.log("Delete adjustment:", id);
+    // Implement delete functionality
+  };
+
+  const handleSubmit = (id: string) => {
+    console.log("Submit adjustment:", id);
+    // Implement submit functionality
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Adjustment Requests</h1>
-        <p className="text-muted-foreground">
-          View and manage stock adjustment requests
-        </p>
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="bg-gray-800 text-white px-6 py-4 rounded-t-lg">
+        <h1 className="text-xl font-semibold">Stock Adjustment Work List (CMSD)</h1>
       </div>
 
-      <Card className="p-6">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search requests..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+      {/* Filter Section */}
+      <Card className="border-t-0 rounded-t-none bg-gray-50">
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="store" className="text-sm font-medium">Store</Label>
+              <Select value={selectedStore} onValueChange={setSelectedStore} disabled={depotsLoading}>
+                <SelectTrigger id="store" className="mt-1">
+                  <SelectValue placeholder="Select Store" />
+                </SelectTrigger>
+                <SelectContent>
+                  {depotsLoading ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading...</div>
+                  ) : depots.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No stores available</div>
+                  ) : (
+                    depots.map((depot: any) => (
+                      <SelectItem key={depot.id} value={depot.name}>
+                        {depot.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="fromDate" className="text-sm font-medium">From</Label>
+              <Input
+                id="fromDate"
+                type="text"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                placeholder="DD/MM/YYYY"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="toDate" className="text-sm font-medium">To</Label>
+              <Input
+                id="toDate"
+                type="text"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                placeholder="DD/MM/YYYY"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button onClick={handleSearch} className="bg-green-600 hover:bg-green-700 flex-1">
+                <Search className="h-4 w-4 mr-2" />
+                Search
+              </Button>
+              <Button onClick={handleClear} variant="outline" className="flex-1">
+                Clear
+              </Button>
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <Label className="text-sm font-medium">Status:</Label>
+              <RadioGroup
+                value={statusFilter}
+                onValueChange={(value) => setStatusFilter(value as "pending" | "approved")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="pending" id="pending" />
+                  <Label htmlFor="pending" className="cursor-pointer font-normal">Pending</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="approved" id="approved" />
+                  <Label htmlFor="approved" className="cursor-pointer font-normal">Approved</Label>
+                </div>
+              </RadioGroup>
+            </div>
 
-            <Button>
-              <FileText className="h-4 w-4 mr-2" />
-              New Request
-            </Button>
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search records..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pr-10"
+                />
+              </div>
+            </div>
           </div>
         </div>
+      </Card>
 
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Request ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total Variance</TableHead>
-                <TableHead>Requested By</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRequests.length === 0 ? (
+      {/* Table Section */}
+      <Card>
+        <div className="p-6">
+          <div className="border rounded-lg overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No adjustment requests found
-                  </TableCell>
+                  <TableHead className="w-16">SL</TableHead>
+                  <TableHead>Voucher No.</TableHead>
+                  <TableHead>Voucher Date</TableHead>
+                  <TableHead>Store</TableHead>
+                  <TableHead className="w-32">Action</TableHead>
                 </TableRow>
-              ) : (
-                filteredRequests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.id}</TableCell>
-                    <TableCell>
-                      {new Date(request.date).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>{request.type}</TableCell>
-                    <TableCell>{request.items}</TableCell>
-                    <TableCell>
-                      <span className={`font-medium ${getVarianceColor(request.totalVariance)}`}>
-                        {request.totalVariance > 0 ? "+" : ""}
-                        {request.totalVariance}
-                      </span>
-                    </TableCell>
-                    <TableCell>{request.requestedBy}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(request.status)}>
-                        {request.status.charAt(0).toUpperCase() +
-                          request.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
-                        {request.status === "pending" && (
-                          <>
-                            <Button variant="outline" size="sm">
-                              Approve
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredAdjustments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No adjustment requests found
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <div>
-            Showing {filteredRequests.length} of {adjustmentRequests.length}{" "}
-            requests
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
+                ) : (
+                  filteredAdjustments.map((adj, index) => (
+                    <TableRow key={adj.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell className="font-medium">{adj.voucherNo}</TableCell>
+                      <TableCell>{adj.voucherDate}</TableCell>
+                      <TableCell>{adj.store}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrint(adj.voucherNo)}
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            title="Print"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(adj.id)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          {adj.status === "pending" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSubmit(adj.id)}
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title="Submit"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </Card>

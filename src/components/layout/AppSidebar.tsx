@@ -3,9 +3,6 @@ import {
   Package,
   Truck,
   Settings,
-  CheckSquare,
-  CreditCard,
-  BarChart3,
   ChevronDown,
   PackagePlus,
   PackageMinus,
@@ -26,9 +23,12 @@ import {
   ClipboardList,
   TruckIcon,
   Ruler,
-  DollarSign,
+  Tag,
   PackageCheck,
   ClipboardCheck,
+  Gift,
+  Globe,
+  Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -51,11 +51,11 @@ import { useState, useEffect } from "react";
 const menuItems = [
   { title: "Dashboard", icon: Home, path: "/" },
   {
-    title: "Stock Management",
+    title: "Inventory Management",
     icon: Package,
     subItems: [
       { title: "Stock Receipt", icon: PackagePlus, path: "/warehouse/receipt" },
-      { title: "Stock Maintenance", icon: Wrench, path: "/warehouse/maintenance" },
+      { title: "Stock Management", icon: Wrench, path: "/warehouse/maintenance" },
       { 
         title: "Stock Adjustment", 
         icon: AlertCircle, 
@@ -64,15 +64,6 @@ const menuItems = [
           { title: "Adjustment Request", icon: List, path: "/warehouse/adjustment/request" },
         ]
       },
-    ],
-  },
-  {
-    title: "Distribution",
-    icon: Truck,
-    subItems: [
-      { title: "Vehicles", icon: Car, path: "/distribution/vehicles" },
-      { title: "Drivers", icon: Users, path: "/distribution/drivers" },
-      { title: "Route Planning", icon: MapPin, path: "/distribution/routes" },
     ],
   },
   {
@@ -92,9 +83,19 @@ const menuItems = [
       { title: "Sales Order", icon: PlusCircle, path: "/orders/new" },
       { title: "Sales Order List", icon: List, path: "/orders" },
       { title: "Delivery Orders", icon: TruckIcon, path: "/orders/delivery" },
-      { title: "Packing", icon: PackageCheck, path: "/orders/packing" },
-      { title: "Picking", icon: ClipboardCheck, path: "/orders/picking" },
+      { title: "Picking", icon: PackageCheck, path: "/orders/picking" },
+      { title: "Loading Request", icon: ClipboardCheck, path: "/orders/loading-request" },
+      { title: "Loading List", icon: TruckIcon, path: "/orders/loading-list" },
       { title: "Order Tracking", icon: MapPinned, path: "/orders/tracking" },
+    ],
+  },
+  {
+    title: "Delivery Management",
+    icon: Truck,
+    subItems: [
+      { title: "Depot Delivery", icon: WarehouseIcon, path: "/delivery/depot" },
+      { title: "Sample Gift Delivery", icon: Gift, path: "/delivery/sample-gift" },
+      { title: "Export", icon: Globe, path: "/delivery/export" },
     ],
   },
   {
@@ -110,13 +111,12 @@ const menuItems = [
       { title: "Shipping Points", icon: MapPinned, path: "/settings/shipping-points" },
       { title: "UOM", icon: Ruler, path: "/settings/uom" },
       { title: "Primary Packaging", icon: Package2, path: "/settings/primary-packaging" },
-      { title: "Price Setup", icon: DollarSign, path: "/settings/price-setup" },
+      { title: "Price Setup", icon: Tag, path: "/settings/price-setup" },
       { title: "Role Master", icon: Users, path: "/settings/role-master" },
+      { title: "Vehicles", icon: Car, path: "/distribution/vehicles" },
+      { title: "Drivers", icon: Users, path: "/distribution/drivers" },
     ],
   },
-  { title: "Approvals", icon: CheckSquare, path: "/approvals" },
-  { title: "Billing", icon: CreditCard, path: "/billing" },
-  { title: "Analytics", icon: BarChart3, path: "/analytics" },
 ];
 
 export function AppSidebar() {
@@ -171,7 +171,7 @@ export function AppSidebar() {
                 item.subItems ? (
                   <Collapsible
                     key={item.title}
-                    open={openMenus[item.title]}
+                    open={openMenus[item.title] ?? false}
                     onOpenChange={() => toggleMenu(item.title)}
                   >
                     <SidebarMenuItem>

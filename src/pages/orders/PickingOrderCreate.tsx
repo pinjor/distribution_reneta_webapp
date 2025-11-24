@@ -270,7 +270,7 @@ export default function PickingOrderCreate() {
       };
       const response = await apiEndpoints.pickingOrders.create(payload);
       toast({ title: "Picking challan created", description: response.order_number });
-      navigate(`/orders/picking/${response.id}`);
+      navigate(`/orders/loading-request/${response.id}`);
     } catch (error: any) {
       console.error("Failed to create picking order", error);
       toast({
@@ -305,7 +305,7 @@ export default function PickingOrderCreate() {
           </CardContent>
         </Card>
         <div className="flex justify-center">
-          <Button onClick={() => navigate("/orders/packing")}>Go to packing queue</Button>
+          <Button onClick={() => navigate("/orders/picking")}>Go to picking queue</Button>
         </div>
       </main>
     );

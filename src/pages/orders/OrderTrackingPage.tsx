@@ -69,7 +69,7 @@ const statusStyles: Record<
 
 const infoPills = [
   { title: "Fulfillment", caption: "Order processing + logistics", Icon: PackageSearch },
-  { title: "Delivery flow", caption: "Packing → Loading → Shipping", Icon: MapPinned },
+  { title: "Delivery flow", caption: "Sales Order → Delivery Order → Picking → Loading → Delivered → Collected", Icon: MapPinned },
 ];
 
 export default function OrderTrackingPage() {

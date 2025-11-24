@@ -190,9 +190,9 @@ export const apiEndpoints = {
   },
   
   roleMasters: {
-    getAll: (roleType?: string) => api.get(roleType ? `/role-masters?role_type=${roleType}` : '/role-masters'),
+    getAll: (roleType?: string) => api.get(roleType ? `/role-masters/?role_type=${roleType}` : '/role-masters/'),
     getById: (id: number) => api.get(`/role-masters/${id}`),
-    create: (data: any) => api.post('/role-masters', data),
+    create: (data: any) => api.post('/role-masters/', data),
     update: (id: number, data: any) => api.put(`/role-masters/${id}`, data),
     delete: (id: number) => api.delete(`/role-masters/${id}`),
     getHierarchy: (id: number) => api.get(`/role-masters/${id}/hierarchy`),
@@ -273,6 +273,8 @@ export const apiEndpoints = {
   
   stockAdjustments: {
     getAll: () => api.get('/stock/adjustments'),
+    create: (data: any) => api.post('/stock/adjustments', data),
+    getById: (id: number) => api.get(`/stock/adjustments/${id}`),
   },
   
   stockMaintenance: {
@@ -283,14 +285,12 @@ export const apiEndpoints = {
     getAll: () => api.get('/vehicle/loadings'),
   },
   
-  // Analytics & Billing
-  analytics: {
-    salesTrend: () => api.get('/analytics/sales-trend'),
-    stockChart: () => api.get('/analytics/stock-chart'),
-  },
-  
-  billing: {
-    getInvoices: () => api.get('/billing/invoices'),
+  invoices: {
+    getAll: () => api.get('/invoices'),
+    getById: (id: number | string) => api.get(`/invoices/${id}`),
+    create: (data: any) => api.post('/invoices', data),
+    generateBulk: (challanId: number) => api.post(`/invoices/generate-bulk/${challanId}`, {}),
+    download: (id: number | string) => api.get(`/invoices/${id}/download`),
   },
 };
 

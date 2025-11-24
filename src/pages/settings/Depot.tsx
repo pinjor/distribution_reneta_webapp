@@ -18,6 +18,7 @@ import { Warehouse, ArrowLeft, MapPin, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Depot {
   id: string;
@@ -77,6 +78,8 @@ export default function Depot() {
   const [warehouse, setWarehouse] = useState("");
   const [zone, setZone] = useState("");
   const [storageType, setStorageType] = useState<"General Store" | "Cold" | "Cool">("General Store");
+  const [companies, setCompanies] = useState<Array<{ id: number; name: string; code: string }>>([]);
+  const [companyId, setCompanyId] = useState<string>("");
 
   const [formData, setFormData] = useState({
     code: "",
@@ -107,7 +110,17 @@ export default function Depot() {
 
   useEffect(() => {
     document.title = "Depot Settings | App";
+    fetchCompanies();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const data = await apiEndpoints.companies.getAll();
+      setCompanies(data);
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -241,11 +254,6 @@ export default function Depot() {
   const columns: ColumnDef<Depot>[] = useMemo(
     () => [
       {
-        key: "code",
-        header: "Depot Code",
-        render: (value) => <span className="font-mono text-sm">{String(value)}</span>,
-      },
-      {
         key: "name",
         header: "Depot Name",
         render: (_, depot) => <span className="font-medium">{depot.name}</span>,
@@ -310,6 +318,26 @@ export default function Depot() {
           <CardContent className="p-6">
             <div className="space-y-6 max-w-4xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="depot-company">Company *</Label>
+                  <Select value={companyId} onValueChange={setCompanyId}>
+                    <SelectTrigger id="depot-company">
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.length > 0 ? (
+                        companies.map((company) => (
+                          <SelectItem key={company.id} value={String(company.id)}>
+                            {company.name} ({company.code})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No companies available</div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Select company from master data</p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="depot-code">Depot Code *</Label>
                   <Input

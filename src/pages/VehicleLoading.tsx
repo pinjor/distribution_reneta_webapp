@@ -1,275 +1,391 @@
-import { useState } from "react";
-import { Truck, Package, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, FileText, Download, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiEndpoints } from "@/lib/api";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const availableOrders = [
-  { id: "ORD-001", customer: "Depot A", items: "Paracetamol 500mg", qty: 500, weight: 25 },
-  { id: "ORD-002", customer: "Depot B", items: "Amoxicillin 250mg", qty: 300, weight: 15 },
-  { id: "ORD-003", customer: "Depot C", items: "Ibuprofen 400mg", qty: 200, weight: 10 },
-];
+interface LoadingChallan {
+  id: number;
+  order_number: string;
+  loading_no?: string;
+  loading_date?: string;
+  vehicle_no?: string;
+  delivery_by?: string;
+  area?: string;
+  status: string;
+  deliveries: Array<{
+    id: number;
+    delivery_id?: number;
+    memo_no?: string;
+    value?: number;
+    status?: string;
+    customer?: {
+      id: number;
+      name: string;
+      code: string;
+    };
+  }>;
+  created_at?: string;
+}
 
-const vehicles = [
-  { id: "VH-001", number: "TN-01-AB-1234", capacity: 5000, type: "5 Ton" },
-  { id: "VH-002", number: "TN-02-CD-5678", capacity: 10000, type: "10 Ton" },
-  { id: "VH-003", number: "TN-03-EF-9012", capacity: 7500, type: "7.5 Ton" },
-];
+interface Invoice {
+  id: number;
+  invoice_number: string;
+  invoice_date: string;
+  customer_id: number;
+  customer_name: string;
+  amount: number;
+  status: string;
+}
 
 export default function VehicleLoading() {
-  const [selectedVehicle, setSelectedVehicle] = useState("");
-  const [selectedRoute, setSelectedRoute] = useState("");
-  const [loadedOrders, setLoadedOrders] = useState<typeof availableOrders>([]);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [challans, setChallans] = useState<LoadingChallan[]>([]);
+  const [expandedChallans, setExpandedChallans] = useState<Set<number>>(new Set());
+  const [invoices, setInvoices] = useState<Record<number, Invoice[]>>({}); // challan_id -> invoices
 
-  const totalWeight = loadedOrders.reduce((sum, order) => sum + order.weight, 0);
-  const selectedVehicleData = vehicles.find((v) => v.id === selectedVehicle);
-  const capacityPercentage = selectedVehicleData
-    ? Math.round((totalWeight / selectedVehicleData.capacity) * 100)
-    : 0;
-
-  const handleLoadOrder = (order: typeof availableOrders[0]) => {
-    if (loadedOrders.find((o) => o.id === order.id)) {
-      toast({ title: "Already loaded", description: "This order is already in the vehicle" });
-      return;
+  const fetchChallans = async () => {
+    try {
+      setLoading(true);
+      const response = await apiEndpoints.pickingOrders.getAll();
+      // Filter only approved picking orders (loading challans)
+      const approvedChallans = (response.data || []).filter(
+        (order: LoadingChallan) => order.status === "Approved"
+      );
+      setChallans(approvedChallans);
+    } catch (error) {
+      console.error("Failed to load loading challans", error);
+      toast({ title: "Unable to load loading challans", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (selectedVehicleData && totalWeight + order.weight > selectedVehicleData.capacity) {
-      toast({
-        title: "Capacity exceeded",
-        description: "This order would exceed vehicle capacity",
-        variant: "destructive",
+  const fetchInvoicesForChallan = async (challanId: number) => {
+    try {
+      // Group deliveries by customer and fetch/create invoices
+      const challan = challans.find((c) => c.id === challanId);
+      if (!challan) return;
+
+      // For now, we'll create a mock structure. In production, this would call an API
+      // that groups deliveries by customer and returns invoices
+      const customerGroups: Record<number, any[]> = {};
+      
+      challan.deliveries?.forEach((delivery: any) => {
+        // Assuming delivery has customer info or we need to fetch it
+        const customerId = delivery.customer?.id || delivery.customer_id;
+        if (!customerGroups[customerId]) {
+          customerGroups[customerId] = [];
+        }
+        customerGroups[customerId].push(delivery);
       });
-      return;
+
+      // Mock invoices - in production, fetch from API
+      const mockInvoices: Invoice[] = Object.entries(customerGroups).map(([customerId, deliveries]) => {
+        const totalAmount = deliveries.reduce((sum, d) => sum + Number(d.value || 0), 0);
+        const firstDelivery = deliveries[0];
+        return {
+          id: parseInt(customerId) * 1000 + challanId, // Mock ID
+          invoice_number: `INV-${challan.loading_no || challan.order_number}-${customerId}`,
+          invoice_date: challan.loading_date || new Date().toISOString().split('T')[0],
+          customer_id: parseInt(customerId),
+          customer_name: firstDelivery.customer?.name || `Customer ${customerId}`,
+          amount: totalAmount,
+          status: "Pending",
+        };
+      });
+
+      setInvoices((prev) => ({ ...prev, [challanId]: mockInvoices }));
+    } catch (error) {
+      console.error("Failed to load invoices", error);
+      toast({ title: "Unable to load invoices", variant: "destructive" });
     }
-
-    setLoadedOrders([...loadedOrders, order]);
-    toast({ title: "Order loaded", description: `${order.id} added to vehicle` });
   };
 
-  const handleRemoveOrder = (orderId: string) => {
-    setLoadedOrders(loadedOrders.filter((o) => o.id !== orderId));
-    toast({ title: "Order removed", description: `${orderId} removed from vehicle` });
+  useEffect(() => {
+    fetchChallans();
+  }, []);
+
+  const toggleChallan = (challanId: number) => {
+    const newExpanded = new Set(expandedChallans);
+    if (newExpanded.has(challanId)) {
+      newExpanded.delete(challanId);
+    } else {
+      newExpanded.add(challanId);
+      // Fetch invoices when expanding
+      if (!invoices[challanId]) {
+        fetchInvoicesForChallan(challanId);
+      }
+    }
+    setExpandedChallans(newExpanded);
   };
 
-  const handleConfirmDispatch = () => {
-    toast({
-      title: "Dispatch confirmed",
-      description: "Delivery memo generated successfully",
-    });
-    setShowConfirmDialog(false);
-    setLoadedOrders([]);
-    setSelectedVehicle("");
-    setSelectedRoute("");
+  const handleBulkInvoiceGeneration = async (challanId: number) => {
+    try {
+      setGenerating(true);
+      const challan = challans.find((c) => c.id === challanId);
+      if (!challan) return;
+
+      // Group deliveries by customer
+      const customerGroups: Record<number, any[]> = {};
+      challan.deliveries?.forEach((delivery: any) => {
+        const customerId = delivery.customer?.id || delivery.customer_id;
+        if (!customerGroups[customerId]) {
+          customerGroups[customerId] = [];
+        }
+        customerGroups[customerId].push(delivery);
+      });
+
+      // Generate invoices for each customer
+      const generatedInvoices: Invoice[] = [];
+      for (const [customerId, deliveries] of Object.entries(customerGroups)) {
+        const totalAmount = deliveries.reduce((sum, d) => sum + Number(d.value || 0), 0);
+        const firstDelivery = deliveries[0];
+        
+        // In production, call API to generate invoice
+        // const invoice = await apiEndpoints.invoices.create({...});
+        
+        const invoice: Invoice = {
+          id: parseInt(customerId) * 1000 + challanId,
+          invoice_number: `INV-${challan.loading_no || challan.order_number}-${customerId}-${Date.now()}`,
+          invoice_date: challan.loading_date || new Date().toISOString().split('T')[0],
+          customer_id: parseInt(customerId),
+          customer_name: firstDelivery.customer?.name || `Customer ${customerId}`,
+          amount: totalAmount,
+          status: "Generated",
+        };
+        generatedInvoices.push(invoice);
+      }
+
+      setInvoices((prev) => ({ ...prev, [challanId]: generatedInvoices }));
+      toast({
+        title: "Invoices generated successfully",
+        description: `Generated ${generatedInvoices.length} invoice(s) for ${challan.order_number}`,
+      });
+    } catch (error) {
+      console.error("Failed to generate invoices", error);
+      toast({ title: "Unable to generate invoices", variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      Approved: "bg-green-500/10 text-green-600 border-green-500/20",
+      Pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+      Generated: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+    };
+    return (
+      <Badge variant="outline" className={colors[status] || ""}>
+        {status}
+      </Badge>
+    );
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Vehicle Loading Panel</h1>
-        <p className="text-muted-foreground">Load orders onto vehicles for dispatch</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Loading List</h1>
+          <p className="text-muted-foreground">Manage loading challans and generate bulk invoices for chemist shops</p>
+        </div>
+        <Button variant="outline" onClick={fetchChallans} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="p-6 lg:col-span-2">
-          <div className="flex items-center gap-2 mb-6">
-            <Package className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Available Orders</h2>
-          </div>
-
-          <div className="space-y-3">
-            {availableOrders.map((order) => (
-              <div
-                key={order.id}
-                className="p-4 border rounded-lg flex items-center justify-between hover:bg-muted/50 transition-colors"
-              >
-                <div className="space-y-1">
-                  <p className="font-medium">{order.id}</p>
-                  <p className="text-sm text-muted-foreground">{order.customer}</p>
-                  <p className="text-sm">{order.items}</p>
-                  <div className="flex gap-2 text-sm">
-                    <Badge variant="outline">Qty: {order.qty}</Badge>
-                    <Badge variant="outline">Weight: {order.weight}kg</Badge>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleLoadOrder(order)}
-                  disabled={!selectedVehicle || loadedOrders.some((o) => o.id === order.id)}
-                >
-                  {loadedOrders.some((o) => o.id === order.id) ? "Loaded" : "Load"}
-                </Button>
-              </div>
-            ))}
-          </div>
+      {loading ? (
+        <Card className="p-12 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading challans...</p>
         </Card>
+      ) : challans.length === 0 ? (
+        <Card className="p-12 text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">No loading challans found</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Approved loading requests will appear here
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {challans.map((challan) => {
+            const isExpanded = expandedChallans.has(challan.id);
+            const challanInvoices = invoices[challan.id] || [];
+            const hasInvoices = challanInvoices.length > 0;
 
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Truck className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Vehicle Details</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Select Vehicle</label>
-              <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose vehicle" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.number} ({vehicle.type})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Select Route</label>
-              <Select value={selectedRoute} onValueChange={setSelectedRoute}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose route" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RT-001">Route A (North)</SelectItem>
-                  <SelectItem value="RT-002">Route B (South)</SelectItem>
-                  <SelectItem value="RT-003">Route C (East)</SelectItem>
-                  <SelectItem value="RT-004">Route D (West)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedVehicleData && (
-              <div className="p-4 bg-muted/30 rounded-lg space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Capacity Used</span>
-                    <span className="text-sm font-semibold">{capacityPercentage}%</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${
-                        capacityPercentage > 90 ? "bg-destructive" : "bg-primary"
-                      }`}
-                      style={{ width: `${Math.min(capacityPercentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="text-sm space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Max Capacity:</span>
-                    <span className="font-medium">{selectedVehicleData.capacity}kg</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Current Load:</span>
-                    <span className="font-medium">{totalWeight}kg</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Available:</span>
-                    <span className="font-medium">
-                      {selectedVehicleData.capacity - totalWeight}kg
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {capacityPercentage > 90 && (
-              <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
-                <div className="flex gap-2">
-                  <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-warning">
-                    Vehicle capacity almost full!
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Loaded Orders ({loadedOrders.length})</h3>
-              {loadedOrders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No orders loaded yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {loadedOrders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="p-2 bg-success/10 border border-success/20 rounded-lg text-sm flex items-center justify-between"
-                    >
-                      <span className="font-medium">{order.id}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveOrder(order.id)}
-                        className="h-6 px-2"
-                      >
-                        Remove
-                      </Button>
+            return (
+              <Card key={challan.id} className="overflow-hidden">
+                <Collapsible open={isExpanded} onOpenChange={() => toggleChallan(challan.id)}>
+                  <CollapsibleTrigger asChild>
+                    <div className="p-4 hover:bg-muted/50 cursor-pointer transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          {isExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <h3 className="font-semibold text-lg">{challan.loading_no || challan.order_number}</h3>
+                              {getStatusBadge(challan.status)}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                              {challan.loading_date && (
+                                <span>Date: {new Date(challan.loading_date).toLocaleDateString()}</span>
+                              )}
+                              {challan.vehicle_no && <span>Vehicle: {challan.vehicle_no}</span>}
+                              {challan.area && <span>Area: {challan.area}</span>}
+                              <span>Deliveries: {challan.deliveries?.length || 0}</span>
+                              {hasInvoices && (
+                                <span className="text-primary font-medium">
+                                  Invoices: {challanInvoices.length}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {!hasInvoices && (
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBulkInvoiceGeneration(challan.id);
+                            }}
+                            disabled={generating}
+                            className="ml-4"
+                          >
+                            {generating ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Generate Invoices
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </CollapsibleTrigger>
 
-            <Button
-              className="w-full"
-              onClick={() => setShowConfirmDialog(true)}
-              disabled={!selectedVehicle || !selectedRoute || loadedOrders.length === 0}
-            >
-              Generate Delivery Memo
-            </Button>
-          </div>
-        </Card>
-      </div>
-
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Dispatch</DialogTitle>
-            <DialogDescription>Review dispatch details before confirming</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Vehicle</p>
-                <p className="font-medium">
-                  {selectedVehicleData?.number} ({selectedVehicleData?.type})
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Route</p>
-                <p className="font-medium">
-                  {selectedRoute === "RT-001" && "Route A (North)"}
-                  {selectedRoute === "RT-002" && "Route B (South)"}
-                  {selectedRoute === "RT-003" && "Route C (East)"}
-                  {selectedRoute === "RT-004" && "Route D (West)"}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Orders</p>
-                <p className="font-medium">{loadedOrders.length}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Total Weight</p>
-                <p className="font-medium">{totalWeight}kg</p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmDispatch}>Confirm Dispatch</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  <CollapsibleContent>
+                    <div className="border-t bg-muted/30">
+                      {hasInvoices ? (
+                        <div className="p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold">Invoices by Chemist Shop</h4>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleBulkInvoiceGeneration(challan.id)}
+                              disabled={generating}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Regenerate All
+                            </Button>
+                          </div>
+                          <div className="space-y-3">
+                            {challanInvoices.map((invoice) => (
+                              <Card key={invoice.id} className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <h5 className="font-medium">{invoice.invoice_number}</h5>
+                                      {getStatusBadge(invoice.status)}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                        <span className="text-muted-foreground">Chemist Shop:</span>
+                                        <span className="ml-2 font-medium">{invoice.customer_name}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">Date:</span>
+                                        <span className="ml-2 font-medium">
+                                          {new Date(invoice.invoice_date).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">Amount:</span>
+                                        <span className="ml-2 font-semibold text-lg">
+                                          {invoice.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {/* Show products if delivery has empty products list */}
+                                    {challan.deliveries?.find((d: any) => d.customer?.id === invoice.customer_id)?.items?.length === 0 && (
+                                      <div className="mt-3 pt-3 border-t">
+                                        <p className="text-sm font-medium mb-2">Products:</p>
+                                        <div className="text-sm text-muted-foreground">
+                                          {challan.deliveries?.find((d: any) => d.customer?.id === invoice.customer_id)?.items?.length === 0 ? (
+                                            <p>No products listed. Products will be added during delivery.</p>
+                                          ) : (
+                                            <ul className="list-disc list-inside space-y-1">
+                                              {challan.deliveries?.find((d: any) => d.customer?.id === invoice.customer_id)?.items?.map((item: any, idx: number) => (
+                                                <li key={idx}>{item.product_name || item.name} - Qty: {item.quantity}</li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button variant="outline" size="sm">
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Download
+                                    </Button>
+                                    <Button variant="outline" size="sm">
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      View
+                                    </Button>
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center">
+                          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                          <p className="text-muted-foreground mb-4">No invoices generated yet</p>
+                          <Button
+                            onClick={() => handleBulkInvoiceGeneration(challan.id)}
+                            disabled={generating}
+                          >
+                            {generating ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Generate Bulk Invoices
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
