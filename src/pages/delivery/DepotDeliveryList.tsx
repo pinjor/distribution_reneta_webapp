@@ -101,8 +101,8 @@ export default function DepotDeliveryList() {
     <main className="p-6 space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Depot Delivery List</h1>
-          <p className="text-muted-foreground">Manage deliveries to depots and distribution centers</p>
+          <h1 className="text-2xl font-semibold text-foreground">Depot Transfer List</h1>
+          <p className="text-muted-foreground">Manage transfers to depots and distribution centers</p>
         </div>
         <div className="flex items-center gap-2">
           <Input

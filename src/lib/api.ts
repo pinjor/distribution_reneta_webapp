@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost/api';
 
 const buildQuery = (params?: Record<string, any>): string => {
-  if (!params) return "";
+  if (!params || Object.keys(params).length === 0) return "";
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === "") return;
@@ -43,6 +43,17 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
+      
+      // If we get a CORS error or network error, try direct backend connection
+      if (!response.ok && response.status === 0) {
+        console.warn("Proxy request failed, trying direct backend connection");
+        const directUrl = url.replace('/api', 'http://localhost:8000/api');
+        const directResponse = await fetch(directUrl, config);
+        if (directResponse.ok) {
+          return await directResponse.json();
+        }
+      }
+      
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem("token");
@@ -52,11 +63,13 @@ class ApiClient {
         }
 
         let message = `Request failed with status ${response.status}`;
+        let errorDetails: any = null;
         try {
           const contentType = response.headers.get("Content-Type") || "";
           if (contentType.includes("application/json")) {
             const body = await response.json();
-            message = body?.detail || body?.message || body?.error || message;
+            errorDetails = body;
+            message = body?.detail || body?.message || body?.error || JSON.stringify(body) || message;
           } else {
             const text = await response.text();
             if (text) message = text;
@@ -67,6 +80,8 @@ class ApiClient {
 
         const error = new Error(message);
         (error as any).status = response.status;
+        (error as any).details = errorDetails;
+        console.error(`API Error [${response.status}]:`, errorDetails || message);
         throw error;
       }
       const contentType = response.headers.get("Content-Type") || "";
@@ -74,8 +89,31 @@ class ApiClient {
         return await response.json();
       }
       return await response.text();
-    } catch (error) {
+    } catch (error: any) {
       console.error('API request failed:', error);
+      
+      // If it's a network/CORS error, try direct backend connection as fallback
+      if ((error.message?.includes("Failed to fetch") || error.message?.includes("CORS") || error.name === "TypeError") && 
+          this.baseUrl.includes('/api')) {
+        console.warn("Network/CORS error detected, trying direct backend connection");
+        try {
+          // Replace the baseUrl with direct backend URL, keeping the /api prefix
+          const directUrl = url.replace(this.baseUrl, 'http://localhost:8000/api');
+          const directResponse = await fetch(directUrl, config);
+          if (directResponse.ok) {
+            const contentType = directResponse.headers.get("Content-Type") || "";
+            if (contentType.includes("application/json")) {
+              return await directResponse.json();
+            }
+            return await directResponse.text();
+          } else {
+            console.error(`Direct backend connection failed with status: ${directResponse.status}`);
+          }
+        } catch (directError) {
+          console.error("Direct backend connection also failed:", directError);
+        }
+      }
+      
       throw error;
     }
   }
@@ -210,6 +248,13 @@ export const apiEndpoints = {
     submit: (id: number | string) => api.post(`/orders/${id}/submit`, {}),
     approve: (data: any) => api.post('/orders/approve', data),
     delete: (id: number | string) => api.delete(`/orders/${id}`),
+    getRouteWise: (routeCode: string) => api.get(`/orders/route-wise/${routeCode}`),
+    getAllRouteWise: () => api.get('/orders/route-wise/all'),
+    printRouteWise: (data: any) => api.post('/orders/route-wise/print', data),
+    assignRouteWise: (data: any) => api.post('/orders/route-wise/assign', data),
+    validateRouteWise: (data: any) => api.post('/orders/route-wise/validate', data),
+    getAssigned: (params?: Record<string, any>) => api.get(`/orders/assigned${buildQuery(params)}`),
+    updateAssignedStatus: (id: number, data: any) => api.put(`/orders/assigned/${id}/status`, data),
   },
 
   productReceipts: {
@@ -279,6 +324,27 @@ export const apiEndpoints = {
   
   stockMaintenance: {
     getLedger: () => api.get('/stock/maintenance'),
+    getProductBatches: (productId: number, depotId?: number) => {
+      const params = depotId ? `?depot_id=${depotId}` : '';
+      return api.get(`/stock/maintenance/product/${productId}/batches${params}`);
+    },
+    getProductCurrentStock: (productId: number, depotId?: number) => {
+      const params = depotId ? `?depot_id=${depotId}` : '';
+      return api.get(`/stock/maintenance/product/${productId}/current-stock${params}`);
+    },
+  },
+  
+  productItemStock: {
+    getAll: (params?: Record<string, any>) => api.get(`/product-item-stock${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/product-item-stock/${id}`),
+    create: (data: any) => api.post('/product-item-stock', data),
+    update: (id: number, data: any) => api.put(`/product-item-stock/${id}`, data),
+    getDetails: (stockId: number) => api.get(`/product-item-stock/${stockId}/details`),
+    createDetail: (stockId: number, data: any) => api.post(`/product-item-stock/${stockId}/details`, data),
+    getProductSummary: (productId: number, depotId?: number) => {
+      const params = depotId ? `?depot_id=${depotId}` : '';
+      return api.get(`/product-item-stock/product/${productId}/summary${params}`);
+    },
   },
   
   vehicleLoadings: {

@@ -159,11 +159,11 @@ export default function DepotDeliveryForm() {
 
       await apiEndpoints.deliveryOrders.create(payload);
       
-      toast({ title: "Depot delivery created successfully" });
+      toast({ title: "Depot transfer created successfully" });
       navigate("/delivery/depot");
     } catch (error: any) {
-      console.error("Failed to create depot delivery", error);
-      toast({ title: "Unable to create delivery", description: error?.message, variant: "destructive" });
+      console.error("Failed to create depot transfer", error);
+      toast({ title: "Unable to create transfer", description: error?.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -180,8 +180,8 @@ export default function DepotDeliveryForm() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Create Depot Delivery</h1>
-          <p className="text-muted-foreground">Create a new delivery order for depot distribution</p>
+          <h1 className="text-2xl font-semibold text-foreground">Create Depot Transfer</h1>
+          <p className="text-muted-foreground">Create a new transfer order for depot distribution</p>
         </div>
       </div>
 
@@ -189,12 +189,12 @@ export default function DepotDeliveryForm() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Delivery Information</CardTitle>
+              <CardTitle>Transfer Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryNumber">Delivery Number</Label>
+                  <Label htmlFor="deliveryNumber">Transfer Number</Label>
                   <Input
                     id="deliveryNumber"
                     value={form.deliveryNumber}
@@ -310,7 +310,7 @@ export default function DepotDeliveryForm() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Delivery Items</CardTitle>
+              <CardTitle>Transfer Items</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">

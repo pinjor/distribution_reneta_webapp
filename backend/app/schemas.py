@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, validator, field_validator
 from typing import Optional, List
 from decimal import Decimal
 from datetime import date, datetime
@@ -410,21 +410,94 @@ class StockLedger(StockLedgerBase):
     class Config:
         from_attributes = True
 
+# Product Item Stock schemas
+class ProductItemStockDetailBase(BaseModel):
+    batch_no: str
+    
+    @validator('batch_no', pre=True)
+    def validate_batch_no(cls, v):
+        if not v:
+            raise ValueError('Batch number is required')
+        cleaned = str(v).strip()
+        if not cleaned.isdigit():
+            raise ValueError('Batch number must be numeric only (digits only)')
+        return cleaned
+    
+    expiry_date: Optional[date] = None
+    quantity: Decimal = Decimal("0")
+    available_quantity: Decimal = Decimal("0")
+    reserved_quantity: Decimal = Decimal("0")
+    manufacturing_date: Optional[date] = None
+    storage_type: Optional[str] = None
+    status: str = "Unrestricted"
+    source_type: Optional[str] = None
+
+class ProductItemStockDetailCreate(ProductItemStockDetailBase):
+    item_code: int
+
+class ProductItemStockDetail(ProductItemStockDetailBase):
+    id: int
+    item_code: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ProductItemStockBase(BaseModel):
+    product_id: int
+    product_code: str
+    sku_code: str
+    gross_stock_receive: Decimal = Decimal("0")
+    issue: Decimal = Decimal("0")
+    stock_qty: Decimal = Decimal("0")
+    adjusted_stock_in_qty: Decimal = Decimal("0")
+    adjusted_stock_out_qty: Decimal = Decimal("0")
+    depot_id: Optional[int] = None
+
+class ProductItemStockCreate(ProductItemStockBase):
+    pass
+
+class ProductItemStockUpdate(ProductItemStockBase):
+    pass
+
+class ProductItemStock(ProductItemStockBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    details: List[ProductItemStockDetail] = []
+    
+    class Config:
+        from_attributes = True
 
 # Order schemas
 class OrderItemBase(BaseModel):
-    old_code: str
-    new_code: Optional[str] = None
+    product_code: str  # Renamed from old_code
     product_name: str
     pack_size: Optional[str] = None
     quantity: Decimal
+    free_goods: Optional[Decimal] = 0
+    total_quantity: Optional[Decimal] = None
     trade_price: Decimal = 0
+    unit_price: Optional[Decimal] = None
+    discount_percent: Optional[Decimal] = 0
+    batch_number: Optional[str] = None  # Added batch number (must be numeric for new orders)
+    current_stock: Optional[Decimal] = None  # Added current stock
     delivery_date: date
     selected: bool = True
 
 
 class OrderItemCreate(OrderItemBase):
     id: Optional[int] = None
+    
+    @validator('batch_number', pre=True, always=True)
+    def validate_batch_number(cls, v):
+        if v is None or v == "":
+            return None
+        cleaned = str(v).strip()
+        if cleaned and not cleaned.isdigit():
+            raise ValueError('Batch number must be numeric only (digits only)')
+        return cleaned if cleaned else None
 
 
 class OrderItem(OrderItemBase):
@@ -436,16 +509,19 @@ class OrderItem(OrderItemBase):
 
 
 class OrderBase(BaseModel):
-    depot_code: str
-    depot_name: str
+    depot_code: Optional[str] = None
+    depot_name: Optional[str] = None
     customer_id: str
     customer_name: str
     customer_code: Optional[str] = None
     pso_id: str
     pso_name: str
     pso_code: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
     delivery_date: date
     notes: Optional[str] = None
+    memo_number: Optional[str] = None  # 8-digit numeric memo/invoice number
 
 
 class OrderCreate(OrderBase):
@@ -462,6 +538,8 @@ class OrderUpdate(BaseModel):
     pso_id: Optional[str] = None
     pso_name: Optional[str] = None
     pso_code: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
     delivery_date: Optional[date] = None
     notes: Optional[str] = None
     status: Optional[OrderStatusEnum] = None
@@ -471,6 +549,7 @@ class OrderUpdate(BaseModel):
 class Order(OrderBase):
     id: int
     order_number: Optional[str] = None
+    memo_number: Optional[str] = None  # 8-digit numeric memo/invoice number
     status: OrderStatusEnum
     created_at: datetime
     updated_at: datetime
@@ -490,10 +569,112 @@ class OrderApprovalResponse(BaseModel):
     orders: List[Order]
 
 
+# Route-wise order schemas
+class RouteWiseOrderItemResponse(BaseModel):
+    id: int
+    order_id: int
+    order_number: Optional[str] = None
+    memo_number: Optional[str] = None  # 8-digit numeric memo/invoice number
+    product_code: str
+    size: Optional[str] = None
+    free_goods: Decimal = 0
+    total_quantity: Decimal
+    unit_price: Decimal
+    discount_percent: Decimal = 0
+    total_price: Decimal
+    customer_name: str
+    customer_code: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
+    validated: bool = False
+    printed: bool = False
+    printed_at: Optional[datetime] = None
+    assigned_to: Optional[int] = None
+    assigned_vehicle: Optional[int] = None
+    loaded: bool = False
+    loaded_at: Optional[datetime] = None
+    pso_name: Optional[str] = None
+    pso_code: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RouteWiseOrderStats(BaseModel):
+    total_order: int
+    validated: int
+    printed: int
+    pending_print: int
+    loaded: int
+
+
+class RouteWiseOrderResponse(BaseModel):
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
+    items: List[RouteWiseOrderItemResponse]
+    stats: RouteWiseOrderStats
+
+
+class RouteWisePrintRequest(BaseModel):
+    order_ids: List[int]
+    route_code: Optional[str] = None
+
+
+class RouteWiseValidateRequest(BaseModel):
+    route_code: str
+    order_ids: Optional[List[int]] = None  # If None, validate all unvalidated orders in route
+
+class RouteWiseAssignRequest(BaseModel):
+    order_ids: List[int]
+    employee_id: int
+    vehicle_id: int
+    route_code: Optional[str] = None
+
+
+class AssignedOrderResponse(BaseModel):
+    id: int
+    order_id: int
+    order_number: Optional[str] = None
+    customer_name: str
+    customer_code: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
+    assigned_employee_id: int
+    assigned_employee_name: str
+    assigned_employee_code: Optional[str] = None
+    assigned_vehicle_id: int
+    assigned_vehicle_registration: str
+    assigned_vehicle_model: Optional[str] = None
+    assignment_date: datetime
+    loading_number: Optional[str] = None
+    loading_date: Optional[date] = None
+    area: Optional[str] = None
+    status: str = "Pending"
+    items_count: int
+    total_value: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class AssignedOrderStatusUpdate(BaseModel):
+    status: str
+
+
 # Stock Adjustment schemas
 class StockAdjustmentItemBase(BaseModel):
     product_id: int
-    batch: Optional[str] = None
+    batch: Optional[str] = None  # Must be numeric if provided
+    
+    @validator('batch', pre=True, always=True)
+    def validate_batch(cls, v):
+        if v is None or v == "":
+            return None
+        cleaned = str(v).strip()
+        if cleaned and not cleaned.isdigit():
+            raise ValueError('Batch number must be numeric only (digits only)')
+        return cleaned if cleaned else None
+    
     quantity_change: Decimal
 
 
@@ -543,7 +724,17 @@ class ProductReceiptItemBase(BaseModel):
     pack_size: Optional[str] = None
     uom: Optional[str] = None
     expiry_date: Optional[date] = None
-    batch_number: Optional[str] = None
+    batch_number: Optional[str] = None  # Must be numeric if provided
+    
+    @validator('batch_number', pre=True, always=True)
+    def validate_batch_number(cls, v):
+        if v is None or v == "":
+            return None
+        cleaned = str(v).strip()
+        if cleaned and not cleaned.isdigit():
+            raise ValueError('Batch number must be numeric only (digits only)')
+        return cleaned if cleaned else None
+    
     number_of_ifc: Decimal = Decimal("0")
     depot_quantity: Decimal = Decimal("0")
     ifc_per_full_mc: Decimal = Decimal("0")
@@ -630,7 +821,16 @@ class DeliveryOrderItemBase(BaseModel):
     new_code: Optional[str] = None
     pack_size: Optional[str] = None
     uom: Optional[str] = None
-    batch_number: str
+    batch_number: str  # Must be numeric
+    
+    @validator('batch_number', pre=True)
+    def validate_batch_number(cls, v):
+        if not v:
+            raise ValueError('Batch number is required')
+        cleaned = str(v).strip()
+        if not cleaned.isdigit():
+            raise ValueError('Batch number must be numeric only (digits only)')
+        return cleaned
     expiry_date: Optional[date] = None
     ordered_quantity: Decimal
     delivery_quantity: Decimal

@@ -21,6 +21,7 @@ from . import (
     vehicle_loading,
     stock_adjustment,
     stock_maintenance,
+    product_item_stock,
     dashboard,
     drivers,
     vehicles,

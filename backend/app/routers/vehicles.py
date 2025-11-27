@@ -9,6 +9,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[VehicleSchema])
 def get_vehicles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    # Get all vehicles (active and inactive) - frontend can filter if needed
     vehicles = db.query(Vehicle).offset(skip).limit(limit).all()
     return vehicles
 

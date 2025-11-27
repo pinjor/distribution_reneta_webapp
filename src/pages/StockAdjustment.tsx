@@ -13,9 +13,9 @@ import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 
 const adjustmentRequests = [
-  { id: "ADJ-001", product: "Paracetamol 500mg", batch: "BTH-2024-001", qty: -50, reason: "Damaged", status: "pending", date: "2025-01-15", submittedBy: "Mohammad Rahman" },
-  { id: "ADJ-002", product: "Amoxicillin 250mg", batch: "BTH-2024-003", qty: 100, reason: "Found", status: "approved", date: "2025-01-14", submittedBy: "Fatema Khatun" },
-  { id: "ADJ-003", product: "Insulin Vials", batch: "BTH-2024-002", qty: -25, reason: "Expired", status: "rejected", date: "2025-01-13", submittedBy: "Abdul Karim" },
+  { id: "ADJ-001", product: "Paracetamol 500mg", batch: "6000001", qty: -50, reason: "Damaged", status: "pending", date: "2025-01-15", submittedBy: "Mohammad Rahman" },
+  { id: "ADJ-002", product: "Amoxicillin 250mg", batch: "7000001", qty: 100, reason: "Found", status: "approved", date: "2025-01-14", submittedBy: "Fatema Khatun" },
+  { id: "ADJ-003", product: "Insulin Vials", batch: "9000001", qty: -25, reason: "Expired", status: "rejected", date: "2025-01-13", submittedBy: "Abdul Karim" },
 ];
 
 export default function StockAdjustment() {

@@ -15,15 +15,15 @@ export const pendingOrders = [
 ];
 
 export const batchLedger = [
-  { batch: "PCM-2501-A", product: "Paracetamol 500mg", storage: "Ambient", stock: 4750, reserved: 250, available: 4500, expiry: "2025-12-15", status: "Unrestricted" },
-  { batch: "AMX-2501-B", product: "Amoxicillin 250mg", storage: "Cool", stock: 2820, reserved: 180, available: 2640, expiry: "2025-11-20", status: "Unrestricted" },
-  { batch: "IBU-2501-C", product: "Ibuprofen 400mg", storage: "Ambient", stock: 4100, reserved: 400, available: 3700, expiry: "2026-03-10", status: "Unrestricted" },
-  { batch: "CET-2501-D", product: "Cetirizine 10mg", storage: "Ambient", stock: 1680, reserved: 320, available: 1360, expiry: "2025-10-30", status: "Restricted" },
-  { batch: "MET-2501-E", product: "Metformin 500mg", storage: "Ambient", stock: 6000, reserved: 0, available: 6000, expiry: "2026-05-18", status: "Unrestricted" },
+  { batch: "6000001", product: "Paracetamol 500mg", storage: "Ambient", stock: 4750, reserved: 250, available: 4500, expiry: "2025-12-15", status: "Unrestricted" },
+  { batch: "7000001", product: "Amoxicillin 250mg", storage: "Cool", stock: 2820, reserved: 180, available: 2640, expiry: "2025-11-20", status: "Unrestricted" },
+  { batch: "10000001", product: "Ibuprofen 400mg", storage: "Ambient", stock: 4100, reserved: 400, available: 3700, expiry: "2026-03-10", status: "Unrestricted" },
+  { batch: "8000001", product: "Cetirizine 10mg", storage: "Ambient", stock: 1680, reserved: 320, available: 1360, expiry: "2025-10-30", status: "Restricted" },
+  { batch: "9000001", product: "Metformin 500mg", storage: "Ambient", stock: 6000, reserved: 0, available: 6000, expiry: "2026-05-18", status: "Unrestricted" },
 ];
 
 export const adjustmentRequests = [
-  { id: "ADJ-2025-01", product: "Paracetamol 500mg", batch: "PCM-2501-A", qty: -50, reason: "Damaged", submittedBy: "Abdul Karim", date: "2025-01-14", status: "Pending" },
+  { id: "ADJ-2025-01", product: "Paracetamol 500mg", batch: "6000001", qty: -50, reason: "Damaged", submittedBy: "Abdul Karim", date: "2025-01-14", status: "Pending" },
   { id: "ADJ-2025-02", product: "Amoxicillin 250mg", batch: "AMX-2501-B", qty: 25, reason: "Cycle Count Variance", submittedBy: "Fatema Khatun", date: "2025-01-13", status: "Approved" },
   { id: "ADJ-2025-03", product: "Cetirizine 10mg", batch: "CET-2501-D", qty: -15, reason: "Quality Issue", submittedBy: "Mohammad Hasan", date: "2025-01-12", status: "Rejected" },
 ];

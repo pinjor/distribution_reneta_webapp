@@ -334,6 +334,47 @@ class StockLedger(Base):
     product = relationship("Product")
     depot = relationship("Depot")
 
+class ProductItemStock(Base):
+    """Main stock table for products with aggregated stock quantities"""
+    __tablename__ = "product_item_stock"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    product_code = Column(String(50), nullable=False)
+    sku_code = Column(String(50), nullable=False)
+    gross_stock_receive = Column(Numeric(15, 2), default=0)
+    issue = Column(Numeric(15, 2), default=0)
+    stock_qty = Column(Numeric(15, 2), default=0)
+    adjusted_stock_in_qty = Column(Numeric(15, 2), default=0)
+    adjusted_stock_out_qty = Column(Numeric(15, 2), default=0)
+    depot_id = Column(Integer, ForeignKey("depots.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    product = relationship("Product")
+    depot = relationship("Depot")
+    details = relationship("ProductItemStockDetail", back_populates="item_stock", cascade="all, delete-orphan")
+
+class ProductItemStockDetail(Base):
+    """Batch-wise stock details linked to product_item_stock"""
+    __tablename__ = "product_item_stock_details"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    item_code = Column(Integer, ForeignKey("product_item_stock.id", ondelete="CASCADE"), nullable=False)
+    batch_no = Column(String(100), nullable=False)
+    expiry_date = Column(Date)
+    quantity = Column(Numeric(15, 2), default=0)
+    available_quantity = Column(Numeric(15, 2), default=0)
+    reserved_quantity = Column(Numeric(15, 2), default=0)
+    manufacturing_date = Column(Date)
+    storage_type = Column(String(50))
+    status = Column(String(50), default="Unrestricted")
+    source_type = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    item_stock = relationship("ProductItemStock", back_populates="details")
+
 class StockReceipt(Base):
     __tablename__ = "stock_receipts"
     
@@ -405,21 +446,37 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     order_number = Column(String(50), nullable=True)
-    depot_code = Column(String(50), nullable=False)
-    depot_name = Column(String(255), nullable=False)
+    memo_number = Column(String(8), nullable=True, unique=True)  # 8-digit numeric memo/invoice number
+    depot_code = Column(String(50), nullable=True)
+    depot_name = Column(String(255), nullable=True)
     customer_id = Column(String(50), nullable=False)
     customer_name = Column(String(255), nullable=False)
     customer_code = Column(String(50), nullable=True)
     pso_id = Column(String(50), nullable=False)
     pso_name = Column(String(255), nullable=False)
     pso_code = Column(String(50), nullable=True)
+    route_code = Column(String(50), nullable=True)
+    route_name = Column(String(255), nullable=True)
     delivery_date = Column(Date, nullable=False)
     status = Column(Enum(OrderStatusEnum), nullable=False, default=OrderStatusEnum.DRAFT)
+    validated = Column(Boolean, default=False)
+    printed = Column(Boolean, default=False)
+    printed_at = Column(DateTime, nullable=True)
+    assigned_to = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    assigned_vehicle = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    loaded = Column(Boolean, default=False)
+    loaded_at = Column(DateTime, nullable=True)
+    assignment_date = Column(DateTime, nullable=True)
+    loading_number = Column(String(50), nullable=True)
+    loading_date = Column(Date, nullable=True)
+    area = Column(String(100), nullable=True)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    assigned_employee = relationship("Employee", foreign_keys=[assigned_to])
+    assigned_vehicle_rel = relationship("Vehicle", foreign_keys=[assigned_vehicle])
 
 
 class OrderItem(Base):
@@ -427,12 +484,17 @@ class OrderItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"))
-    old_code = Column(String(50), nullable=False)
-    new_code = Column(String(50))
+    product_code = Column(String(50), nullable=False)  # Renamed from old_code
     product_name = Column(String(255), nullable=False)
     pack_size = Column(String(100))
     quantity = Column(Numeric(12, 2), nullable=False)
+    free_goods = Column(Numeric(12, 2), default=0)
+    total_quantity = Column(Numeric(12, 2))
     trade_price = Column(Numeric(12, 2), nullable=False, default=0)
+    unit_price = Column(Numeric(12, 2))
+    discount_percent = Column(Numeric(5, 2), default=0)
+    batch_number = Column(String(100), nullable=True)  # Added batch number
+    current_stock = Column(Numeric(12, 2), nullable=True)  # Added current stock (calculated)
     delivery_date = Column(Date, nullable=False)
     selected = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

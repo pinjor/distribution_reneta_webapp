@@ -1,7 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 import redis.asyncio as redis
+import traceback
 
 from app.database import engine, Base
 from app.routers import (
@@ -10,7 +13,7 @@ from app.routers import (
     role_masters, orders, product_receipts, delivery_orders,
     vehicles, drivers, routes, picking_orders,
     stock_receipt, stock_issuance, vehicle_loading,
-    stock_adjustment, stock_maintenance,
+    stock_adjustment, stock_maintenance, product_item_stock,
     dashboard, invoices
 )
 
@@ -36,15 +39,62 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware - explicitly allow all origins for development
+# Note: Using "*" with allow_credentials=True is not allowed by browsers
+# So we list specific origins and use allow_credentials=False when using "*"
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:80",
+        "http://localhost:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=3600,
 )
+
+# Global exception handler to ensure CORS headers are always included
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all unhandled exceptions and ensure CORS headers are included"""
+    import traceback
+    error_trace = traceback.format_exc()
+    print(f"Unhandled exception: {exc}")
+    print(error_trace)
+    
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": str(exc),
+            "type": type(exc).__name__,
+        },
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with CORS headers"""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors(), "body": exc.body},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -72,6 +122,7 @@ app.include_router(stock_issuance.router, prefix="/api/stock/issuances", tags=["
 app.include_router(vehicle_loading.router, prefix="/api/vehicle/loadings", tags=["Vehicle Loadings"])
 app.include_router(stock_adjustment.router, prefix="/api/stock/adjustments", tags=["Stock Adjustments"])
 app.include_router(stock_maintenance.router, prefix="/api/stock/maintenance", tags=["Stock Maintenance"])
+app.include_router(product_item_stock.router, prefix="/api/product-item-stock", tags=["Product Item Stock"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
 

@@ -92,6 +92,13 @@ export default function NewAdjustment() {
   }, []);
 
   // Get FEFO batches for a product (sorted by expiry date, earliest first)
+  // Helper function to check if batch number is numeric
+  const isNumericBatch = (batchNo: string | null | undefined): boolean => {
+    if (!batchNo) return false;
+    const cleaned = String(batchNo).trim();
+    return /^\d+$/.test(cleaned); // Only digits
+  };
+
   const getFEFOBatches = (productId: number | null, productCode: string) => {
     if (!productId && !productCode) return [];
     
@@ -102,10 +109,12 @@ export default function NewAdjustment() {
           : (item.product_code === productCode || item.product_code === productCode);
         const matchesDepot = selectedStore ? item.depot_id === Number(selectedStore) : true;
         const hasStock = (item.quantity || item.available_quantity || 0) > 0;
-        return matchesProduct && matchesDepot && hasStock && item.batch;
+        const batchNo = item.batch || item.batch_number;
+        // Only include numeric batch numbers
+        return matchesProduct && matchesDepot && hasStock && batchNo && isNumericBatch(batchNo);
       })
       .map((item: any) => ({
-        batch: item.batch || item.batch_number,
+        batch: (item.batch || item.batch_number || "").trim(),
         expiryDate: item.expiry_date || item.expiryDate,
         quantity: item.quantity || item.available_quantity || 0,
       }))
@@ -197,6 +206,16 @@ export default function NewAdjustment() {
       });
       return;
     }
+    
+    // Validate batch number is numeric
+    if (!isNumericBatch(item.batchNo)) {
+      toast({
+        title: "Invalid batch number",
+        description: "Batch number must be numeric only (digits only).",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Get batch expiry date
     const batches = getFEFOBatches(item.productId, item.itemCode);
@@ -238,7 +257,7 @@ export default function NewAdjustment() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedStore) {
       toast({
         title: "Validation Error",
@@ -286,7 +305,7 @@ export default function NewAdjustment() {
         items: items,
       };
       
-      await apiEndpoints.stockAdjustments.create(payload);
+      const response = await apiEndpoints.stockAdjustments.create(payload);
       
       toast({
         title: "Success",
@@ -460,22 +479,41 @@ export default function NewAdjustment() {
                             <Input
                               value={item.batchNo}
                               onChange={(e) => {
-                                handleItemChange(item.id, 'batchNo', e.target.value);
+                                const value = e.target.value.trim();
+                                // Validate numeric only
+                                if (value && !/^\d+$/.test(value)) {
+                                  toast({
+                                    title: "Invalid batch number",
+                                    description: "Batch numbers must be numeric only (digits only).",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                handleItemChange(item.id, 'batchNo', value);
                                 // Update current stock when batch changes
-                                const selectedBatch = availableBatches.find((b: any) => b.batch === e.target.value);
+                                const selectedBatch = availableBatches.find((b: any) => b.batch === value);
                                 if (selectedBatch) {
                                   handleItemChange(item.id, 'currentStock', selectedBatch.quantity);
                                 }
                               }}
-                              placeholder="Enter or select batch"
+                              placeholder="Enter batch (numeric only)"
                               className="w-full"
                               disabled={!item.productId}
                             />
-                            {availableBatches.length > 0 && (
+                            {availableBatches.filter((b: any) => isNumericBatch(b.batch)).length > 0 && (
                               <Select
                                 value=""
                                 onValueChange={(val) => {
-                                  handleItemChange(item.id, 'batchNo', val);
+                                  // Validate numeric only
+                                  if (val && !/^\d+$/.test(val.trim())) {
+                                    toast({
+                                      title: "Invalid batch number",
+                                      description: "Batch numbers must be numeric only (digits only).",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  handleItemChange(item.id, 'batchNo', val.trim());
                                   const selectedBatch = availableBatches.find((b: any) => b.batch === val);
                                   if (selectedBatch) {
                                     handleItemChange(item.id, 'currentStock', selectedBatch.quantity);
@@ -486,7 +524,7 @@ export default function NewAdjustment() {
                                   <SelectValue placeholder="Select" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {availableBatches.map((batch: any, idx: number) => (
+                                  {availableBatches.filter((b: any) => isNumericBatch(b.batch)).map((batch: any, idx: number) => (
                                     <SelectItem key={idx} value={batch.batch}>
                                       {batch.batch} {batch.expiryDate ? `(Exp: ${new Date(batch.expiryDate).toLocaleDateString()})` : ''}
                                     </SelectItem>

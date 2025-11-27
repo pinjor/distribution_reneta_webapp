@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
+import { masterData, type ProductOption } from "@/lib/masterData";
 
 interface StockLedgerRow {
   id: number;
@@ -51,43 +52,67 @@ export default function StockMaintenance() {
   const [ledger, setLedger] = useState<StockLedgerRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedLedgerId, setSelectedLedgerId] = useState<number | null>(null);
+  const [masterProducts, setMasterProducts] = useState<ProductOption[]>([]);
 
   useEffect(() => {
     let active = true;
-    const loadLedger = async () => {
+    const loadData = async () => {
       setLoading(true);
       try {
-        const data = await apiEndpoints.stockMaintenance.getLedger();
+        // Load master products and stock ledger in parallel
+        const [productsData, ledgerData] = await Promise.all([
+          masterData.getProducts(),
+          apiEndpoints.stockMaintenance.getLedger(),
+        ]);
+        
         if (!active) return;
-        if (Array.isArray(data)) {
-          const mapped: StockLedgerRow[] = data.map((item: any) => ({
-            id: Number(item.id ?? Math.random()),
-            productName:
-              item.product?.name ?? item.product_name ?? item.product_label ?? item.product_code ?? "Unknown product",
-            productCode:
-              item.product?.code ?? item.product_code ?? item.product_id ? String(item.product_id) : undefined,
-            depotName: item.depot?.name ?? item.depot_name ?? "",
-            batch: item.batch ?? item.batch_number ?? "",
-            storageType: item.storage_type ?? item.source_type ?? "",
-            status: item.status ?? "Unrestricted",
-            expiryDate: item.expiry_date ?? item.expiry ?? "",
-            quantity: toNumber(item.quantity ?? item.available_quantity ?? 0),
-            availableQuantity: toNumber(item.available_quantity ?? item.quantity ?? 0),
-          }));
+        
+        // Set master products
+        if (Array.isArray(productsData)) {
+          setMasterProducts(productsData);
+        }
+        
+        // Map ledger data with product information from master data
+        if (Array.isArray(ledgerData)) {
+          const mapped: StockLedgerRow[] = ledgerData
+            .filter((item: any) => {
+              // Filter to only show products from master data (new medicine products)
+              const productId = item.product_id || item.product?.id;
+              const masterProduct = productsData.find((p: ProductOption) => p.id === String(productId));
+              return masterProduct !== undefined; // Only include products that exist in master data
+            })
+            .map((item: any) => {
+              // Try to find product from master data first
+              const productId = item.product_id || item.product?.id;
+              const masterProduct = productsData.find((p: ProductOption) => p.id === String(productId));
+              
+              return {
+                id: Number(item.id ?? Math.random()),
+                productName: masterProduct?.name ?? item.product?.name ?? item.product_name ?? "Unknown product",
+                productCode: masterProduct?.oldCode ?? item.product_code ?? item.product?.code ?? item.product?.old_code ?? "",
+                depotName: item.depot?.name ?? item.depot_name ?? "",
+                batch: item.batch ?? item.batch_number ?? "",
+                storageType: item.storage_type ?? item.source_type ?? "",
+                status: item.status ?? "Unrestricted",
+                expiryDate: item.expiry_date ?? item.expiry ?? "",
+                quantity: toNumber(item.quantity ?? item.available_quantity ?? 0),
+                availableQuantity: toNumber(item.available_quantity ?? item.quantity ?? 0),
+              };
+            });
           setLedger(mapped);
         } else {
           setLedger([]);
         }
       } catch (error) {
-        console.error("Failed to load stock ledger", error);
-        toast({ title: "Unable to load stock ledger", variant: "destructive" });
+        console.error("Failed to load stock data", error);
+        toast({ title: "Unable to load stock data", variant: "destructive" });
         setLedger([]);
       } finally {
         if (active) setLoading(false);
       }
     };
 
-    loadLedger();
+    loadData();
     return () => {
       active = false;
     };
@@ -164,6 +189,24 @@ export default function StockMaintenance() {
       }
     >();
 
+    // First, add all products from master data (even if they have no stock)
+    masterProducts.forEach((product) => {
+      const key = product.oldCode || product.id;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          productName: product.name,
+          productCode: product.oldCode,
+          totalQuantity: 0,
+          batches: 0,
+          depotSet: new Set<string>(),
+          restrictedBatches: 0,
+          earliestExpiry: null,
+        });
+      }
+    });
+
+    // Then, aggregate stock data from ledger
     filteredStock.forEach((item) => {
       const key = item.productCode || item.productName;
       if (!map.has(key)) {
@@ -206,7 +249,7 @@ export default function StockMaintenance() {
       restrictedBatches: entry.restrictedBatches,
       earliestExpiry: entry.earliestExpiry ? entry.earliestExpiry.toISOString() : null,
     }));
-  }, [filteredStock]);
+  }, [filteredStock, masterProducts]);
 
   const productMetrics = useMemo(() => {
     const totalProducts = productStock.length;

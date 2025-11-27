@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,12 +18,32 @@ import { useTableFilter } from "@/hooks/useTableFilter";
 import { recentReceipts } from "@/lib/mockData";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Badge } from "@/components/ui/badge";
+import { masterData, type ProductOption } from "@/lib/masterData";
 
 const StockReceipt = () => {
   const [challanVerified, setChallanVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
   const { sortedData, sortKey, sortOrder, handleSort } = useTableSort(recentReceipts, "date" as any);
   const { filteredData, searchTerm, setSearchTerm } = useTableFilter(sortedData);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoadingProducts(true);
+        const productData = await masterData.getProducts();
+        setProducts(productData);
+      } catch (error) {
+        console.error("Failed to load products", error);
+        toast.error("Failed to load products. Please try again.");
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+    loadProducts();
+  }, []);
 
   const handleChallanVerify = async () => {
     setVerifying(true);
@@ -129,23 +149,50 @@ const StockReceipt = () => {
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="product">Product Name *</Label>
-              <Select required>
+              <Select 
+                required 
+                value={selectedProduct} 
+                onValueChange={setSelectedProduct}
+                disabled={loadingProducts}
+              >
                 <SelectTrigger id="product">
-                  <SelectValue placeholder="Select product" />
+                  <SelectValue placeholder={loadingProducts ? "Loading products..." : "Select product"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="para">Paracetamol 500mg</SelectItem>
-                  <SelectItem value="amox">Amoxicillin 250mg</SelectItem>
-                  <SelectItem value="ibu">Ibuprofen 400mg</SelectItem>
-                  <SelectItem value="cet">Cetirizine 10mg</SelectItem>
-                  <SelectItem value="met">Metformin 500mg</SelectItem>
+                  {products.length === 0 ? (
+                    <SelectItem value="no-products" disabled>
+                      {loadingProducts ? "Loading..." : "No products available"}
+                    </SelectItem>
+                  ) : (
+                    products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.oldCode} — {product.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="batch">Batch Number *</Label>
-              <Input id="batch" placeholder="Enter batch number" required />
+              <Label htmlFor="batch">Batch Number * (Numeric Only)</Label>
+              <Input 
+                id="batch" 
+                placeholder="Enter batch number (digits only)" 
+                required 
+                pattern="[0-9]+"
+                title="Batch number must contain only digits"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Only allow numeric input
+                  if (value && !/^\d+$/.test(value)) {
+                    e.target.setCustomValidity("Batch number must be numeric only (digits only)");
+                  } else {
+                    e.target.setCustomValidity("");
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">Only numeric batch numbers are allowed (e.g., 12345)</p>
             </div>
 
             <div className="space-y-2">

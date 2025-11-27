@@ -13,6 +13,8 @@ import StockReceipt from "./pages/StockReceipt";
 import StockIssuance from "./pages/StockIssuance";
 import OrderEntry from "./pages/orders/OrderEntry";
 import OrderListPage from "./pages/orders/OrderListPage";
+import RouteWiseOrderList from "./pages/orders/RouteWiseOrderList";
+import AssignedOrderList from "./pages/orders/AssignedOrderList";
 import ReceiveFactory from "./pages/receive/ReceiveFactory";
 import ReceiveDepot from "./pages/receive/ReceiveDepot";
 import ReceiveReturn from "./pages/receive/ReceiveReturn";
@@ -77,6 +79,8 @@ const App = () => (
               <Route path="/warehouse/issuance" element={<MainLayout><StockIssuance /></MainLayout>} />
               <Route path="/orders/new" element={<MainLayout><OrderEntry /></MainLayout>} />
               <Route path="/orders" element={<MainLayout><OrderListPage /></MainLayout>} />
+              <Route path="/orders/route-wise" element={<MainLayout><RouteWiseOrderList /></MainLayout>} />
+              <Route path="/orders/assigned" element={<MainLayout><AssignedOrderList /></MainLayout>} />
               <Route path="/orders/delivery" element={<MainLayout><DeliveryOrderList /></MainLayout>} />
               <Route path="/orders/delivery/:id" element={<MainLayout><DeliveryOrderDetail /></MainLayout>} />
               <Route path="/orders/tracking" element={<MainLayout><OrderTrackingPage /></MainLayout>} />

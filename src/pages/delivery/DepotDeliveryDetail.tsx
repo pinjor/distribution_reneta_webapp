@@ -56,13 +56,13 @@ export default function DepotDeliveryDetail() {
           vehicle_info: "KA-01-AB-1234",
           driver_name: "Mohammad Rahman",
           items: [
-            { product_name: "Paracetamol 500mg", batch_number: "BTH-2024-001", quantity: 500, unit_price: 25 },
-            { product_name: "Amoxicillin 250mg", batch_number: "BTH-2024-002", quantity: 300, unit_price: 30 },
+            { product_name: "Paracetamol 500mg", batch_number: "6000001", quantity: 500, unit_price: 25 },
+            { product_name: "Amoxicillin 250mg", batch_number: "7000001", quantity: 300, unit_price: 30 },
           ],
         };
         setDelivery(mockDelivery);
       } catch (error) {
-        console.error("Failed to load depot delivery", error);
+        console.error("Failed to load depot transfer", error);
         toast({ title: "Unable to load delivery details", variant: "destructive" });
       } finally {
         setLoading(false);
@@ -110,7 +110,7 @@ export default function DepotDeliveryDetail() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{delivery.delivery_number}</h1>
-          <p className="text-muted-foreground">Depot Delivery Details</p>
+          <p className="text-muted-foreground">Depot Transfer Details</p>
         </div>
       </div>
 

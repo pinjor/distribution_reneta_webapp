@@ -37,8 +37,8 @@ export default function StockIssuance() {
 
   const pendingOrders = deliveryOrdersResponse?.data || deliveryOrdersResponse || [];
   const batches = [
-    { batch: "BTH-2024-001", expiry: "2025-12-15", qty: 1000, fefo: true },
-    { batch: "BTH-2024-002", expiry: "2026-03-20", qty: 800, fefo: false },
+    { batch: "6000001", expiry: "2025-12-15", qty: 1000, fefo: true },
+    { batch: "6000002", expiry: "2026-03-20", qty: 800, fefo: false },
   ];
 
   const handleLoadOrder = (orderId: string) => {

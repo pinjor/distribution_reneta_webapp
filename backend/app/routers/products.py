@@ -39,8 +39,11 @@ def generate_product_sku(db: Session) -> str:
     return sku
 
 @router.get("/", response_model=List[ProductSchema])
-def get_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    products = db.query(Product).offset(skip).limit(limit).all()
+def get_products(skip: int = 0, limit: int = 10000, db: Session = Depends(get_db)):
+    # Get all active products, use high limit to ensure we get all products
+    # Order by name for consistent ordering
+    query = db.query(Product).filter(Product.is_active == True)
+    products = query.order_by(Product.name.asc(), Product.code.asc()).offset(skip).limit(limit).all()
     return products
 
 @router.get("/{product_id}", response_model=ProductSchema)
