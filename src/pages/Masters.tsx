@@ -11,8 +11,8 @@ const companies = [
 ];
 
 const depots = [
-  { code: "D001", name: "Chennai Main Depot", company: "Reneta Pharmaceuticals Limited", capacity: "50000 units" },
-  { code: "D002", name: "Chennai South Depot", company: "Reneta Pharmaceuticals Limited", capacity: "30000 units" },
+  { code: "D001", name: "Chennai Main Depot", company: "Renata Pharmaceuticals Limited", capacity: "50000 units" },
+  { code: "D002", name: "Chennai South Depot", company: "Renata Pharmaceuticals Limited", capacity: "30000 units" },
 ];
 
 const employees = [

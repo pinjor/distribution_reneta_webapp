@@ -109,7 +109,7 @@ export default function Depot() {
   });
 
   useEffect(() => {
-    document.title = "Depot Settings | App";
+    document.title = "Depot Settings | Renata";
     fetchCompanies();
   }, []);
 

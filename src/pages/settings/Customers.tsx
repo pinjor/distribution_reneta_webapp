@@ -94,7 +94,7 @@ export default function Customers() {
   });
 
   useEffect(() => {
-    document.title = "Customers | App";
+    document.title = "Customers | Renata";
     fetchCompanies();
   }, []);
 

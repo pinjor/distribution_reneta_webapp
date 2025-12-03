@@ -52,7 +52,7 @@ export default function Employees() {
   });
 
   useEffect(() => {
-    document.title = "Employees | App";
+    document.title = "Employees | Renata";
     fetchEmployees();
     fetchRoles();
     fetchDepots();

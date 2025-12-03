@@ -74,11 +74,11 @@ def allocate_fefo_batches(
 
 def build_delivery_items(
     session: Session,
-    delivery: models.DeliveryOrder,
+    delivery: models.OrderDelivery,
     order: models.Order,
     depot_id: Optional[int],
-) -> List[models.DeliveryOrderItem]:
-    delivery_items: List[models.DeliveryOrderItem] = []
+) -> List[models.OrderDeliveryItem]:
+    delivery_items: List[models.OrderDeliveryItem] = []
     for order_item in order.items:
         if not order_item.selected:
             continue
@@ -123,7 +123,7 @@ def build_delivery_items(
                 remaining_free -= free_awarded_line
             trade_amount = product_rate * allocation_decimal
             vat_amount = trade_amount * Decimal("0.15") if product_rate > 0 else Decimal("0")
-            new_item = models.DeliveryOrderItem(
+            new_item = models.OrderDeliveryItem(
                 delivery=delivery,
                 order_item_id=order_item.id,
                 product_id=product.id,
@@ -154,33 +154,33 @@ def build_delivery_items(
     return delivery_items
 
 
-def get_delivery(db: Session, delivery_id: int) -> models.DeliveryOrder:
-    delivery = db.query(models.DeliveryOrder).filter(models.DeliveryOrder.id == delivery_id).first()
+def get_delivery(db: Session, delivery_id: int) -> models.OrderDelivery:
+    delivery = db.query(models.OrderDelivery).filter(models.OrderDelivery.id == delivery_id).first()
     if not delivery:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery order not found")
     return delivery
 
 
-@router.get("", response_model=schemas.DeliveryOrderListResponse)
-def list_delivery_orders(
+@router.get("", response_model=schemas.OrderDeliveryListResponse)
+def list_order_deliveries(
     status_filter: Optional[models.DeliveryStatusEnum] = Query(None),
     db: Session = Depends(get_db),
-) -> schemas.DeliveryOrderListResponse:
-    query = db.query(models.DeliveryOrder)
+) -> schemas.OrderDeliveryListResponse:
+    query = db.query(models.OrderDelivery)
     if status_filter:
-        query = query.filter(models.DeliveryOrder.status == status_filter)
-    deliveries = query.order_by(models.DeliveryOrder.created_at.desc()).all()
-    return schemas.DeliveryOrderListResponse(data=deliveries, total=len(deliveries))
+        query = query.filter(models.OrderDelivery.status == status_filter)
+    deliveries = query.order_by(models.OrderDelivery.created_at.desc()).all()
+    return schemas.OrderDeliveryListResponse(data=deliveries, total=len(deliveries))
 
 
-@router.get("/{delivery_id}", response_model=schemas.DeliveryOrder)
-def retrieve_delivery_order(delivery_id: int, db: Session = Depends(get_db)) -> schemas.DeliveryOrder:
+@router.get("/{delivery_id}", response_model=schemas.OrderDelivery)
+def retrieve_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
     delivery = get_delivery(db, delivery_id)
     return delivery
 
 
-@router.post("/from-order/{identifier}", response_model=schemas.DeliveryOrder, status_code=status.HTTP_201_CREATED)
-def create_from_order(identifier: str, delivery_date: Optional[date] = None, db: Session = Depends(get_db)) -> schemas.DeliveryOrder:
+@router.post("/from-order/{identifier}", response_model=schemas.OrderDelivery, status_code=status.HTTP_201_CREATED)
+def create_from_order(identifier: str, delivery_date: Optional[date] = None, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
     order: Optional[models.Order] = None
     if identifier.isdigit():
         order = db.query(models.Order).filter(models.Order.id == int(identifier)).first()
@@ -188,8 +188,8 @@ def create_from_order(identifier: str, delivery_date: Optional[date] = None, db:
         order = db.query(models.Order).filter(models.Order.order_number == identifier).first()
     if not order:
         delivery = (
-            db.query(models.DeliveryOrder)
-            .filter(models.DeliveryOrder.delivery_number == identifier)
+            db.query(models.OrderDelivery)
+            .filter(models.OrderDelivery.delivery_number == identifier)
             .first()
         )
         if delivery:
@@ -201,7 +201,7 @@ def create_from_order(identifier: str, delivery_date: Optional[date] = None, db:
     if order.customer_code:
         customer = db.query(models.Customer).filter(models.Customer.code == order.customer_code).first()
 
-    delivery = models.DeliveryOrder(
+    delivery = models.OrderDelivery(
         order_id=order.id,
         delivery_number=delivery_number,
         ship_to_party=customer.ship_to_party if customer else order.customer_name,
@@ -216,10 +216,10 @@ def create_from_order(identifier: str, delivery_date: Optional[date] = None, db:
     return delivery
 
 
-@router.post("", response_model=schemas.DeliveryOrder, status_code=status.HTTP_201_CREATED)
-def create_delivery_order(payload: schemas.DeliveryOrderCreate, db: Session = Depends(get_db)) -> schemas.DeliveryOrder:
+@router.post("", response_model=schemas.OrderDelivery, status_code=status.HTTP_201_CREATED)
+def create_order_delivery(payload: schemas.OrderDeliveryCreate, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
     delivery_number = payload.delivery_number or generate_delivery_number()
-    delivery = models.DeliveryOrder(
+    delivery = models.OrderDelivery(
         order_id=payload.order_id,
         delivery_number=delivery_number,
         ship_to_party=payload.ship_to_party,
@@ -236,7 +236,7 @@ def create_delivery_order(payload: schemas.DeliveryOrderCreate, db: Session = De
     db.flush()
 
     for item_payload in payload.items:
-        item = models.DeliveryOrderItem(
+        item = models.OrderDeliveryItem(
             delivery_id=delivery.id,
             order_item_id=item_payload.order_item_id,
             product_id=item_payload.product_id,
@@ -260,8 +260,8 @@ def create_delivery_order(payload: schemas.DeliveryOrderCreate, db: Session = De
     return delivery
 
 
-@router.put("/{delivery_id}", response_model=schemas.DeliveryOrder)
-def update_delivery_order(delivery_id: int, payload: schemas.DeliveryOrderUpdate, db: Session = Depends(get_db)) -> schemas.DeliveryOrder:
+@router.put("/{delivery_id}", response_model=schemas.OrderDelivery)
+def update_order_delivery(delivery_id: int, payload: schemas.OrderDeliveryUpdate, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
     delivery = get_delivery(db, delivery_id)
 
     for field, value in payload.model_dump(exclude={"items"}, exclude_unset=True).items():
@@ -277,7 +277,7 @@ def update_delivery_order(delivery_id: int, payload: schemas.DeliveryOrderUpdate
                     setattr(existing, key, value)
                 keep_ids.add(existing.id)
             else:
-                new_item = models.DeliveryOrderItem(
+                new_item = models.OrderDeliveryItem(
                     delivery_id=delivery.id,
                     order_item_id=item_payload.order_item_id,
                     product_id=item_payload.product_id,
@@ -307,7 +307,7 @@ def update_delivery_order(delivery_id: int, payload: schemas.DeliveryOrderUpdate
 
 
 @router.delete("/{delivery_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_delivery_order(delivery_id: int, db: Session = Depends(get_db)) -> None:
+def delete_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> None:
     delivery = get_delivery(db, delivery_id)
     for item in delivery.items:
         ledger = (
@@ -322,8 +322,8 @@ def delete_delivery_order(delivery_id: int, db: Session = Depends(get_db)) -> No
     db.commit()
 
 
-@router.post("/{delivery_id}/advance", response_model=schemas.DeliveryOrder)
-def advance_delivery_status(delivery_id: int, db: Session = Depends(get_db)) -> schemas.DeliveryOrder:
+@router.post("/{delivery_id}/advance", response_model=schemas.OrderDelivery)
+def advance_delivery_status(delivery_id: int, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
     delivery = get_delivery(db, delivery_id)
     order = [
         models.DeliveryStatusEnum.DRAFT,
@@ -348,14 +348,14 @@ def advance_delivery_status(delivery_id: int, db: Session = Depends(get_db)) -> 
 @router.get("/tracking/{identifier}", response_model=schemas.DeliveryTrackingResponse)
 def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.DeliveryTrackingResponse:
     order: Optional[models.Order] = None
-    delivery: Optional[models.DeliveryOrder] = None
+    delivery: Optional[models.OrderDelivery] = None
 
     if identifier.isdigit():
         order = db.query(models.Order).filter(models.Order.id == int(identifier)).first()
     if not order:
         order = db.query(models.Order).filter(models.Order.order_number == identifier).first()
     if not order:
-        delivery = db.query(models.DeliveryOrder).filter(models.DeliveryOrder.delivery_number == identifier).first()
+        delivery = db.query(models.OrderDelivery).filter(models.OrderDelivery.delivery_number == identifier).first()
         if delivery:
             order = delivery.order
     if not order:
@@ -363,9 +363,9 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
 
     if not delivery:
         delivery = (
-            db.query(models.DeliveryOrder)
-            .filter(models.DeliveryOrder.order_id == order.id)
-            .order_by(models.DeliveryOrder.created_at.desc())
+            db.query(models.OrderDelivery)
+            .filter(models.OrderDelivery.order_id == order.id)
+            .order_by(models.OrderDelivery.created_at.desc())
             .first()
         )
 
@@ -383,7 +383,7 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
     if delivery:
         steps.append(
             schemas.DeliveryProgressNode(
-                key="delivery_order",
+                key="order_delivery",
                 label="Delivery Order",
                 status="completed",
                 timestamp=delivery.created_at,
@@ -392,7 +392,7 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
     else:
         steps.append(
             schemas.DeliveryProgressNode(
-                key="delivery_order",
+                key="order_delivery",
                 label="Delivery Order",
                 status="pending",
             )

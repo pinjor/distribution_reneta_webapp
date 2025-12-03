@@ -15,7 +15,7 @@ from . import (
     price_setups,
     role_masters,
     orders,
-    delivery_orders,
+    order_deliveries,
     stock_receipt,
     stock_issuance,
     vehicle_loading,
@@ -28,7 +28,9 @@ from . import (
     routes,
     picking_orders,
     invoices,
+    depot_transfers,
+    billing,
 )
 
-from . import product_receipts, delivery_orders  # noqa: F401
+from . import product_receipts, order_deliveries  # noqa: F401
 

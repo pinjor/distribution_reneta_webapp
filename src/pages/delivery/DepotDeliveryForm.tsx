@@ -31,19 +31,21 @@ export default function DepotDeliveryForm() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [depots, setDepots] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [items, setItems] = useState<DeliveryItem[]>([]);
+  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
 
   const [form, setForm] = useState({
-    deliveryNumber: "",
-    deliveryDate: new Date().toISOString().split("T")[0],
-    depotId: "",
-    customerId: "",
+    transferNumber: "",
+    transferDate: new Date().toISOString().split("T")[0],
+    fromDepotId: "",
+    toDepotId: "",
     vehicleId: "",
-    driverName: "",
-    depotTransferNote: "",
+    driverId: "",
+    transferNote: "",
     remarks: "",
   });
 
@@ -62,21 +64,29 @@ export default function DepotDeliveryForm() {
   const fetchMasterData = async () => {
     try {
       setLoading(true);
-      const [depotsRes, customersRes, productsRes, vehiclesRes] = await Promise.all([
+      const [depotsRes, productsRes, vehiclesRes, driversRes] = await Promise.all([
         apiEndpoints.depots.getAll(),
-        apiEndpoints.customers.getAll(),
         apiEndpoints.products.getAll(),
         apiEndpoints.vehicles.getAll(),
+        apiEndpoints.drivers.getAll(),
       ]);
-      setDepots(depotsRes.data || depotsRes || []);
-      setCustomers(customersRes.data || customersRes || []);
-      // Filter only commercial products for depot delivery
-      const allProducts = Array.isArray(productsRes) ? productsRes : (productsRes.data || []);
-      const commercialProducts = allProducts.filter((product: any) => 
-        product.product_type_commercial === true || product.product_type_commercial === "true" || product.product_type_commercial === 1
-      );
-      setProducts(commercialProducts);
-      setVehicles(vehiclesRes.data || []);
+      setDepots(Array.isArray(depotsRes) ? depotsRes : (depotsRes?.data || []));
+      // Get all products (remove commercial filter to allow all products)
+      const allProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
+      setProducts(allProducts);
+      const vehiclesData = Array.isArray(vehiclesRes) ? vehiclesRes : (vehiclesRes?.data || []);
+      setVehicles(vehiclesData);
+      const driversData = Array.isArray(driversRes) ? driversRes : (driversRes?.data || []);
+      setDrivers(driversData);
+      
+      console.log("Loaded data:", {
+        depots: depots.length,
+        products: allProducts.length,
+        vehicles: vehiclesData.length,
+        drivers: driversData.length
+      });
+      console.log("Drivers response:", driversRes);
+      console.log("Drivers data:", driversData);
     } catch (error) {
       console.error("Failed to load master data", error);
       toast({ title: "Unable to load master data", variant: "destructive" });
@@ -85,7 +95,33 @@ export default function DepotDeliveryForm() {
     }
   };
 
-  const selectedProduct = products.find((p) => p.id === itemDraft.productId);
+  const selectedProduct = products.find((p) => String(p.id) === String(itemDraft.productId));
+
+  // Fetch batches when product and depot are selected
+  useEffect(() => {
+    const fetchBatches = async () => {
+      if (itemDraft.productId && form.fromDepotId) {
+        try {
+          setLoadingBatches(true);
+          const batches = await apiEndpoints.stockMaintenance.getProductBatches(
+            parseInt(itemDraft.productId),
+            parseInt(form.fromDepotId)
+          );
+          // Batches are already sorted by FEFO from the API
+          setAvailableBatches(Array.isArray(batches) ? batches : []);
+        } catch (error) {
+          console.error("Failed to load batches", error);
+          setAvailableBatches([]);
+        } finally {
+          setLoadingBatches(false);
+        }
+      } else {
+        setAvailableBatches([]);
+      }
+    };
+
+    fetchBatches();
+  }, [itemDraft.productId, form.fromDepotId]);
 
   const handleAddItem = () => {
     if (!itemDraft.productId) {
@@ -97,15 +133,20 @@ export default function DepotDeliveryForm() {
       return;
     }
 
-    const product = selectedProduct!;
+    const product = selectedProduct;
+    if (!product) {
+      toast({ title: "Product not found", variant: "destructive" });
+      return;
+    }
+    
     setItems((prev) => [
       ...prev,
       {
         key: createKey(),
         productId: itemDraft.productId,
-        productName: product.name,
-        oldCode: product.oldCode,
-        newCode: product.newCode || product.code,
+        productName: product.name || product.product_name || `Product ${product.id}`,
+        oldCode: product.oldCode || product.old_code || "",
+        newCode: product.newCode || product.code || product.new_code || "",
         batchNumber: itemDraft.batchNumber,
         expiryDate: itemDraft.expiryDate,
         quantity: itemDraft.quantity,
@@ -113,6 +154,7 @@ export default function DepotDeliveryForm() {
       },
     ]);
 
+    // Reset form completely
     setItemDraft({
       productId: "",
       batchNumber: "",
@@ -120,6 +162,11 @@ export default function DepotDeliveryForm() {
       quantity: "",
       unitPrice: "",
     });
+    
+    // Clear available batches when form is reset
+    setAvailableBatches([]);
+    
+    toast({ title: "Product added successfully" });
   };
 
   const handleRemoveItem = (key: string) => {
@@ -128,8 +175,12 @@ export default function DepotDeliveryForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.depotId || !form.customerId) {
-      toast({ title: "Please fill all required fields", variant: "destructive" });
+    if (!form.fromDepotId || !form.toDepotId) {
+      toast({ title: "Please select both source and destination depots", variant: "destructive" });
+      return;
+    }
+    if (form.fromDepotId === form.toDepotId) {
+      toast({ title: "Source and destination depots cannot be the same", variant: "destructive" });
       return;
     }
     if (items.length === 0) {
@@ -137,33 +188,56 @@ export default function DepotDeliveryForm() {
       return;
     }
 
+    // Validate all items have valid quantities
+    for (const item of items) {
+      const qty = parseFloat(item.quantity);
+      if (!item.quantity || !qty || qty <= 0 || isNaN(qty)) {
+        toast({ 
+          title: "Invalid quantity", 
+          description: `Please enter a valid quantity greater than 0 for ${item.productName || "product"}`,
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const payload = {
-        delivery_type: "depot",
-        delivery_number: form.deliveryNumber || `DD-${Date.now()}`,
-        delivery_date: form.deliveryDate,
-        depot_id: parseInt(form.depotId),
-        customer_id: parseInt(form.customerId),
-        vehicle_id: form.vehicleId ? parseInt(form.vehicleId) : null,
-        driver_name: form.driverName,
-        remarks: form.remarks,
-        items: items.map((item) => ({
-          product_id: parseInt(item.productId),
-          batch_number: item.batchNumber,
-          expiry_date: item.expiryDate,
-          quantity: parseFloat(item.quantity),
-          unit_price: parseFloat(item.unitPrice || "0"),
-        })),
+        transfer_number: form.transferNumber || undefined,
+        transfer_date: form.transferDate,
+        from_depot_id: parseInt(form.fromDepotId),
+        to_depot_id: parseInt(form.toDepotId),
+        vehicle_id: form.vehicleId && form.vehicleId !== "__none__" ? parseInt(form.vehicleId) : null,
+        driver_name: form.driverId && form.driverId !== "__none__" ? (() => {
+          const driver = drivers.find(d => String(d.id) === form.driverId);
+          if (!driver) return null;
+          return driver.name || `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || null;
+        })() : null,
+        transfer_note: form.transferNote || null,
+        remarks: form.remarks || null,
+        items: items.map((item) => {
+          const qty = parseFloat(item.quantity);
+          if (!qty || qty <= 0 || isNaN(qty)) {
+            throw new Error(`Invalid quantity for product ${item.productName || item.productId}`);
+          }
+          return {
+            product_id: parseInt(item.productId),
+            batch_number: item.batchNumber || null,
+            expiry_date: item.expiryDate || null,
+            quantity: qty,
+            unit_price: parseFloat(item.unitPrice || "0"),
+          };
+        }),
       };
 
-      await apiEndpoints.deliveryOrders.create(payload);
+      await apiEndpoints.depotTransfers.create(payload);
       
-      toast({ title: "Depot transfer created successfully" });
+      toast({ title: "Depot transfer request created successfully" });
       navigate("/delivery/depot");
     } catch (error: any) {
       console.error("Failed to create depot transfer", error);
-      toast({ title: "Unable to create transfer", description: error?.message, variant: "destructive" });
+      toast({ title: "Unable to create transfer", description: error?.message || error?.details, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -194,29 +268,37 @@ export default function DepotDeliveryForm() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryNumber">Transfer Number</Label>
+                  <Label htmlFor="transferNumber">Transfer Number</Label>
                   <Input
-                    id="deliveryNumber"
-                    value={form.deliveryNumber}
-                    onChange={(e) => setForm((prev) => ({ ...prev, deliveryNumber: e.target.value }))}
+                    id="transferNumber"
+                    value={form.transferNumber}
+                    onChange={(e) => setForm((prev) => ({ ...prev, transferNumber: e.target.value }))}
                     placeholder="Auto-generated if left empty"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="deliveryDate">Delivery Date *</Label>
+                  <Label htmlFor="transferDate">Transfer Date *</Label>
                   <Input
-                    id="deliveryDate"
+                    id="transferDate"
                     type="date"
-                    value={form.deliveryDate}
-                    onChange={(e) => setForm((prev) => ({ ...prev, deliveryDate: e.target.value }))}
+                    value={form.transferDate}
+                    onChange={(e) => setForm((prev) => ({ ...prev, transferDate: e.target.value }))}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="depotId">Depot *</Label>
-                  <Select value={form.depotId} onValueChange={(value) => setForm((prev) => ({ ...prev, depotId: value }))} required disabled={loading || depots.length === 0}>
-                    <SelectTrigger id="depotId">
-                      <SelectValue placeholder={loading ? "Loading..." : depots.length === 0 ? "No depots available" : "Select depot"} />
+                  <Label htmlFor="fromDepotId">From Depot (Source) *</Label>
+                  <Select value={form.fromDepotId} onValueChange={(value) => {
+                    setForm((prev) => ({ ...prev, fromDepotId: value }));
+                    // Clear batch when depot changes
+                    setItemDraft((prev) => ({
+                      ...prev,
+                      batchNumber: "",
+                      expiryDate: "",
+                    }));
+                  }} required disabled={loading || depots.length === 0}>
+                    <SelectTrigger id="fromDepotId">
+                      <SelectValue placeholder={loading ? "Loading..." : depots.length === 0 ? "No depots available" : "Select source depot"} />
                     </SelectTrigger>
                     <SelectContent>
                       {loading ? (
@@ -234,20 +316,20 @@ export default function DepotDeliveryForm() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customerId">Customer *</Label>
-                  <Select value={form.customerId} onValueChange={(value) => setForm((prev) => ({ ...prev, customerId: value }))} required disabled={loading || customers.length === 0}>
-                    <SelectTrigger id="customerId">
-                      <SelectValue placeholder={loading ? "Loading..." : customers.length === 0 ? "No customers available" : "Select customer"} />
+                  <Label htmlFor="toDepotId">To Depot (Destination) *</Label>
+                  <Select value={form.toDepotId} onValueChange={(value) => setForm((prev) => ({ ...prev, toDepotId: value }))} required disabled={loading || depots.length === 0}>
+                    <SelectTrigger id="toDepotId">
+                      <SelectValue placeholder={loading ? "Loading..." : depots.length === 0 ? "No depots available" : "Select destination depot"} />
                     </SelectTrigger>
                     <SelectContent>
                       {loading ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading...</div>
-                      ) : customers.length === 0 ? (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No customers available</div>
+                      ) : depots.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No depots available</div>
                       ) : (
-                        customers.map((customer) => (
-                          <SelectItem key={customer.id} value={String(customer.id)}>
-                            {customer.name} ({customer.code})
+                        depots.map((depot) => (
+                          <SelectItem key={depot.id} value={String(depot.id)}>
+                            {depot.name} ({depot.code})
                           </SelectItem>
                         ))
                       )}
@@ -256,42 +338,87 @@ export default function DepotDeliveryForm() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="vehicleId">Vehicle</Label>
-                  <Select value={form.vehicleId} onValueChange={(value) => setForm((prev) => ({ ...prev, vehicleId: value }))} disabled={loading || vehicles.length === 0}>
-                    <SelectTrigger id="vehicleId">
+                  <Select 
+                    value={form.vehicleId || undefined} 
+                    onValueChange={(value) => {
+                      console.log("Vehicle selected:", value);
+                      setForm((prev) => ({ ...prev, vehicleId: value }));
+                    }} 
+                    disabled={loading || vehicles.length === 0}
+                  >
+                    <SelectTrigger id="vehicleId" className="w-full">
                       <SelectValue placeholder={loading ? "Loading..." : vehicles.length === 0 ? "No vehicles available" : "Select vehicle"} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px]">
                       {loading ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading...</div>
                       ) : vehicles.length === 0 ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">No vehicles available</div>
                       ) : (
-                        vehicles.map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={String(vehicle.id)}>
-                            {vehicle.registration_number || vehicle.reg_no} ({vehicle.vehicle_type || vehicle.type || "N/A"})
-                          </SelectItem>
-                        ))
+                        <>
+                          <SelectItem value="__none__">None (Optional)</SelectItem>
+                          {vehicles.map((vehicle) => {
+                            const regNo = vehicle.registration_number || vehicle.reg_no || vehicle.registrationNumber || "N/A";
+                            const type = vehicle.vehicle_type || vehicle.type || vehicle.vehicleType || "N/A";
+                            return (
+                              <SelectItem key={vehicle.id} value={String(vehicle.id)}>
+                                {regNo} ({type})
+                              </SelectItem>
+                            );
+                          })}
+                        </>
                       )}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="driverName">Driver Name</Label>
-                  <Input
-                    id="driverName"
-                    value={form.driverName}
-                    onChange={(e) => setForm((prev) => ({ ...prev, driverName: e.target.value }))}
-                    placeholder="Enter driver name"
-                  />
+                  <Label htmlFor="driverId">Driver</Label>
+                  <Select 
+                    value={form.driverId || undefined} 
+                    onValueChange={(value) => {
+                      console.log("Driver selected:", value);
+                      setForm((prev) => ({ ...prev, driverId: value }));
+                    }} 
+                    disabled={loading}
+                  >
+                    <SelectTrigger id="driverId" className="w-full">
+                      <SelectValue placeholder={loading ? "Loading drivers..." : drivers.length === 0 ? "No drivers available" : "Select driver (optional)"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {loading ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading drivers...</div>
+                      ) : drivers.length === 0 ? (
+                        <>
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">No drivers available</div>
+                          <SelectItem value="__none__">None (Optional)</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="__none__">None (Optional)</SelectItem>
+                          {drivers.map((driver) => {
+                            const firstName = driver.first_name || "";
+                            const lastName = driver.last_name || "";
+                            const driverName = `${firstName} ${lastName}`.trim() || `Driver ${driver.id}`;
+                            const license = driver.license_number || driver.licenseNumber || "";
+                            return (
+                              <SelectItem key={driver.id} value={String(driver.id)}>
+                                {driverName} {license ? `(${license})` : ""}
+                              </SelectItem>
+                            );
+                          })}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="depotTransferNote">Depot Transfer Note</Label>
+                <Label htmlFor="transferNote">Transfer Note</Label>
                 <Textarea
-                  id="depotTransferNote"
-                  value={form.depotTransferNote}
-                  onChange={(e) => setForm((prev) => ({ ...prev, depotTransferNote: e.target.value }))}
-                  placeholder="Enter depot transfer note details..."
+                  id="transferNote"
+                  value={form.transferNote}
+                  onChange={(e) => setForm((prev) => ({ ...prev, transferNote: e.target.value }))}
+                  placeholder="Enter transfer note details..."
                   rows={3}
                 />
               </div>
@@ -316,32 +443,86 @@ export default function DepotDeliveryForm() {
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="space-y-2">
                   <Label>Product *</Label>
-                  <Select value={itemDraft.productId} onValueChange={(value) => setItemDraft((prev) => ({ ...prev, productId: value }))} disabled={loading || products.length === 0}>
-                    <SelectTrigger>
+                  <Select 
+                    value={itemDraft.productId || undefined} 
+                    onValueChange={(value) => {
+                      console.log("Product selected:", value);
+                      setItemDraft((prev) => ({ 
+                        ...prev, 
+                        productId: value,
+                        batchNumber: "", // Clear batch when product changes
+                        expiryDate: "", // Clear expiry when product changes
+                      }));
+                    }} 
+                    disabled={loading || products.length === 0}
+                    key={`product-select-${itemDraft.productId || 'empty'}`}
+                  >
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder={loading ? "Loading..." : products.length === 0 ? "No products available" : "Select product"} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px]">
                       {loading ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading...</div>
                       ) : products.length === 0 ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">No products available</div>
                       ) : (
-                        products.map((product) => (
-                          <SelectItem key={product.id} value={String(product.id)}>
-                            {product.oldCode || ""} / {product.newCode || product.code || ""} — {product.name}
-                          </SelectItem>
-                        ))
+                        products.map((product) => {
+                          const displayName = product.name || product.product_name || `Product ${product.id}`;
+                          const code = product.code || product.newCode || product.oldCode || "";
+                          return (
+                            <SelectItem key={product.id} value={String(product.id)}>
+                              {code ? `${code} - ${displayName}` : displayName}
+                            </SelectItem>
+                          );
+                        })
                       )}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Batch Number</Label>
-                  <Input
-                    value={itemDraft.batchNumber}
-                    onChange={(e) => setItemDraft((prev) => ({ ...prev, batchNumber: e.target.value }))}
-                    placeholder="Enter batch"
-                  />
+                  <Label>Batch Number (FEFO)</Label>
+                  <Select
+                    value={itemDraft.batchNumber || undefined}
+                    onValueChange={(value) => {
+                      const selectedBatch = availableBatches.find(b => b.batch_number === value);
+                      setItemDraft((prev) => ({
+                        ...prev,
+                        batchNumber: value,
+                        expiryDate: selectedBatch?.expiry_date ? selectedBatch.expiry_date.split('T')[0] : "",
+                        unitPrice: prev.unitPrice || "0", // Keep existing or default
+                      }));
+                    }}
+                    disabled={loadingBatches || !itemDraft.productId || !form.fromDepotId || availableBatches.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        !form.fromDepotId ? "Select source depot first" :
+                        !itemDraft.productId ? "Select product first" :
+                        loadingBatches ? "Loading batches..." :
+                        availableBatches.length === 0 ? "No batches available" :
+                        "Select batch (FEFO)"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {loadingBatches ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading batches...</div>
+                      ) : availableBatches.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          {!form.fromDepotId ? "Select source depot first" : !itemDraft.productId ? "Select product first" : "No batches available"}
+                        </div>
+                      ) : (
+                        availableBatches.map((batch) => {
+                          const expiryStr = batch.expiry_date ? new Date(batch.expiry_date).toLocaleDateString() : "No expiry";
+                          const qty = batch.available_quantity || 0;
+                          return (
+                            <SelectItem key={batch.batch_number} value={batch.batch_number}>
+                              {batch.batch_number} - Qty: {qty.toLocaleString()} - Exp: {expiryStr}
+                            </SelectItem>
+                          );
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Expiry Date</Label>
@@ -349,6 +530,9 @@ export default function DepotDeliveryForm() {
                     type="date"
                     value={itemDraft.expiryDate}
                     onChange={(e) => setItemDraft((prev) => ({ ...prev, expiryDate: e.target.value }))}
+                    placeholder="Auto-filled from batch"
+                    readOnly={!!itemDraft.batchNumber}
+                    className={itemDraft.batchNumber ? "bg-muted" : ""}
                   />
                 </div>
                 <div className="space-y-2">
@@ -357,9 +541,10 @@ export default function DepotDeliveryForm() {
                     type="number"
                     value={itemDraft.quantity}
                     onChange={(e) => setItemDraft((prev) => ({ ...prev, quantity: e.target.value }))}
-                    placeholder="0"
-                    min="1"
-                    required
+                    placeholder="Enter quantity"
+                    min="0.01"
+                    step="0.01"
+                    required={false}
                   />
                 </div>
                 <div className="space-y-2">
@@ -443,7 +628,7 @@ export default function DepotDeliveryForm() {
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Create Delivery
+                  Create Transfer Request
                 </>
               )}
             </Button>

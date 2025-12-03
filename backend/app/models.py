@@ -157,6 +157,7 @@ class Product(Base):
     mc_value2 = Column(Numeric(10, 2))
     mc_value3 = Column(Numeric(10, 2))
     mc_result = Column(Numeric(10, 2))
+    cold_chain_available = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -462,11 +463,21 @@ class Order(Base):
     validated = Column(Boolean, default=False)
     printed = Column(Boolean, default=False)
     printed_at = Column(DateTime, nullable=True)
+    postponed = Column(Boolean, default=False)
     assigned_to = Column(Integer, ForeignKey("employees.id"), nullable=True)
     assigned_vehicle = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
     loaded = Column(Boolean, default=False)
     loaded_at = Column(DateTime, nullable=True)
     assignment_date = Column(DateTime, nullable=True)
+    # Collection status fields
+    collection_status = Column(String(50), nullable=True)  # Pending, Partially Collected, Postponed, Fully Collected
+    collection_type = Column(String(50), nullable=True)  # Partial, Postponed
+    collected_amount = Column(Numeric(15, 2), nullable=True, default=0)
+    pending_amount = Column(Numeric(15, 2), nullable=True)
+    collection_approved = Column(Boolean, default=False)
+    collection_approved_at = Column(DateTime, nullable=True)
+    collection_approved_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    collection_source = Column(String(50), nullable=True)  # Mobile App, Web
     loading_number = Column(String(50), nullable=True)
     loading_date = Column(Date, nullable=True)
     area = Column(String(100), nullable=True)
@@ -567,8 +578,8 @@ class DeliveryStatusEnum(str, enum.Enum):
     DELIVERED = "Delivered"
 
 
-class DeliveryOrder(Base):
-    __tablename__ = "delivery_orders"
+class OrderDelivery(Base):
+    __tablename__ = "delivery_orders"  # Keep table name for backward compatibility
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
@@ -590,11 +601,11 @@ class DeliveryOrder(Base):
     order = relationship("Order")
     vehicle = relationship("Vehicle")
     driver = relationship("Driver")
-    items = relationship("DeliveryOrderItem", back_populates="delivery", cascade="all, delete-orphan")
+    items = relationship("OrderDeliveryItem", back_populates="delivery", cascade="all, delete-orphan")
 
 
-class DeliveryOrderItem(Base):
-    __tablename__ = "delivery_order_items"
+class OrderDeliveryItem(Base):
+    __tablename__ = "delivery_order_items"  # Keep table name for backward compatibility
 
     id = Column(Integer, primary_key=True, index=True)
     delivery_id = Column(Integer, ForeignKey("delivery_orders.id", ondelete="CASCADE"))
@@ -620,7 +631,7 @@ class DeliveryOrderItem(Base):
     status = Column(String(50), default="Pending")
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    delivery = relationship("DeliveryOrder", back_populates="items")
+    delivery = relationship("OrderDelivery", back_populates="items")
     order_item = relationship("OrderItem")
     product = relationship("Product")
 
@@ -670,7 +681,7 @@ class PickingOrderDelivery(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     picking_order = relationship("PickingOrder", back_populates="deliveries")
-    delivery = relationship("DeliveryOrder")
+    delivery = relationship("OrderDelivery")
 
 
 class VehicleLoading(Base):
@@ -757,3 +768,114 @@ class Invoice(Base):
     depot = relationship("Depot")
     issuance = relationship("StockIssuance")
 
+
+class DepotTransferStatusEnum(str, enum.Enum):
+    DRAFT = "Draft"
+    PENDING = "Pending"
+    APPROVED = "Approved"
+    IN_TRANSIT = "In Transit"
+    RECEIVED = "Received"
+    CANCELLED = "Cancelled"
+
+
+class DepotTransfer(Base):
+    __tablename__ = "depot_transfers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    transfer_number = Column(String(50), unique=True, nullable=False)
+    transfer_date = Column(Date, nullable=False)
+    from_depot_id = Column(Integer, ForeignKey("depots.id"), nullable=False)
+    to_depot_id = Column(Integer, ForeignKey("depots.id"), nullable=False)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    driver_name = Column(String(100))
+    status = Column(Enum(DepotTransferStatusEnum), default=DepotTransferStatusEnum.DRAFT)
+    transfer_note = Column(Text)
+    remarks = Column(Text)
+    approved_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    received_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    received_at = Column(DateTime, nullable=True)
+    created_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    from_depot = relationship("Depot", foreign_keys=[from_depot_id])
+    to_depot = relationship("Depot", foreign_keys=[to_depot_id])
+    vehicle = relationship("Vehicle")
+    approver = relationship("Employee", foreign_keys=[approved_by])
+    receiver = relationship("Employee", foreign_keys=[received_by])
+    creator = relationship("Employee", foreign_keys=[created_by])
+    items = relationship("DepotTransferItem", back_populates="transfer", cascade="all, delete-orphan")
+
+
+class DepotTransferItem(Base):
+    __tablename__ = "depot_transfer_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    transfer_id = Column(Integer, ForeignKey("depot_transfers.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    batch_number = Column(String(100))
+    expiry_date = Column(Date)
+    quantity = Column(Numeric(10, 2), nullable=False)
+    unit_price = Column(Numeric(12, 2), default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    transfer = relationship("DepotTransfer", back_populates="items")
+    product = relationship("Product")
+
+
+class CollectionTypeEnum(str, enum.Enum):
+    FULLY_COLLECTED = "Fully Collected"
+    PARTIAL_COLLECTION = "Partial Collection"
+    POSTPONED = "Postponed"
+
+
+class DepositMethodEnum(str, enum.Enum):
+    BRAC = "BRAC"
+    BKASH = "bKash"
+    NAGAD = "Nagad"
+
+
+class CollectionDeposit(Base):
+    __tablename__ = "collection_deposits"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    deposit_number = Column(String(50), unique=True, nullable=False)
+    deposit_date = Column(Date, nullable=False)
+    collection_person_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    deposit_method = Column(Enum(DepositMethodEnum), nullable=False)
+    deposit_amount = Column(Numeric(15, 2), nullable=False)
+    transaction_number = Column(String(100), nullable=False)
+    attachment_url = Column(String(500))  # Path to uploaded file
+    remaining_amount = Column(Numeric(15, 2), nullable=False, default=0)  # Amount to be given at depot
+    total_collection_amount = Column(Numeric(15, 2), nullable=False)  # Total collection for the day
+    notes = Column(Text)
+    approved = Column(Boolean, default=False)
+    approved_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    collection_person = relationship("Employee", foreign_keys=[collection_person_id])
+    approver = relationship("Employee", foreign_keys=[approved_by])
+
+
+class CollectionTransaction(Base):
+    __tablename__ = "collection_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    collection_person_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
+    collection_date = Column(Date, nullable=False)
+    collection_type = Column(Enum(CollectionTypeEnum), nullable=False)
+    collected_amount = Column(Numeric(15, 2), nullable=False, default=0)
+    pending_amount = Column(Numeric(15, 2), nullable=False, default=0)
+    total_amount = Column(Numeric(15, 2), nullable=False)
+    deposit_id = Column(Integer, ForeignKey("collection_deposits.id"), nullable=True)
+    remarks = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    order = relationship("Order")
+    collection_person = relationship("Employee", foreign_keys=[collection_person_id])
+    deposit = relationship("CollectionDeposit")

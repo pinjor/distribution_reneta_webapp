@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Package, Truck, CheckCircle, Clock } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { StockChart } from "@/components/dashboard/StockChart";
@@ -8,6 +9,10 @@ import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 
 const Dashboard = () => {
+  useEffect(() => {
+    document.title = "Dashboard | Renata";
+  }, []);
+
   const { data: kpis, isLoading } = useQuery({
     queryKey: ['dashboard-kpis'],
     queryFn: apiEndpoints.dashboard.kpis,

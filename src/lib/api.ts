@@ -246,15 +246,23 @@ export const apiEndpoints = {
     create: (data: any) => api.post('/orders', data),
     update: (id: number | string, data: any) => api.put(`/orders/${id}`, data),
     submit: (id: number | string) => api.post(`/orders/${id}/submit`, {}),
-    approve: (data: any) => api.post('/orders/approve', data),
+    validate: (data: any) => api.post('/orders/validate', data),
     delete: (id: number | string) => api.delete(`/orders/${id}`),
     getRouteWise: (routeCode: string) => api.get(`/orders/route-wise/${routeCode}`),
     getAllRouteWise: () => api.get('/orders/route-wise/all'),
     printRouteWise: (data: any) => api.post('/orders/route-wise/print', data),
+    getCollectionApprovalList: (params?: Record<string, any>) => api.get(`/orders/collection-approval${buildQuery(params)}`),
+    approveCollection: (id: number) => api.post(`/orders/${id}/approve-collection`, {}),
+    markPartialCollection: (id: number) => api.post(`/orders/${id}/mark-partial-collection`, {}),
+    markPostponedCollection: (id: number) => api.post(`/orders/${id}/mark-postponed-collection`, {}),
     assignRouteWise: (data: any) => api.post('/orders/route-wise/assign', data),
     validateRouteWise: (data: any) => api.post('/orders/route-wise/validate', data),
     getAssigned: (params?: Record<string, any>) => api.get(`/orders/assigned${buildQuery(params)}`),
     updateAssignedStatus: (id: number, data: any) => api.put(`/orders/assigned/${id}/status`, data),
+    createAssignedFromBarcodes: (data: { memo_numbers: string[]; employee_id: number; vehicle_id: number }) => 
+      api.post('/orders/assigned/from-barcodes', data),
+    getMISReport: (params?: Record<string, any>) => api.get(`/orders/mis-report${buildQuery(params)}`),
+    getMISReportDetail: (memoId: number | string) => api.get(`/orders/mis-report/${memoId}`),
   },
 
   productReceipts: {
@@ -267,15 +275,15 @@ export const apiEndpoints = {
     report: (id: number | string) => api.get(`/product-receipts/${id}/report`),
   },
 
-  deliveryOrders: {
-    getAll: (params?: Record<string, any>) => api.get(`/delivery-orders${buildQuery(params)}`),
-    getById: (id: number | string) => api.get(`/delivery-orders/${id}`),
-    create: (data: any) => api.post('/delivery-orders', data),
+  orderDeliveries: {
+    getAll: (params?: Record<string, any>) => api.get(`/order-deliveries${buildQuery(params)}`),
+    getById: (id: number | string) => api.get(`/order-deliveries/${id}`),
+    create: (data: any) => api.post('/order-deliveries', data),
     createFromOrder: (orderId: number | string, params?: Record<string, any>) =>
-      api.post(`/delivery-orders/from-order/${orderId}${buildQuery(params)}`, {}),
-    update: (id: number | string, data: any) => api.put(`/delivery-orders/${id}`, data),
-    delete: (id: number | string) => api.delete(`/delivery-orders/${id}`),
-    track: (orderId: number | string) => api.get(`/delivery-orders/tracking/${orderId}`),
+      api.post(`/order-deliveries/from-order/${orderId}${buildQuery(params)}`, {}),
+    update: (id: number | string, data: any) => api.put(`/order-deliveries/${id}`, data),
+    delete: (id: number | string) => api.delete(`/order-deliveries/${id}`),
+    track: (orderId: number | string) => api.get(`/order-deliveries/tracking/${orderId}`),
   },
 
   pickingOrders: {
@@ -358,5 +366,34 @@ export const apiEndpoints = {
     generateBulk: (challanId: number) => api.post(`/invoices/generate-bulk/${challanId}`, {}),
     download: (id: number | string) => api.get(`/invoices/${id}/download`),
   },
+  
+  depotTransfers: {
+    getAll: (params?: Record<string, any>) => api.get(`/depot-transfers${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/depot-transfers/${id}`),
+    create: (data: any) => api.post('/depot-transfers', data),
+    approve: (id: number, approvedBy: number) => api.post(`/depot-transfers/${id}/approve`, { approved_by: approvedBy }),
+    receive: (id: number, receivedBy: number) => api.post(`/depot-transfers/${id}/receive`, { received_by: receivedBy }),
+  },
+  
+  billing: {
+    deposits: {
+      getAll: (params?: Record<string, any>) => api.get(`/billing/deposits${buildQuery(params)}`),
+      getById: (id: number) => api.get(`/billing/deposits/${id}`),
+      create: (data: any) => api.post('/billing/deposits', data),
+      update: (id: number, data: any) => api.put(`/billing/deposits/${id}`, data),
+      approve: (id: number, approverId: number) => api.post(`/billing/deposits/${id}/approve?approver_id=${approverId}`, {}),
+      receiveRemaining: (id: number, amount: number, receivedBy: number, notes?: string) => 
+        api.post(`/billing/deposits/${id}/receive-remaining?received_amount=${amount}&received_by=${receivedBy}${notes ? `&receipt_notes=${encodeURIComponent(notes)}` : ''}`, {}),
+    },
+    transactions: {
+      getAll: (params?: Record<string, any>) => api.get(`/billing/transactions${buildQuery(params)}`),
+      create: (data: any) => api.post('/billing/transactions', data),
+    },
+    reports: {
+      getByPerson: (personId: number, params?: Record<string, any>) => api.get(`/billing/reports/collection-person/${personId}${buildQuery(params)}`),
+      getAll: (params?: Record<string, any>) => api.get(`/billing/reports/all${buildQuery(params)}`),
+    },
+  },
+  
 };
 

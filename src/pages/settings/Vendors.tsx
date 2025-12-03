@@ -43,7 +43,7 @@ export default function Vendors() {
   });
 
   useEffect(() => {
-    document.title = "Vendors | App";
+    document.title = "Vendors | Renata";
   }, []);
 
   const generateVendorCode = (): string => {

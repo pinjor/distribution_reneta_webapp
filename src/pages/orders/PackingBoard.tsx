@@ -49,7 +49,7 @@ export default function PackingBoard() {
   const fetchDeliveries = async () => {
     try {
       setLoading(true);
-      const response = await apiEndpoints.deliveryOrders.getAll();
+      const response = await apiEndpoints.orderDeliveries.getAll();
       const list = Array.isArray(response?.data) ? response.data : response;
       const mapped: PackingDelivery[] = (list || [])
         .filter(
@@ -160,7 +160,7 @@ export default function PackingBoard() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Picking Queue</h1>
           <p className="text-muted-foreground">
-            Select confirmed delivery orders to create picking challans and print picking slips.
+            Select confirmed order deliveries to create picking challans and print picking slips.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -180,7 +180,7 @@ export default function PackingBoard() {
       <Card>
         <CardHeader className="space-y-3">
           <div className="flex flex-wrap items-center gap-3 justify-between">
-            <CardTitle className="text-base font-semibold">Delivery Orders</CardTitle>
+            <CardTitle className="text-base font-semibold">Order Deliveries</CardTitle>
             <div className="relative w-full max-w-sm">
               <Input
                 value={searchTerm}

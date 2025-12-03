@@ -61,7 +61,7 @@ def create_picking_order(payload: schemas.PickingOrderCreate, db: Session = Depe
             )
         delivery_ids_seen.add(line.delivery_id)
 
-        delivery = db.query(models.DeliveryOrder).filter(models.DeliveryOrder.id == line.delivery_id).first()
+        delivery = db.query(models.OrderDelivery).filter(models.OrderDelivery.id == line.delivery_id).first()
         if not delivery:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

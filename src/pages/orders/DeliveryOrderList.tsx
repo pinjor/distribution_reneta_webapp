@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 
-interface DeliveryOrderSummary {
+interface OrderDeliverySummary {
   id: number;
   delivery_number: string;
   status: string;
@@ -55,10 +55,10 @@ const statusLabel = (status: string) => {
   return status;
 };
 
-export default function DeliveryOrderList() {
+export default function OrderDeliveryList() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [deliveries, setDeliveries] = useState<DeliveryOrderSummary[]>([]);
+  const [deliveries, setDeliveries] = useState<OrderDeliverySummary[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -67,7 +67,7 @@ export default function DeliveryOrderList() {
   const fetchDeliveries = async () => {
     try {
       setLoading(true);
-      const result = await apiEndpoints.deliveryOrders.getAll();
+      const result = await apiEndpoints.orderDeliveries.getAll();
       setDeliveries(result.data || []);
     } catch (error) {
       console.error("Failed to load delivery orders", error);
@@ -91,7 +91,7 @@ export default function DeliveryOrderList() {
       return;
     }
     try {
-      const response = await apiEndpoints.deliveryOrders.createFromOrder(orderIdInput);
+      const response = await apiEndpoints.orderDeliveries.createFromOrder(orderIdInput);
       toast({ title: "Delivery order created" });
       setShowCreateDialog(false);
       setOrderIdInput("");
@@ -106,7 +106,7 @@ export default function DeliveryOrderList() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Delete this delivery order?")) return;
     try {
-      await apiEndpoints.deliveryOrders.delete(id);
+      await apiEndpoints.orderDeliveries.delete(id);
       toast({ title: "Delivery order deleted" });
       fetchDeliveries();
     } catch (error) {

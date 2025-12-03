@@ -187,7 +187,7 @@ export default function RoleMaster() {
   };
 
   useEffect(() => {
-    document.title = "Role Master | App";
+    document.title = "Role Master | Renata";
   }, []);
 
   const generateRoleCode = (): string => {

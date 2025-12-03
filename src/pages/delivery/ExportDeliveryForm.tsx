@@ -174,7 +174,7 @@ export default function ExportDeliveryForm() {
         })),
       };
 
-      await apiEndpoints.deliveryOrders.create(payload);
+      await apiEndpoints.orderDeliveries.create(payload);
       
       toast({ title: "Export delivery created successfully" });
       navigate("/delivery/export");

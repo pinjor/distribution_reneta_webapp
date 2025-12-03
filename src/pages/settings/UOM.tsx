@@ -54,7 +54,7 @@ export default function UOM() {
   };
 
   useEffect(() => {
-    document.title = "UOM | App";
+    document.title = "UOM | Renata";
   }, []);
 
   const generateUOMCode = (): string => {

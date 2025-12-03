@@ -13,7 +13,18 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { masterData } from "@/lib/masterData";
-import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, Filter, X } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, Filter, X, PlusCircle, Package, MapPinned, TruckIcon, Loader2, Trash2 } from "lucide-react";
 
 interface ApiOrderItem {
   id: number;
@@ -58,20 +69,6 @@ const formatDate = (value?: string) => {
   return date.toLocaleDateString();
 };
 
-const statusBadgeVariant = (status: ApiOrder["status"]) => {
-  switch (status) {
-    case "Draft":
-      return "outline";
-    case "Submitted":
-      return "secondary";
-    case "Approved":
-      return "default";
-    case "Partially Approved":
-      return "warning";
-    default:
-      return "outline";
-  }
-};
 
 const mapItemPayload = (item: ApiOrderItem) => ({
   id: item.id,
@@ -95,6 +92,8 @@ export default function OrderListPage() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
+  const [validatingOrders, setValidatingOrders] = useState<Set<number>>(new Set());
+  const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   
   // Filter states
@@ -164,7 +163,7 @@ export default function OrderListPage() {
   }, []);
 
   useEffect(() => {
-    document.title = "Order List | Order Management";
+    document.title = "Delivery Order | Renata";
     loadOrders("initial");
   }, [loadOrders]);
 
@@ -225,11 +224,119 @@ export default function OrderListPage() {
     setExpanded((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
-  const handleApprove = async (order: ApiOrder) => {
+  const handleOrderSelection = (orderId: number, checked: boolean) => {
+    setSelectedOrders((prev) => {
+      if (checked) {
+        return [...prev, orderId];
+      }
+      return prev.filter((id) => id !== orderId);
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Select all orders in the filtered list
+      const allOrderIds = filteredOrders.map((order) => order.id);
+      setSelectedOrders(allOrderIds);
+    } else {
+      // Unselect all orders
+      setSelectedOrders([]);
+    }
+  };
+
+  const handleValidateAll = async () => {
+    if (selectedOrders.length === 0) {
+      toast({
+        title: "No orders selected",
+        description: "Please select at least one order to validate.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Filter to only orders that can be validated (have route and all items selected)
+    const ordersToValidate = filteredOrders.filter((order) => {
+      if (!selectedOrders.includes(order.id)) return false;
+      if (!order.route_code) return false;
+      const allItemsSelected = order.items.every((item) => item.selected !== false);
+      return allItemsSelected && order.items.length > 0;
+    });
+    
+    // Get list of orders that were selected but cannot be validated
+    const invalidOrders = filteredOrders.filter((order) => {
+      if (!selectedOrders.includes(order.id)) return false;
+      if (!order.route_code) return true;
+      const allItemsSelected = order.items.every((item) => item.selected !== false);
+      return !allItemsSelected || order.items.length === 0;
+    });
+
+    // Check if there are any valid orders to validate
+    if (ordersToValidate.length === 0) {
+      toast({
+        title: "No valid orders to validate",
+        description: selectedOrders.length > 0 
+          ? "Selected orders are missing routes or have unselected items. Please ensure all orders have routes assigned and all items selected."
+          : "Please select orders with routes assigned and all items selected.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const validOrderIds = ordersToValidate.map(order => order.id);
+      setValidatingOrders(new Set(validOrderIds));
+      
+      // Update all valid orders to ensure items are marked as selected
+      for (const order of ordersToValidate) {
+        const itemsToUpdate = order.items.map((item) => ({
+          ...mapItemPayload(item),
+          selected: item.selected !== false,
+        }));
+        await apiEndpoints.orders.update(order.id, {
+          items: itemsToUpdate,
+        });
+      }
+      
+      // Validate only the valid orders
+      await apiEndpoints.orders.validate({
+        order_ids: validOrderIds,
+      });
+      
+      // Reload orders to get updated status
+      await loadOrders();
+      
+      // Show success message
+      toast({
+        title: "Orders validated",
+        description: `Successfully validated ${validOrderIds.length} order(s).`,
+      });
+      
+      // Clear selection
+      setSelectedOrders([]);
+      
+      // Optionally navigate to route-wise list
+      setTimeout(() => {
+        navigate("/orders/route-wise");
+      }, 1000);
+    } catch (error: any) {
+      console.error("Failed to validate orders", error);
+      toast({
+        title: "Unable to validate orders",
+        description: error?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setValidatingOrders(new Set());
+    }
+  };
+
+  const handleValidate = async (order: ApiOrder) => {
     if (!order.route_code) {
       toast({
         title: "Route required",
-        description: "Order must have a route assigned before approval.",
+        description: "Order must have a route assigned before validation.",
         variant: "destructive",
       });
       return;
@@ -240,7 +347,7 @@ export default function OrderListPage() {
     if (selectedItems.length === 0) {
       toast({
         title: "No items selected",
-        description: "Please select at least one item to approve.",
+        description: "Please select at least one item to validate.",
         variant: "destructive",
       });
       return;
@@ -260,8 +367,8 @@ export default function OrderListPage() {
         items: itemsToUpdate,
       });
       
-      // Then approve the order (backend will approve based on selected items)
-      await apiEndpoints.orders.approve({
+      // Then validate the order (backend will validate based on selected items)
+      await apiEndpoints.orders.validate({
         order_ids: [order.id],
       });
       
@@ -270,20 +377,20 @@ export default function OrderListPage() {
       
       const allSelected = selectedItems.length === order.items.length;
       toast({
-        title: "Items approved",
-        description: `${selectedItems.length} of ${order.items.length} item(s) approved. ${allSelected ? "Order is fully approved." : "Order is partially approved."}`,
+        title: "Order validated",
+        description: `${selectedItems.length} of ${order.items.length} item(s) validated. ${allSelected ? "Order is fully validated." : "Order is partially validated."}`,
       });
       
-      // Navigate to route-wise order list only if all items are approved
+      // Navigate to route-wise order list only if all items are validated
       if (allSelected) {
         setTimeout(() => {
           navigate("/orders/route-wise");
         }, 1000);
       }
     } catch (error: any) {
-      console.error("Failed to approve order", error);
+      console.error("Failed to validate order", error);
       toast({
-        title: "Unable to approve order",
+        title: "Unable to validate order",
         description: error?.message || "Please try again later.",
         variant: "destructive",
       });
@@ -294,6 +401,34 @@ export default function OrderListPage() {
 
   const handleEdit = (orderId: number) => {
     navigate(`/orders/new?orderId=${orderId}`);
+  };
+
+  const handleDelete = async (orderId: number) => {
+    try {
+      setLoading(true);
+      await apiEndpoints.orders.delete(orderId);
+      
+      // Remove from selected orders if it was selected
+      setSelectedOrders((prev) => prev.filter((id) => id !== orderId));
+      
+      // Reload orders to reflect deletion
+      await loadOrders();
+      
+      toast({
+        title: "Order deleted",
+        description: "The order has been successfully deleted.",
+      });
+    } catch (error: any) {
+      console.error("Failed to delete order", error);
+      toast({
+        title: "Unable to delete order",
+        description: error?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setDeletingOrderId(null);
+    }
   };
 
   const updateSelection = async (order: ApiOrder, items: ApiOrderItem[]) => {
@@ -333,8 +468,48 @@ export default function OrderListPage() {
 
   return (
     <main className="p-6 space-y-6">
+      {/* Navigation Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/new")}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Order Creation</p>
+              <p className="text-xl font-bold">New Order</p>
+            </div>
+            <PlusCircle className="h-7 w-7 text-primary" />
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/route-wise")}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Route Wise Memo List</p>
+              <p className="text-xl font-bold">Route View</p>
+            </div>
+            <MapPinned className="h-7 w-7 text-primary" />
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/warehouse/maintenance")}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Stock Management</p>
+              <p className="text-xl font-bold">Manage Stock</p>
+            </div>
+            <Package className="h-7 w-7 text-primary" />
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/assigned")}>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Assigned Order List</p>
+              <p className="text-xl font-bold">View Assignments</p>
+            </div>
+            <TruckIcon className="h-7 w-7 text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">Order List</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Delivery Order</h1>
         <p className="text-muted-foreground">
           Review orders and manage delivery assignments.
         </p>
@@ -349,10 +524,24 @@ export default function OrderListPage() {
                 {hasActiveFilters && ` (filtered from ${orders.length} total)`}
               </p>
               <p className="text-xs text-muted-foreground">
-                Use the checkboxes to control which line items flow into the approved order number.
+                Use the checkboxes to control which line items flow into the validated order number.
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {selectedOrders.length > 0 && (
+                  <Button 
+                  onClick={handleValidateAll} 
+                  disabled={loading || validatingOrders.size > 0}
+                  size="sm"
+                >
+                  {loading && validatingOrders.size > 0 ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Truck className="h-4 w-4 mr-2" />
+                  )}
+                  Validate All ({selectedOrders.length})
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => navigate("/orders/new")}>
                 Create new order
               </Button>
@@ -449,19 +638,41 @@ export default function OrderListPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Select All Checkbox */}
+              <div className="flex items-center gap-2 p-2 border-b">
+                <Checkbox
+                  checked={filteredOrders.length > 0 && filteredOrders.every((order) => 
+                    selectedOrders.includes(order.id)
+                  )}
+                  onCheckedChange={handleSelectAll}
+                  disabled={loading}
+                />
+                <Label className="text-sm font-medium">Select All Orders</Label>
+                {selectedOrders.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    ({selectedOrders.length} selected)
+                  </span>
+                )}
+              </div>
               {filteredOrders.map((order) => {
                 const isExpanded = expanded[order.id];
                 const allItemsSelected = order.items.every((item) => item.selected !== false);
                 const someItemsSelected = order.items.some((item) => item.selected !== false);
                 const headerCheckboxState = allItemsSelected ? true : someItemsSelected ? "indeterminate" : false;
-                // Check if all items are approved (all selected and order is fully approved)
-                // Button should be disabled only when ALL items are selected AND order is fully approved
-                const allItemsApproved = allItemsSelected && order.status === "Approved";
+                // Note: Validated orders won't appear in this list (filtered in backend)
+                // So we only need to check if all items are selected
+                const allItemsValidated = false; // Will be true after validation, but order will disappear from list
 
                 return (
-                  <div key={order.id} className="rounded-xl border bg-card shadow-sm">
+                  <div key={order.id} className={`rounded-xl border bg-card shadow-sm ${selectedOrders.includes(order.id) ? 'border-primary bg-primary/5' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                       <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={selectedOrders.includes(order.id)}
+                          onCheckedChange={(checked) => handleOrderSelection(order.id, Boolean(checked))}
+                          disabled={loading}
+                          className="mr-1"
+                        />
                         <button
                           onClick={() => toggleExpand(order.id)}
                           className="flex h-8 w-8 items-center justify-center rounded-full border bg-background text-muted-foreground transition hover:text-foreground"
@@ -474,7 +685,6 @@ export default function OrderListPage() {
                             <span className="text-sm font-semibold text-foreground">
                               {order.order_number || `Order #${order.id}`}
                             </span>
-                            <Badge variant={statusBadgeVariant(order.status)}>{order.status}</Badge>
                             {order.route_name || order.route_code ? (
                               <Badge variant="outline" className="font-mono text-[11px]">
                                 {order.route_name || order.route_code}
@@ -511,22 +721,70 @@ export default function OrderListPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleApprove(order)}
-                                disabled={loading || allItemsApproved}
+                                onClick={() => handleValidate(order)}
+                                disabled={loading || allItemsValidated}
                               >
                                 <Truck className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {allItemsApproved 
-                                ? "All items approved" 
+                              {allItemsValidated 
+                                ? "Order validated" 
                                 : allItemsSelected
-                                ? "Approve all items"
+                                ? "Validate order"
                                 : someItemsSelected
-                                ? "Approve selected items"
-                                : "Select items to approve"}
+                                ? "Select all items to validate"
+                                : "Select items to validate"}
                             </TooltipContent>
                           </Tooltip>
+
+                          <AlertDialog open={deletingOrderId === order.id} onOpenChange={(open) => !open && setDeletingOrderId(null)}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeletingOrderId(order.id);
+                                    }}
+                                    disabled={loading}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete order <strong>{order.order_number || `#${order.id}`}</strong>?
+                                  This action cannot be undone. All items in this order will be permanently deleted.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setDeletingOrderId(null)}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(order.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  disabled={loading}
+                                >
+                                  {loading ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Deleting...
+                                    </>
+                                  ) : (
+                                    "Delete"
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </TooltipProvider>
                         <Checkbox
                           checked={headerCheckboxState}

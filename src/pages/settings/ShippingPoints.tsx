@@ -78,7 +78,7 @@ export default function ShippingPoints() {
   });
 
   useEffect(() => {
-    document.title = "Shipping Routes | App";
+    document.title = "Shipping Routes | Renata";
   }, []);
 
   const refreshDepotOptions = useCallback(() => {

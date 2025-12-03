@@ -142,7 +142,7 @@ export default function SampleGiftDeliveryForm() {
         })),
       };
 
-      await apiEndpoints.deliveryOrders.create(payload);
+      await apiEndpoints.orderDeliveries.create(payload);
       
       toast({ title: "Sample gift delivery created successfully" });
       navigate("/delivery/sample-gift");

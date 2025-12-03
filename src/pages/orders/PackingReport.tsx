@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { apiEndpoints } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 
-interface DeliveryOrderItem {
+interface OrderDeliveryItem {
   product_name: string;
   legacy_code?: string;
   new_code?: string;
@@ -19,7 +19,7 @@ interface DeliveryOrderItem {
 interface DeliveryData {
   id: number;
   delivery_number: string;
-  items: DeliveryOrderItem[];
+  items: OrderDeliveryItem[];
 }
 
 interface AggregatedRow {
@@ -61,7 +61,7 @@ export default function PackingReport() {
     const load = async () => {
       try {
         setLoading(true);
-        const response = await apiEndpoints.deliveryOrders.getAll();
+        const response = await apiEndpoints.orderDeliveries.getAll();
         const list = Array.isArray(response?.data) ? response.data : response;
         if (!Array.isArray(list)) {
           setDeliveries([]);
@@ -145,7 +145,7 @@ export default function PackingReport() {
       <div className="flex items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Packing Report</h1>
-          <p className="text-muted-foreground">Snapshot of products included in the selected delivery orders.</p>
+          <p className="text-muted-foreground">Snapshot of products included in the selected order deliveries.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.print()} disabled={loading || !!error}>

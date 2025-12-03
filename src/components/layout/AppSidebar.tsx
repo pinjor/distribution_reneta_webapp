@@ -29,6 +29,11 @@ import {
   Gift,
   Globe,
   Warehouse as WarehouseIcon,
+  CheckCircle2,
+  DollarSign,
+  FileText,
+  BarChart3,
+  FileBarChart,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -50,6 +55,7 @@ import { useState, useEffect } from "react";
 
 const menuItems = [
   { title: "Dashboard", icon: Home, path: "/" },
+  { title: "Distribution Cockpit", icon: MapPinned, path: "/distribution/cockpit" },
   {
     title: "Inventory Management",
     icon: Package,
@@ -81,10 +87,12 @@ const menuItems = [
     icon: ClipboardList,
     subItems: [
       { title: "Sales Order", icon: PlusCircle, path: "/orders/new" },
-      { title: "Sales Order List", icon: List, path: "/orders" },
-      { title: "Route Wise Order", icon: MapPinned, path: "/orders/route-wise" },
+      { title: "Delivery Order", icon: List, path: "/orders" },
+      { title: "Route Wise Memo List", icon: MapPinned, path: "/orders/route-wise" },
       { title: "Assigned Order List", icon: TruckIcon, path: "/orders/assigned" },
-      // { title: "Delivery Orders", icon: TruckIcon, path: "/orders/delivery" },
+      { title: "Approval for Collection", icon: CheckCircle2, path: "/orders/collection-approval" },
+      { title: "MIS Report", icon: FileBarChart, path: "/orders/mis-report" },
+      // { title: "Order Deliveries", icon: TruckIcon, path: "/orders/delivery" },
       // { title: "Picking", icon: PackageCheck, path: "/orders/picking" },
       // { title: "Loading Request", icon: ClipboardCheck, path: "/orders/loading-request" },
       // { title: "Loading List", icon: TruckIcon, path: "/orders/loading-list" },
@@ -98,6 +106,15 @@ const menuItems = [
       { title: "Depot Transfer", icon: WarehouseIcon, path: "/delivery/depot" },
       { title: "Sample Gift Delivery", icon: Gift, path: "/delivery/sample-gift" },
       { title: "Export", icon: Globe, path: "/delivery/export" },
+    ],
+  },
+  {
+    title: "Billing",
+    icon: DollarSign,
+    subItems: [
+      { title: "Collection Deposits", icon: FileText, path: "/billing/deposits" },
+      { title: "Receive Remaining Cash", icon: DollarSign, path: "/billing/deposits/remaining-cash" },
+      { title: "Collection Reports", icon: BarChart3, path: "/billing/reports" },
     ],
   },
   {

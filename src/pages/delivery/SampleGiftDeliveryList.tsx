@@ -42,7 +42,7 @@ export default function SampleGiftDeliveryList() {
     try {
       setLoading(true);
       // In production, this would call a specific API endpoint for sample gift deliveries
-      // const result = await apiEndpoints.deliveryOrders.getSampleGiftDeliveries();
+      // const result = await apiEndpoints.orderDeliveries.getSampleGiftDeliveries();
       // For now, using mock data
       const mockDeliveries: SampleGiftDelivery[] = [
         {

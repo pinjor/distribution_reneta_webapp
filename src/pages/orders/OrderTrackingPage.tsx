@@ -85,7 +85,7 @@ export default function OrderTrackingPage() {
     }
     try {
       setLoading(true);
-      const response = await apiEndpoints.deliveryOrders.track(orderInput.trim());
+      const response = await apiEndpoints.orderDeliveries.track(orderInput.trim());
       setTracking(response);
     } catch (error) {
       console.error("Tracking lookup failed", error);

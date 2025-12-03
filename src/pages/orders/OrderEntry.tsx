@@ -225,7 +225,7 @@ export default function OrderEntry() {
   };
 
   useEffect(() => {
-    document.title = "Order | Order Management";
+    document.title = "Order | Renata";
   }, []);
 
   const loadReferenceOrders = useCallback(async () => {

@@ -17,10 +17,10 @@ export default function StockIssuance() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { toast } = useToast();
 
-  // Load pending delivery orders
-  const { data: deliveryOrdersResponse, isLoading: ordersLoading } = useQuery({
+  // Load pending order deliveries
+  const { data: orderDeliveriesResponse, isLoading: ordersLoading } = useQuery({
     queryKey: ['pending-delivery-orders'],
-    queryFn: () => apiEndpoints.deliveryOrders.getAll({ status: 'Pending' }),
+    queryFn: () => apiEndpoints.orderDeliveries.getAll({ status: 'Pending' }),
   });
 
   // Load vehicles
@@ -35,7 +35,7 @@ export default function StockIssuance() {
     queryFn: apiEndpoints.routes.getAll,
   });
 
-  const pendingOrders = deliveryOrdersResponse?.data || deliveryOrdersResponse || [];
+  const pendingOrders = orderDeliveriesResponse?.data || orderDeliveriesResponse || [];
   const batches = [
     { batch: "6000001", expiry: "2025-12-15", qty: 1000, fefo: true },
     { batch: "6000002", expiry: "2026-03-20", qty: 800, fefo: false },
@@ -62,7 +62,7 @@ export default function StockIssuance() {
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <Package className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Pending Delivery Orders</h2>
+            <h2 className="text-lg font-semibold">Pending Order Deliveries</h2>
           </div>
           {ordersLoading ? (
             <div className="py-8 text-center">
@@ -71,7 +71,7 @@ export default function StockIssuance() {
             </div>
           ) : pendingOrders.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              <p>No pending delivery orders</p>
+              <p>No pending order deliveries</p>
             </div>
           ) : (
             <Table>

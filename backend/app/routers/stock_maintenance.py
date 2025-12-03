@@ -69,14 +69,14 @@ def get_stock_ledger(skip: int = 0, limit: int = 10000, db: Session = Depends(ge
 @router.get("/product/{product_id}/batches")
 def get_product_batches_fefo(
     product_id: int,
-    depot_id: Optional[int] = Query(None, description="Deprecated: No longer filters by depot. Use central stock."),
+    depot_id: Optional[int] = Query(None, description="Filter by depot ID for depot transfers"),
     db: Session = Depends(get_db)
 ):
     """
     Get batches for a product using FEFO (First Expiry First Out) logic.
     Returns batches from new product_item_stock_details table.
     Only returns batches with numeric batch numbers.
-    No depot filtering - uses central stock.
+    If depot_id is provided, filters by that depot (for depot transfers).
     """
     query = db.query(ProductItemStockDetail, ProductItemStock).join(
         ProductItemStock, ProductItemStockDetail.item_code == ProductItemStock.id
@@ -84,7 +84,10 @@ def get_product_batches_fefo(
         ProductItemStock.product_id == product_id,
         ProductItemStockDetail.available_quantity > 0  # Only show batches with available stock
     )
-    # No depot filtering - use central stock
+    
+    # Filter by depot if provided (for depot transfers)
+    if depot_id:
+        query = query.filter(ProductItemStock.depot_id == depot_id)
     
     results = query.order_by(
         ProductItemStockDetail.expiry_date.asc().nullslast(),  # FEFO: earliest expiry first

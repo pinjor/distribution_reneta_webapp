@@ -85,7 +85,7 @@ export default function Company() {
   });
 
   useEffect(() => {
-    document.title = "Company Settings | App";
+    document.title = "Company Settings | Renata";
   }, []);
 
   const generateCompanyCode = (): string => {

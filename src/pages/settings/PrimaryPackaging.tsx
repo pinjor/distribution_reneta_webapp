@@ -54,7 +54,7 @@ export default function PrimaryPackaging() {
   };
 
   useEffect(() => {
-    document.title = "Primary Packaging | App";
+    document.title = "Primary Packaging | Renata";
   }, []);
 
   const generatePackagingCode = (): string => {

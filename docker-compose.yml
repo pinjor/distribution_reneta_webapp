@@ -47,8 +47,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
       - CORS_ORIGINS=http://localhost,http://localhost:80,http://localhost:8080
-    ports:
-      - "8000:8000"
+  #  ports:
+  #    - "18000:8000"
     volumes:
       - ./backend:/app
     networks:
@@ -65,11 +65,12 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: swift_distro_frontend
-    ports:
-      - "8080:8080"
+    #ports:
+    #  - "18000:8000"
     volumes:
       - ./src:/app/src
       - ./public:/app/public
+      - ./vite.config.ts:/app/vite.config.ts
     networks:
       - swift_network
     depends_on:

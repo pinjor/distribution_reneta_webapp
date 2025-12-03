@@ -1,8 +1,12 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
+import json
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.database import get_db
 from app import models, schemas
@@ -59,11 +63,93 @@ def map_item_to_model(item_data: schemas.OrderItemCreate, order: models.Order) -
 
 @router.get("", response_model=List[schemas.Order])
 def list_orders(db: Session = Depends(get_db)) -> List[schemas.Order]:
-    return (
+    """Get all orders that are not yet validated and have items"""
+    from sqlalchemy import exists
+    # Only show non-validated orders that have at least one item
+    orders = (
         db.query(models.Order)
+        .filter(models.Order.validated == False)  # Only show non-validated orders
+        .filter(exists().where(models.OrderItem.order_id == models.Order.id))  # Must have at least one item
         .order_by(models.Order.created_at.desc())
         .all()
     )
+    # Filter out orders with empty items list (additional safety check)
+    return [order for order in orders if order.items and len(order.items) > 0]
+
+
+# IMPORTANT: /collection-approval route MUST be defined BEFORE /{order_id} route
+# FastAPI matches routes in order, so specific routes must come before parameterized routes
+@router.get("/collection-approval")
+def get_collection_approval_list(
+    status_filter: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of orders that need collection approval.
+    Returns orders with collection_status = Pending, Partially Collected, or Postponed
+    """
+    print("=== get_collection_approval_list CALLED ===")
+    print(f"status_filter: {status_filter}")
+    try:
+        query = db.query(models.Order).filter(
+            or_(
+                models.Order.collection_status == "Pending",
+                models.Order.collection_status == "Partially Collected",
+                models.Order.collection_status == "Postponed"
+            )
+        )
+        
+        if status_filter and status_filter != "all":
+            query = query.filter(models.Order.collection_status == status_filter)
+        
+        orders = query.order_by(models.Order.created_at.desc()).all()
+        
+        result = []
+        for order in orders:
+            total_amount = Decimal('0')
+            for item in order.items:
+                item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+                total_amount += item_total
+            
+            collected = order.collected_amount or Decimal('0')
+            pending = total_amount - collected
+            
+            order_dict = {
+                "id": order.id,
+                "order_number": order.order_number,
+                "memo_number": order.memo_number,
+                "customer_id": order.customer_id,
+                "customer_name": order.customer_name,
+                "customer_code": order.customer_code,
+                "pso_id": order.pso_id,
+                "pso_name": order.pso_name,
+                "pso_code": order.pso_code,
+                "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
+                "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+                "collection_status": order.collection_status or "Pending",
+                "collection_type": order.collection_type,
+                "collected_amount": float(collected),
+                "pending_amount": float(pending),
+                "total_amount": float(total_amount),
+                "collection_source": order.collection_source or "Mobile App",
+                "collection_approved": order.collection_approved or False,
+                "collection_approved_at": order.collection_approved_at.isoformat() if order.collection_approved_at else None,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+            }
+            result.append(order_dict)
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        import traceback
+        error_msg = f"Error in get_collection_approval_list: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        from fastapi.responses import Response
+        return Response(
+            content=json.dumps({"error": str(e), "detail": error_msg}),
+            media_type="application/json",
+            status_code=500
+        )
 
 
 @router.get("/assigned")
@@ -134,6 +220,7 @@ def get_assigned_orders(
                 "id": order.id,
                 "order_id": order.id,
                 "order_number": order.order_number,
+                "memo_number": order.memo_number,
                 "customer_name": order.customer_name or "Unknown Customer",
                 "customer_code": order.customer_code,
                 "route_code": order.route_code,
@@ -161,6 +248,233 @@ def get_assigned_orders(
         print(error_msg)
         print(traceback.format_exc())
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
+
+
+# MIS Report endpoints - MUST be before /{order_id} route to avoid route conflicts
+@router.get("/mis-report", response_model=List[schemas.MISReportMemo])
+def get_mis_report_memos(
+    start_date: Optional[str] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
+    status: Optional[str] = Query(None, description="Filter by status (validated, printed, assigned, loaded, collected, postponed)"),
+    route_code: Optional[str] = Query(None, description="Filter by route code"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all memos for MIS report with date and status filters.
+    Returns comprehensive memo list with key status indicators.
+    """
+    from sqlalchemy import exists, func, or_
+    from sqlalchemy.orm import joinedload
+    
+    query = db.query(models.Order).options(
+        joinedload(models.Order.items),
+        joinedload(models.Order.assigned_employee),
+        joinedload(models.Order.assigned_vehicle_rel)
+    )
+    
+    # Filter by date range - parse string dates
+    if start_date:
+        try:
+            start_date_parsed = datetime.strptime(start_date, "%Y-%m-%d").date()
+            query = query.filter(models.Order.delivery_date >= start_date_parsed)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid start_date format. Expected YYYY-MM-DD, got: {start_date}")
+    if end_date:
+        try:
+            end_date_parsed = datetime.strptime(end_date, "%Y-%m-%d").date()
+            query = query.filter(models.Order.delivery_date <= end_date_parsed)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid end_date format. Expected YYYY-MM-DD, got: {end_date}")
+    
+    # Filter by route
+    if route_code:
+        query = query.filter(models.Order.route_code == route_code)
+    
+    # Filter by status
+    if status:
+        if status == "validated":
+            query = query.filter(models.Order.validated == True)
+        elif status == "printed":
+            query = query.filter(models.Order.printed == True)
+        elif status == "assigned":
+            query = query.filter(models.Order.assigned_to.isnot(None))
+        elif status == "loaded":
+            query = query.filter(models.Order.loaded == True)
+        elif status == "collected":
+            query = query.filter(models.Order.collection_status.in_(["Fully Collected", "Partially Collected"]))
+        elif status == "postponed":
+            query = query.filter(models.Order.postponed == True)
+        elif status == "pending_validation":
+            query = query.filter(models.Order.validated == False)
+        elif status == "pending_print":
+            query = query.filter(models.Order.printed == False, models.Order.validated == True)
+        elif status == "pending_collection":
+            query = query.filter(
+                or_(
+                    models.Order.collection_status == "Pending",
+                    models.Order.collection_status.is_(None)
+                )
+            )
+    
+    orders = query.order_by(models.Order.delivery_date.desc(), models.Order.created_at.desc()).all()
+    
+    result = []
+    for order in orders:
+        # Calculate total amount
+        total_amount = Decimal('0')
+        for item in order.items:
+            item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+            total_amount += item_total
+        
+        # Get validation timestamp (use updated_at when validated is True)
+        validated_at = None
+        if order.validated:
+            validated_at = order.updated_at
+        
+        result.append(schemas.MISReportMemo(
+            id=order.id,
+            order_id=order.id,
+            order_number=order.order_number,
+            memo_number=order.memo_number,
+            customer_name=order.customer_name,
+            customer_code=order.customer_code,
+            route_code=order.route_code,
+            route_name=order.route_name,
+            delivery_date=order.delivery_date,
+            validated=order.validated or False,
+            validated_at=validated_at,
+            printed=order.printed or False,
+            printed_at=order.printed_at,
+            postponed=order.postponed or False,
+            assigned=(order.assigned_to is not None and order.assigned_vehicle is not None),
+            assigned_at=order.assignment_date,
+            assigned_employee_name=order.assigned_employee.first_name + " " + (order.assigned_employee.last_name or "") if order.assigned_employee else None,
+            assigned_vehicle_registration=order.assigned_vehicle_rel.registration_number if order.assigned_vehicle_rel else None,
+            loaded=order.loaded or False,
+            loaded_at=order.loaded_at,
+            loading_number=order.loading_number,
+            collection_status=order.collection_status,
+            collection_type=order.collection_type,
+            collected_amount=order.collected_amount,
+            pending_amount=order.pending_amount,
+            collection_approved=order.collection_approved or False,
+            collection_approved_at=order.collection_approved_at,
+            total_amount=total_amount,
+            status=order.status.value if order.status else "DRAFT",
+            created_at=order.created_at
+        ))
+    
+    return result
+
+
+@router.get("/mis-report/{memo_id}", response_model=schemas.MISReportMemoDetail)
+def get_mis_report_memo_detail(
+    memo_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get detailed history and full cycle information for a specific memo.
+    Returns comprehensive memo details including all lifecycle events.
+    """
+    from sqlalchemy.orm import joinedload
+    
+    order = db.query(models.Order).options(
+        joinedload(models.Order.items),
+        joinedload(models.Order.assigned_employee),
+        joinedload(models.Order.assigned_vehicle_rel)
+    ).filter(models.Order.id == memo_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Memo not found")
+    
+    # Calculate total amount and items
+    total_amount = Decimal('0')
+    memo_items = []
+    for item in order.items:
+        item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+        total_amount += item_total
+        
+        memo_items.append(schemas.MISReportMemoItem(
+            product_code=item.product_code,
+            product_name=item.product_name,
+            pack_size=item.pack_size,
+            total_quantity=item.total_quantity or Decimal('0'),
+            delivered_quantity=item.delivered_quantity if hasattr(item, 'delivered_quantity') else None,
+            returned_quantity=item.returned_quantity if hasattr(item, 'returned_quantity') else None,
+            unit_price=item.trade_price or Decimal('0'),
+            discount_percent=item.discount_percent or Decimal('0'),
+            total_price=item_total
+        ))
+    
+    # Get validation timestamp
+    validated_at = None
+    if order.validated:
+        validated_at = order.updated_at
+    
+    # Get collection approved by name
+    collection_approved_by_name = None
+    if order.collection_approved_by:
+        approved_by_emp = db.query(models.Employee).filter(models.Employee.id == order.collection_approved_by).first()
+        if approved_by_emp:
+            collection_approved_by_name = f"{approved_by_emp.first_name} {approved_by_emp.last_name or ''}".strip()
+    
+    # Determine delivery status (would come from app integration, using collection_status for now)
+    delivery_status = None
+    if order.loaded:
+        if order.collection_status == "Fully Collected":
+            delivery_status = "Fully Delivered"
+        elif order.collection_status == "Partially Collected":
+            delivery_status = "Partial Delivered"
+        elif order.postponed:
+            delivery_status = "Postponed"
+    
+    return schemas.MISReportMemoDetail(
+        id=order.id,
+        order_id=order.id,
+        order_number=order.order_number,
+        memo_number=order.memo_number,
+        customer_name=order.customer_name,
+        customer_code=order.customer_code,
+        customer_id=order.customer_id,
+        route_code=order.route_code,
+        route_name=order.route_name,
+        delivery_date=order.delivery_date,
+        pso_name=order.pso_name,
+        pso_code=order.pso_code,
+        pso_id=order.pso_id,
+        validated=order.validated or False,
+        validated_at=validated_at,
+        printed=order.printed or False,
+        printed_at=order.printed_at,
+        postponed=order.postponed or False,
+        assigned=(order.assigned_to is not None and order.assigned_vehicle is not None),
+        assigned_at=order.assignment_date,
+        assigned_employee_id=order.assigned_to,
+        assigned_employee_name=order.assigned_employee.first_name + " " + (order.assigned_employee.last_name or "") if order.assigned_employee else None,
+        assigned_employee_code=order.assigned_employee.employee_id if order.assigned_employee else None,
+        assigned_vehicle_id=order.assigned_vehicle,
+        assigned_vehicle_registration=order.assigned_vehicle_rel.registration_number if order.assigned_vehicle_rel else None,
+        assigned_vehicle_model=order.assigned_vehicle_rel.vehicle_type if order.assigned_vehicle_rel else None,
+        loaded=order.loaded or False,
+        loaded_at=order.loaded_at,
+        loading_number=order.loading_number,
+        loading_date=order.loading_date,
+        delivery_status=delivery_status,
+        collection_status=order.collection_status,
+        collection_type=order.collection_type,
+        collected_amount=order.collected_amount,
+        pending_amount=order.pending_amount,
+        collection_approved=order.collection_approved or False,
+        collection_approved_at=order.collection_approved_at,
+        collection_approved_by_name=collection_approved_by_name,
+        collection_source=order.collection_source,
+        items=memo_items,
+        total_amount=total_amount,
+        total_items_count=len(memo_items),
+        status=order.status.value if order.status else "DRAFT",
+        created_at=order.created_at,
+        updated_at=order.updated_at
+    )
 
 
 @router.get("/{order_id}", response_model=schemas.Order)
@@ -612,10 +926,10 @@ def submit_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
     return order
 
 
-@router.post("/approve", response_model=schemas.OrderApprovalResponse)
-def approve_orders(payload: schemas.OrderApprovalRequest, db: Session = Depends(get_db)) -> schemas.OrderApprovalResponse:
+@router.post("/validate", response_model=schemas.OrderValidationResponse)
+def validate_orders(payload: schemas.OrderValidationRequest, db: Session = Depends(get_db)) -> schemas.OrderValidationResponse:
     if not payload.order_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No orders selected for approval")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No orders selected for validation")
 
     orders = (
         db.query(models.Order)
@@ -629,10 +943,10 @@ def approve_orders(payload: schemas.OrderApprovalRequest, db: Session = Depends(
     generated_number = payload.order_number or generate_order_number()
 
     for order in orders:
-        # Allow approving Draft, Submitted, or Partially Approved orders
-        # Check if order is already fully approved (all items selected and status is APPROVED)
+        # Allow validating Draft, Submitted, or Partially Approved orders
+        # Check if order is already fully validated (all items selected and status is APPROVED)
         all_selected = all(item.selected for item in order.items)
-        if order.status == models.OrderStatusEnum.APPROVED and all_selected:
+        if order.status == models.OrderStatusEnum.APPROVED and all_selected and order.validated:
             continue
 
         # Check if at least one item is selected
@@ -640,7 +954,7 @@ def approve_orders(payload: schemas.OrderApprovalRequest, db: Session = Depends(
         if not selected_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Order {order.id} has no selected items to approve",
+                detail=f"Order {order.id} has no selected items to validate",
             )
 
         # Set order number if not already set
@@ -651,11 +965,15 @@ def approve_orders(payload: schemas.OrderApprovalRequest, db: Session = Depends(
         if not order.memo_number:
             order.memo_number = generate_memo_number(db)
         
-        # Update status based on selection
+        # Update status based on selection and validate
         if all_selected:
             order.status = models.OrderStatusEnum.APPROVED
+            # Mark order as validated
+            order.validated = True
         else:
             order.status = models.OrderStatusEnum.PARTIALLY_APPROVED
+            # Partially validated orders are not fully validated yet
+            order.validated = False
 
     db.commit()
 
@@ -666,7 +984,7 @@ def approve_orders(payload: schemas.OrderApprovalRequest, db: Session = Depends(
         .all()
     )
 
-    return schemas.OrderApprovalResponse(order_number=generated_number, orders=refreshed)
+    return schemas.OrderValidationResponse(order_number=generated_number, orders=refreshed)
 
 
 @router.get("/route-wise/all", response_model=List[schemas.RouteWiseOrderResponse])
@@ -693,21 +1011,21 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
             .all()
         )
         
-        # Only unloaded orders for the items list (maintain order)
-        unloaded_orders = [o for o in all_orders if not o.loaded]
+        # Only show validated and unloaded orders for the items list
+        validated_unloaded_orders = [o for o in all_orders if o.validated and not o.loaded]
         
         # Generate memo numbers for orders that don't have them
-        for order in unloaded_orders:
+        for order in validated_unloaded_orders:
             if not order.memo_number:
                 order.memo_number = generate_memo_number(db)
         
         # Commit memo numbers
-        if any(not o.memo_number for o in unloaded_orders):
+        if any(not o.memo_number for o in validated_unloaded_orders):
             db.commit()
         
-        # Build route-wise items (only from unloaded orders)
+        # Build route-wise items (only from validated and unloaded orders)
         items = []
-        for order in unloaded_orders:
+        for order in validated_unloaded_orders:
             for item in order.items:
                 if not item.selected:
                     continue
@@ -736,6 +1054,7 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
                     validated=order.validated,
                     printed=order.printed,
                     printed_at=order.printed_at.isoformat() if order.printed_at else None,
+                    postponed=order.postponed or False,
                     assigned_to=order.assigned_to,
                     assigned_vehicle=order.assigned_vehicle,
                     loaded=order.loaded,
@@ -745,11 +1064,17 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
                 ))
         
         # Calculate statistics (from all orders, including loaded)
-        total_order = len(all_orders)
-        validated = sum(1 for o in all_orders if o.validated)
+        # Total order = pending (unvalidated) + validated orders
+        validated_orders = [o for o in all_orders if o.validated]
+        pending_orders = [o for o in all_orders if not o.validated]
+        total_order = len(all_orders)  # This is pending + validated
+        validated = len(validated_orders)
         printed = sum(1 for o in all_orders if o.printed)
         pending_print = validated - printed
-        loaded = sum(1 for o in all_orders if o.loaded)
+        # Count assigned orders (have assigned_to and assigned_vehicle) - matches Assigned Order List count
+        # This counts individual orders, not loading groups
+        loaded = sum(1 for o in all_orders if o.assigned_to is not None and o.assigned_vehicle is not None)
+        postponed = sum(1 for o in all_orders if o.postponed or False)
         
         stats = schemas.RouteWiseOrderStats(
             total_order=total_order,
@@ -757,6 +1082,7 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
             printed=printed,
             pending_print=max(0, pending_print),
             loaded=loaded,
+            postponed=postponed,
         )
         
         result.append(schemas.RouteWiseOrderResponse(
@@ -818,11 +1144,12 @@ def get_route_wise_orders(route_code: str, db: Session = Depends(get_db)) -> sch
                 route_name=order.route_name,
                 validated=order.validated,
                 printed=order.printed,
-                printed_at=order.printed_at,
+                printed_at=order.printed_at.isoformat() if order.printed_at else None,
+                postponed=order.postponed or False,
                 assigned_to=order.assigned_to,
                 assigned_vehicle=order.assigned_vehicle,
                 loaded=order.loaded,
-                loaded_at=order.loaded_at,
+                loaded_at=order.loaded_at.isoformat() if order.loaded_at else None,
                 pso_name=order.pso_name,
                 pso_code=order.pso_code,
             ))
@@ -832,7 +1159,10 @@ def get_route_wise_orders(route_code: str, db: Session = Depends(get_db)) -> sch
     validated = sum(1 for o in orders if o.validated)
     printed = sum(1 for o in orders if o.printed)
     pending_print = validated - printed
-    loaded = sum(1 for o in orders if o.loaded)
+    # Count assigned orders (have assigned_to and assigned_vehicle) - matches Assigned Order List count
+    # This counts individual orders, not loading groups
+    loaded = sum(1 for o in orders if o.assigned_to is not None and o.assigned_vehicle is not None)
+    postponed = sum(1 for o in orders if o.postponed or False)
     
     stats = schemas.RouteWiseOrderStats(
         total_order=total_order,
@@ -840,6 +1170,7 @@ def get_route_wise_orders(route_code: str, db: Session = Depends(get_db)) -> sch
         printed=printed,
         pending_print=max(0, pending_print),
         loaded=loaded,
+        postponed=postponed,
     )
     
     return schemas.RouteWiseOrderResponse(items=items, stats=stats)
@@ -860,14 +1191,21 @@ def print_route_wise_orders(payload: schemas.RouteWisePrintRequest, db: Session 
     logger = logging.getLogger(__name__)
     
     try:
+        # Filter to only pending print orders (not already printed)
         orders = (
             db.query(models.Order)
-            .filter(models.Order.id.in_(payload.order_ids))
+            .filter(
+                models.Order.id.in_(payload.order_ids),
+                models.Order.printed == False  # Only pending print orders
+            )
             .all()
         )
         
         if not orders:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No orders found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="No pending print orders found. All selected orders may already be printed."
+            )
         
         # Generate memo numbers for orders that don't have them
         memo_generated = False
@@ -1101,9 +1439,18 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
     else:
         next_sequence = 1
     
-    loading_number = f"{date_prefix}-{next_sequence:04d}"
+    # Get unique route codes from orders
+    route_codes_in_orders = list(set([o.route_code for o in orders if o.route_code]))
+    route_codes = payload.route_codes if payload.route_codes else route_codes_in_orders
     
-    # Get route code and area from first order (assuming all orders in same assignment are from same route)
+    # Append route codes to loading number if multiple routes
+    if len(route_codes) > 1:
+        route_suffix = "-" + "-".join(sorted(route_codes))[:20]  # Limit length
+        loading_number = f"{date_prefix}-{next_sequence:04d}{route_suffix}"
+    else:
+        loading_number = f"{date_prefix}-{next_sequence:04d}"
+    
+    # Get route code and area from first order
     route_code = orders[0].route_code if orders else None
     route_name = orders[0].route_name if orders else None
     
@@ -1116,7 +1463,11 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
         order.assignment_date = datetime.utcnow()
         order.loading_number = loading_number
         order.loading_date = today
-        order.area = route_name or route_code or "N/A"
+        # Show all routes in area if multiple routes
+        if len(route_codes) > 1:
+            order.area = ", ".join(sorted(route_codes))
+        else:
+            order.area = route_name or route_code or "N/A"
     
     db.commit()
     
@@ -1126,6 +1477,102 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
         "employee_id": payload.employee_id,
         "vehicle_id": payload.vehicle_id,
         "loading_number": loading_number,
+        "assigned_at": datetime.utcnow().isoformat(),
+    }
+
+
+@router.post("/assigned/from-barcodes", status_code=status.HTTP_200_OK)
+def create_assigned_order_list_from_barcodes(payload: schemas.BarcodeAssignRequest, db: Session = Depends(get_db)):
+    """Create assigned order list by scanning memo barcodes"""
+    from datetime import datetime, date
+    from sqlalchemy import func
+    
+    # Verify employee and vehicle exist
+    employee = db.query(models.Employee).filter(models.Employee.id == payload.employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+    
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == payload.vehicle_id).first()
+    if not vehicle:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found")
+    
+    # Find orders by memo numbers
+    orders = (
+        db.query(models.Order)
+        .filter(models.Order.memo_number.in_(payload.memo_numbers))
+        .all()
+    )
+    
+    if not orders:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"No orders found with the provided memo numbers"
+        )
+    
+    # Check if any orders are already assigned
+    already_assigned = [o for o in orders if o.loaded or o.assigned_to]
+    if already_assigned:
+        memo_list = [o.memo_number for o in already_assigned if o.memo_number]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Some orders are already assigned: {', '.join(memo_list)}"
+        )
+    
+    # Check if all memo numbers were found
+    found_memo_numbers = {o.memo_number for o in orders if o.memo_number}
+    missing_memos = set(payload.memo_numbers) - found_memo_numbers
+    if missing_memos:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Orders not found for memo numbers: {', '.join(missing_memos)}"
+        )
+    
+    # Generate unique loading number (same format as route-wise assignment)
+    today = date.today()
+    date_prefix = today.strftime("%Y%m%d")
+    
+    # Get the highest loading number for today
+    max_loading = db.query(func.max(models.Order.loading_number)).filter(
+        models.Order.loading_number.like(f"{date_prefix}-%")
+    ).scalar()
+    
+    if max_loading:
+        try:
+            sequence = int(max_loading.split("-")[1])
+            next_sequence = sequence + 1
+        except (ValueError, IndexError):
+            next_sequence = 1
+    else:
+        next_sequence = 1
+    
+    loading_number = f"{date_prefix}-{next_sequence:04d}"
+    
+    # Get route code and area from first order (if available)
+    route_code = orders[0].route_code if orders else None
+    route_name = orders[0].route_name if orders else None
+    
+    # Assign all orders with the same loading number
+    assigned_order_ids = []
+    for order in orders:
+        order.assigned_to = payload.employee_id
+        order.assigned_vehicle = payload.vehicle_id
+        order.loaded = True
+        order.loaded_at = datetime.utcnow()
+        order.assignment_date = datetime.utcnow()
+        order.loading_number = loading_number
+        order.loading_date = today
+        order.area = route_name or route_code or "N/A"
+        assigned_order_ids.append(order.id)
+    
+    db.commit()
+    
+    return {
+        "message": f"Successfully created assigned order list with {len(orders)} order(s)",
+        "loading_number": loading_number,
+        "order_ids": assigned_order_ids,
+        "memo_numbers": [o.memo_number for o in orders if o.memo_number],
+        "employee_id": payload.employee_id,
+        "vehicle_id": payload.vehicle_id,
         "assigned_at": datetime.utcnow().isoformat(),
     }
 
@@ -1268,7 +1715,7 @@ def get_loading_report(loading_number: str, db: Session = Depends(get_db)):
             total_price = price_after_discount * (item.total_quantity or (item.quantity + (item.free_goods or 0)))
             order_value += total_price
         
-        memo_no = (order.order_number or str(order.id))[:15]  # Limit memo number length
+        memo_no = (order.memo_number or order.order_number or str(order.id))[:15]  # Use memo_number, fallback to order_number
         value = float(order_value)
         status_val = "C"  # C for COD/Cash
         pso = str(order.pso_code or order.pso_id or "N/A")[:10]  # Limit PSO length
@@ -1296,17 +1743,15 @@ def get_loading_report(loading_number: str, db: Session = Depends(get_db)):
         total_amend += Decimal(str(amend))
         total_return += Decimal(str(return_val))
     
-    # Add summary rows - truncate label to prevent overlap
-    business_label = 'Business-wise Total: PHARMA'
-    # Limit label length to fit in first column (1.0 inch)
-    if len(business_label) > 22:
-        business_label = business_label[:22]
+    # Add summary rows - use shorter label to prevent overlap
+    business_label = 'Business-wise Total'
     table_data.append([business_label, f"{float(total_value):.2f}", '', '', '', f"{float(total_cash):.2f}", f"{float(total_dues):.2f}", f"{float(total_amend):.2f}", f"{float(total_return):.2f}"])
     table_data.append(['Grand Total:', f"{float(total_value):.2f}", '', '', '', f"{float(total_cash):.2f}", f"{float(total_dues):.2f}", f"{float(total_amend):.2f}", f"{float(total_return):.2f}"])
     
     # Create table - adjust column widths to fit A4 (8.27 inches total, with 0.5 inch margins = 7.27 inches usable)
-    # Total: 0.95 + 0.8 + 0.4 + 0.6 + 0.75 + 0.8 + 0.6 + 0.6 + 0.57 = 6.87 inches (fits with margin, prevents overlap)
-    table = Table(table_data, colWidths=[0.95*inch, 0.8*inch, 0.4*inch, 0.6*inch, 0.75*inch, 0.8*inch, 0.6*inch, 0.6*inch, 0.57*inch])
+    # Increased first column width for "Business-wise Total" label to prevent overlap
+    # Total: 1.1 + 0.8 + 0.4 + 0.6 + 0.7 + 0.8 + 0.6 + 0.6 + 0.57 = 6.57 inches (fits with margin, prevents overlap)
+    table = Table(table_data, colWidths=[1.1*inch, 0.8*inch, 0.4*inch, 0.6*inch, 0.7*inch, 0.8*inch, 0.6*inch, 0.6*inch, 0.57*inch])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E0E0E0')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#000000')),
@@ -1495,4 +1940,170 @@ def validate_route_wise_orders(payload: schemas.RouteWiseValidateRequest, db: Se
         "validated_count": validated_count,
         "total_orders": len(orders),
         "already_validated": len(orders) - validated_count
+    }
+
+
+# Collection approval action endpoints (defined after /collection-approval route)
+@router.post("/{order_id}/approve-collection", response_model=None)
+def approve_collection(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """Approve an order for collection processing"""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order.collection_status not in ["Pending", "Partially Collected", "Postponed"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Order collection status must be Pending, Partially Collected, or Postponed. Current: {order.collection_status}"
+        )
+    
+    order.collection_approved = True
+    order.collection_approved_at = datetime.utcnow()
+    # Note: collection_approved_by should be set from authenticated user context
+    
+    db.commit()
+    db.refresh(order)
+    
+    # Return a simple success response without items
+    return JSONResponse(content={
+        "id": order.id,
+        "order_number": order.order_number,
+        "memo_number": order.memo_number,
+        "customer_id": order.customer_id,
+        "customer_name": order.customer_name,
+        "customer_code": order.customer_code,
+        "pso_id": order.pso_id,
+        "pso_name": order.pso_name,
+        "pso_code": order.pso_code,
+        "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
+        "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+        "collection_status": order.collection_status,
+        "collection_approved": order.collection_approved,
+        "collection_approved_at": order.collection_approved_at.isoformat() if order.collection_approved_at else None,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+        "message": "Order collection approved successfully"
+    })
+
+
+@router.post("/{order_id}/mark-partial-collection", response_model=schemas.CollectionApprovalOrder)
+def mark_partial_collection(
+    order_id: int,
+    collected_amount: Optional[float] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Mark an order as partially collected"""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Calculate total amount
+    total_amount = Decimal('0')
+    for item in order.items:
+        item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+        total_amount += item_total
+    
+    # Set collected amount if provided, otherwise use existing
+    if collected_amount is not None:
+        order.collected_amount = Decimal(str(collected_amount))
+    else:
+        order.collected_amount = order.collected_amount or Decimal('0')
+    
+    order.pending_amount = total_amount - (order.collected_amount or Decimal('0'))
+    order.collection_status = "Partially Collected"
+    order.collection_type = "Partial"
+    order.collection_approved = True
+    order.collection_approved_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(order)
+    
+    # Calculate total amount
+    total_amount = Decimal('0')
+    for item in order.items:
+        item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+        total_amount += item_total
+    
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "memo_number": order.memo_number,
+        "customer_id": order.customer_id,
+        "customer_name": order.customer_name,
+        "customer_code": order.customer_code,
+        "pso_id": order.pso_id,
+        "pso_name": order.pso_name,
+        "pso_code": order.pso_code,
+        "delivery_date": order.delivery_date,
+        "status": order.status,
+        "collection_status": order.collection_status,
+        "collection_type": order.collection_type,
+        "collected_amount": float(order.collected_amount or 0),
+        "pending_amount": float(order.pending_amount or 0),
+        "total_amount": float(total_amount),
+        "collection_source": order.collection_source,
+        "collection_approved": order.collection_approved,
+        "collection_approved_at": order.collection_approved_at.isoformat() if order.collection_approved_at else None,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+    }
+
+
+@router.post("/{order_id}/mark-postponed-collection", response_model=schemas.CollectionApprovalOrder)
+def mark_postponed_collection(
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """Mark an order collection as postponed"""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Calculate total amount
+    total_amount = Decimal('0')
+    for item in order.items:
+        item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+        total_amount += item_total
+    
+    order.collected_amount = Decimal('0')
+    order.pending_amount = total_amount
+    order.collection_status = "Postponed"
+    order.collection_type = "Postponed"
+    order.collection_approved = True
+    order.collection_approved_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(order)
+    
+    # Calculate total amount
+    total_amount = Decimal('0')
+    for item in order.items:
+        item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
+        total_amount += item_total
+    
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "memo_number": order.memo_number,
+        "customer_id": order.customer_id,
+        "customer_name": order.customer_name,
+        "customer_code": order.customer_code,
+        "pso_id": order.pso_id,
+        "pso_name": order.pso_name,
+        "pso_code": order.pso_code,
+        "delivery_date": order.delivery_date,
+        "status": order.status,
+        "collection_status": order.collection_status,
+        "collection_type": order.collection_type,
+        "collected_amount": float(order.collected_amount or 0),
+        "pending_amount": float(order.pending_amount or 0),
+        "total_amount": float(total_amount),
+        "collection_source": order.collection_source,
+        "collection_approved": order.collection_approved,
+        "collection_approved_at": order.collection_approved_at.isoformat() if order.collection_approved_at else None,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
     }

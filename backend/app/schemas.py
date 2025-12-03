@@ -1,8 +1,8 @@
-from pydantic import BaseModel, EmailStr, Field, validator, field_validator
+from pydantic import BaseModel, EmailStr, Field, validator, field_validator, field_serializer
 from typing import Optional, List
 from decimal import Decimal
 from datetime import date, datetime
-from app.models import RoleTypeEnum, OrderStatusEnum, ReceiptSourceEnum, ProductReceiptStatus, DeliveryStatusEnum
+from app.models import RoleTypeEnum, OrderStatusEnum, ReceiptSourceEnum, ProductReceiptStatus, DeliveryStatusEnum, CollectionTypeEnum, DepositMethodEnum
 
 # Authentication schemas
 class LoginRequest(BaseModel):
@@ -214,6 +214,7 @@ class ProductBase(BaseModel):
     mc_value2: Optional[Decimal] = None
     mc_value3: Optional[Decimal] = None
     mc_result: Optional[Decimal] = None
+    cold_chain_available: bool = False
     is_active: bool = True
 
 class ProductCreate(ProductBase):
@@ -554,17 +555,71 @@ class Order(OrderBase):
     created_at: datetime
     updated_at: datetime
     items: List[OrderItem]
+    # Collection fields
+    collection_status: Optional[str] = None
+    collection_type: Optional[str] = None
+    collected_amount: Optional[float] = None
+    pending_amount: Optional[float] = None
+    total_amount: Optional[float] = None
+    collection_source: Optional[str] = None
+    collection_approved: Optional[bool] = None
+    collection_approved_at: Optional[datetime] = None
+
+    @field_serializer('collection_approved_at')
+    def serialize_collection_approved_at(self, value: Optional[datetime], _info) -> Optional[str]:
+        if value is None:
+            return None
+        return value.isoformat() if isinstance(value, datetime) else str(value)
 
     class Config:
         from_attributes = True
 
 
-class OrderApprovalRequest(BaseModel):
+# Alias for backward compatibility
+OrderResponse = Order
+
+
+# Collection approval specific response
+class CollectionApprovalOrder(BaseModel):
+    id: int
+    order_number: Optional[str] = None
+    memo_number: Optional[str] = None
+    customer_id: str
+    customer_name: str
+    customer_code: Optional[str] = None
+    pso_id: str
+    pso_name: str
+    pso_code: Optional[str] = None
+    delivery_date: date
+    status: OrderStatusEnum
+    # Collection fields
+    collection_status: Optional[str] = None
+    collection_type: Optional[str] = None
+    collected_amount: Optional[float] = None
+    pending_amount: Optional[float] = None
+    total_amount: Optional[float] = None
+    collection_source: Optional[str] = None
+    collection_approved: Optional[bool] = None
+    collection_approved_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer('collection_approved_at')
+    def serialize_collection_approved_at(self, value: Optional[datetime], _info) -> Optional[str]:
+        if value is None:
+            return None
+        return value.isoformat() if isinstance(value, datetime) else str(value)
+
+    class Config:
+        from_attributes = True
+
+
+class OrderValidationRequest(BaseModel):
     order_ids: List[int]
     order_number: Optional[str] = None
 
 
-class OrderApprovalResponse(BaseModel):
+class OrderValidationResponse(BaseModel):
     order_number: str
     orders: List[Order]
 
@@ -589,6 +644,7 @@ class RouteWiseOrderItemResponse(BaseModel):
     validated: bool = False
     printed: bool = False
     printed_at: Optional[datetime] = None
+    postponed: bool = False
     assigned_to: Optional[int] = None
     assigned_vehicle: Optional[int] = None
     loaded: bool = False
@@ -606,6 +662,7 @@ class RouteWiseOrderStats(BaseModel):
     printed: int
     pending_print: int
     loaded: int
+    postponed: int
 
 
 class RouteWiseOrderResponse(BaseModel):
@@ -629,6 +686,12 @@ class RouteWiseAssignRequest(BaseModel):
     employee_id: int
     vehicle_id: int
     route_code: Optional[str] = None
+    route_codes: Optional[List[str]] = None  # For multiple routes
+
+class BarcodeAssignRequest(BaseModel):
+    memo_numbers: List[str]
+    employee_id: int
+    vehicle_id: int
 
 
 class AssignedOrderResponse(BaseModel):
@@ -812,8 +875,8 @@ class ProductReceiptApprovalResponse(BaseModel):
     approved_at: datetime
 
 
-# Delivery order schemas
-class DeliveryOrderItemBase(BaseModel):
+# Delivery Order schemas
+class OrderDeliveryItemBase(BaseModel):
     order_item_id: int
     product_id: int
     product_name: str
@@ -845,11 +908,11 @@ class DeliveryOrderItemBase(BaseModel):
     vat_amount: Optional[Decimal] = None
 
 
-class DeliveryOrderItemCreate(DeliveryOrderItemBase):
+class OrderDeliveryItemCreate(OrderDeliveryItemBase):
     pass
 
 
-class DeliveryOrderItem(DeliveryOrderItemBase):
+class OrderDeliveryItem(OrderDeliveryItemBase):
     id: int
     created_at: datetime
 
@@ -857,7 +920,7 @@ class DeliveryOrderItem(DeliveryOrderItemBase):
         from_attributes = True
 
 
-class DeliveryOrderBase(BaseModel):
+class OrderDeliveryBase(BaseModel):
     order_id: int
     delivery_number: Optional[str] = None
     ship_to_party: Optional[str] = None
@@ -873,11 +936,11 @@ class DeliveryOrderBase(BaseModel):
     remarks: Optional[str] = None
 
 
-class DeliveryOrderCreate(DeliveryOrderBase):
-    items: List[DeliveryOrderItemCreate] = []
+class OrderDeliveryCreate(OrderDeliveryBase):
+    items: List[OrderDeliveryItemCreate] = []
 
 
-class DeliveryOrderUpdate(BaseModel):
+class OrderDeliveryUpdate(BaseModel):
     ship_to_party: Optional[str] = None
     sold_to_party: Optional[str] = None
     delivery_date: Optional[date] = None
@@ -889,22 +952,22 @@ class DeliveryOrderUpdate(BaseModel):
     driver_id: Optional[int] = None
     status: Optional[DeliveryStatusEnum] = None
     remarks: Optional[str] = None
-    items: Optional[List[DeliveryOrderItemCreate]] = None
+    items: Optional[List[OrderDeliveryItemCreate]] = None
 
 
-class DeliveryOrder(DeliveryOrderBase):
+class OrderDelivery(OrderDeliveryBase):
     id: int
     status: DeliveryStatusEnum
     created_at: datetime
     updated_at: datetime
-    items: List[DeliveryOrderItem]
+    items: List[OrderDeliveryItem]
 
     class Config:
         from_attributes = True
 
 
-class DeliveryOrderListResponse(BaseModel):
-    data: List[DeliveryOrder]
+class OrderDeliveryListResponse(BaseModel):
+    data: List[OrderDelivery]
     total: int
 
 
@@ -976,4 +1039,209 @@ class DeliveryTrackingResponse(BaseModel):
     delivery_number: Optional[str]
     current_status: DeliveryStatusEnum
     steps: List[DeliveryProgressNode]
- 
+
+
+# Billing schemas
+class CollectionDepositBase(BaseModel):
+    deposit_date: date
+    collection_person_id: int
+    deposit_method: DepositMethodEnum
+    deposit_amount: Decimal
+    transaction_number: str
+    attachment_url: Optional[str] = None
+    remaining_amount: Decimal = Decimal("0")
+    total_collection_amount: Decimal
+    notes: Optional[str] = None
+
+
+class CollectionDepositCreate(CollectionDepositBase):
+    pass
+
+
+class CollectionDepositUpdate(BaseModel):
+    deposit_date: Optional[date] = None
+    deposit_method: Optional[DepositMethodEnum] = None
+    deposit_amount: Optional[Decimal] = None
+    transaction_number: Optional[str] = None
+    attachment_url: Optional[str] = None
+    remaining_amount: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+
+class CollectionDeposit(CollectionDepositBase):
+    id: int
+    deposit_number: str
+    approved: bool
+    approved_by: Optional[int] = None
+    approved_at: Optional[datetime] = None
+    collection_person_name: Optional[str] = None
+    approver_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CollectionTransactionBase(BaseModel):
+    order_id: int
+    collection_person_id: int
+    collection_date: date
+    collection_type: CollectionTypeEnum
+    collected_amount: Decimal
+    pending_amount: Decimal
+    total_amount: Decimal
+    deposit_id: Optional[int] = None
+    remarks: Optional[str] = None
+
+
+class CollectionTransactionCreate(CollectionTransactionBase):
+    pass
+
+
+class CollectionTransaction(CollectionTransactionBase):
+    id: int
+    order_number: Optional[str] = None
+    memo_number: Optional[str] = None
+    customer_name: Optional[str] = None
+    collection_person_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CollectionReportResponse(BaseModel):
+    collection_person_id: int
+    collection_person_name: str
+    total_collected: Decimal
+    total_deposited: Decimal
+    total_pending: Decimal
+    transaction_count: int
+    deposits: List[CollectionDeposit]
+    transactions: List[CollectionTransaction]
+
+
+# MIS Report schemas
+class MISReportMemoItem(BaseModel):
+    product_code: str
+    product_name: str
+    pack_size: Optional[str] = None
+    total_quantity: Decimal
+    delivered_quantity: Optional[Decimal] = None
+    returned_quantity: Optional[Decimal] = None
+    unit_price: Decimal
+    discount_percent: Decimal
+    total_price: Decimal
+
+    class Config:
+        from_attributes = True
+
+
+class MISReportMemo(BaseModel):
+    id: int
+    order_id: int
+    order_number: Optional[str] = None
+    memo_number: Optional[str] = None
+    customer_name: str
+    customer_code: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
+    delivery_date: date
+    validated: bool
+    validated_at: Optional[datetime] = None
+    printed: bool
+    printed_at: Optional[datetime] = None
+    postponed: bool
+    assigned: bool
+    assigned_at: Optional[datetime] = None
+    assigned_employee_name: Optional[str] = None
+    assigned_vehicle_registration: Optional[str] = None
+    loaded: bool
+    loaded_at: Optional[datetime] = None
+    loading_number: Optional[str] = None
+    collection_status: Optional[str] = None
+    collection_type: Optional[str] = None
+    collected_amount: Optional[Decimal] = None
+    pending_amount: Optional[Decimal] = None
+    collection_approved: bool
+    collection_approved_at: Optional[datetime] = None
+    total_amount: Decimal
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MISReportMemoDetail(BaseModel):
+    id: int
+    order_id: int
+    order_number: Optional[str] = None
+    memo_number: Optional[str] = None
+    customer_name: str
+    customer_code: Optional[str] = None
+    customer_id: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
+    delivery_date: date
+    pso_name: Optional[str] = None
+    pso_code: Optional[str] = None
+    pso_id: Optional[str] = None
+    
+    # Validation info
+    validated: bool
+    validated_at: Optional[datetime] = None
+    
+    # Printing info
+    printed: bool
+    printed_at: Optional[datetime] = None
+    
+    # Postponed status
+    postponed: bool
+    
+    # Assignment info
+    assigned: bool
+    assigned_at: Optional[datetime] = None
+    assigned_employee_id: Optional[int] = None
+    assigned_employee_name: Optional[str] = None
+    assigned_employee_code: Optional[str] = None
+    assigned_vehicle_id: Optional[int] = None
+    assigned_vehicle_registration: Optional[str] = None
+    assigned_vehicle_model: Optional[str] = None
+    
+    # Loading info
+    loaded: bool
+    loaded_at: Optional[datetime] = None
+    loading_number: Optional[str] = None
+    loading_date: Optional[date] = None
+    
+    # Delivery status
+    delivery_status: Optional[str] = None  # Fully Delivered, Partial Delivered, Postponed
+    
+    # Collection info
+    collection_status: Optional[str] = None
+    collection_type: Optional[str] = None
+    collected_amount: Optional[Decimal] = None
+    pending_amount: Optional[Decimal] = None
+    collection_approved: bool
+    collection_approved_at: Optional[datetime] = None
+    collection_approved_by_name: Optional[str] = None
+    collection_source: Optional[str] = None
+    
+    # Product items
+    items: List[MISReportMemoItem]
+    
+    # Totals
+    total_amount: Decimal
+    total_items_count: int
+    
+    # Status
+    status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+

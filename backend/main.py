@@ -10,11 +10,11 @@ from app.database import engine, Base
 from app.routers import (
     auth, companies, depots, employees, customers, vendors,
     products, materials, shipping_points, uoms, primary_packagings, price_setups,
-    role_masters, orders, product_receipts, delivery_orders,
+    role_masters, orders, product_receipts, order_deliveries,
     vehicles, drivers, routes, picking_orders,
     stock_receipt, stock_issuance, vehicle_loading,
     stock_adjustment, stock_maintenance, product_item_stock,
-    dashboard, invoices
+    dashboard, invoices, depot_transfers, billing
 )
 
 # Redis client
@@ -47,8 +47,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost",
         "http://localhost:80",
+        "http://localhost:5173",
         "http://localhost:8080",
         "http://localhost:3000",
+        "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
         "http://127.0.0.1:3000",
     ],
@@ -85,9 +87,23 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle validation errors with CORS headers"""
+    import traceback
+    error_details = {
+        "detail": exc.errors(),
+        "body": exc.body,
+        "path": str(request.url),
+        "method": request.method
+    }
+    print(f"=== VALIDATION ERROR ===")
+    print(f"Path: {request.url}")
+    print(f"Method: {request.method}")
+    print(f"Errors: {exc.errors()}")
+    print(f"Body: {exc.body}")
+    traceback.print_exc()
+    print(f"========================")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors(), "body": exc.body},
+        content=error_details,
         headers={
             "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
             "Access-Control-Allow-Credentials": "true",
@@ -112,7 +128,7 @@ app.include_router(price_setups.router, prefix="/api/price-setups", tags=["Price
 app.include_router(role_masters.router, prefix="/api/role-masters", tags=["Role Masters"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(product_receipts.router, prefix="/api/product-receipts", tags=["Product Receipts"])
-app.include_router(delivery_orders.router, prefix="/api/delivery-orders", tags=["Delivery Orders"])
+app.include_router(order_deliveries.router, prefix="/api/order-deliveries", tags=["Order Deliveries"])
 app.include_router(picking_orders.router, prefix="/api/picking-orders", tags=["Picking Orders"])
 app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"])
 app.include_router(drivers.router, prefix="/api/drivers", tags=["Drivers"])
@@ -125,6 +141,8 @@ app.include_router(stock_maintenance.router, prefix="/api/stock/maintenance", ta
 app.include_router(product_item_stock.router, prefix="/api/product-item-stock", tags=["Product Item Stock"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
+app.include_router(depot_transfers.router, prefix="/api", tags=["Depot Transfers"])
+app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
 
 @app.get("/")
 async def root():

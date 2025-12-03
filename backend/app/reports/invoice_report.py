@@ -6,9 +6,11 @@ Generates customer copy invoice reports matching RENATA PLC format
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+from reportlab.platypus.flowables import Flowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.graphics.barcode import code128
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Optional
@@ -146,17 +148,90 @@ def generate_invoice_report(
     customer_name = customer_name.strip() if customer_name else "Unknown Customer"
     customer_address = customer_address.strip() if customer_address else ""
     
-    # Static header - RENATA LIMITED (centered)
+    # Create barcode flowable class (needed for top header)
+    class BarcodeFlowable(Flowable):
+        def __init__(self, barcode_value, width, height):
+            Flowable.__init__(self)
+            self.barcode_value = barcode_value
+            self.width = width
+            self.height = height
+        
+        def draw(self):
+            try:
+                # Create and draw barcode directly on canvas
+                # Code128 barcode with memo number (no human-readable text below)
+                barcode = code128.Code128(
+                    self.barcode_value,
+                    barHeight=12*mm,
+                    barWidth=0.8,
+                    humanReadable=False
+                )
+                # Position barcode to align right
+                x_pos = self.width - barcode.width
+                y_pos = (self.height - barcode.height) / 2
+                barcode.drawOn(self.canv, x_pos, y_pos)
+            except Exception as e:
+                print(f"Error drawing barcode: {e}")
+                import traceback
+                traceback.print_exc()
+                # Draw text as fallback
+                self.canv.setFont("Helvetica", 8)
+                self.canv.drawRightString(self.width, self.height / 2, f"Memo: {self.barcode_value}")
+    
+    # Header with Company Name (left) and Barcode (right)
     story.append(Spacer(1, 2*mm))
-    story.append(Paragraph(company_name, ParagraphStyle(
-        'CompanyTitle',
-        parent=styles['Normal'],
-        fontSize=14,
-        textColor=colors.HexColor('#000000'),
-        spaceAfter=6,  # Increased space after title
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
-    )))
+    
+    # Create barcode if memo number exists
+    barcode_flowable = None
+    barcode_value = str(memo_no).strip()
+    if barcode_value:
+        try:
+            # Create barcode flowable - smaller size for top header
+            barcode_flowable = BarcodeFlowable(barcode_value, 50*mm, 18*mm)
+        except Exception as e:
+            print(f"Error creating barcode flowable: {e}")
+    
+    # Header table: Company name on left, Barcode on right
+    header_table_data = []
+    if barcode_flowable:
+        header_table_data = [
+            [
+                Paragraph(company_name, ParagraphStyle(
+                    'CompanyTitle',
+                    parent=styles['Normal'],
+                    fontSize=14,
+                    textColor=colors.HexColor('#000000'),
+                    fontName='Helvetica-Bold',
+                    alignment=TA_LEFT
+                )),
+                barcode_flowable
+            ]
+        ]
+    else:
+        # If no barcode, just show company name centered
+        header_table_data = [
+            [
+                Paragraph(company_name, ParagraphStyle(
+                    'CompanyTitle',
+                    parent=styles['Normal'],
+                    fontSize=14,
+                    textColor=colors.HexColor('#000000'),
+                    fontName='Helvetica-Bold',
+                    alignment=TA_CENTER
+                )),
+                ''
+            ]
+        ]
+    
+    header_table = Table(header_table_data, colWidths=[140*mm, 50*mm] if barcode_flowable else [190*mm, 0])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, 0), 'LEFT' if barcode_flowable else 'CENTER'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    story.append(header_table)
     story.append(Spacer(1, 3*mm))  # Added spacer between title and address
     story.append(Paragraph(company_address, ParagraphStyle(
         'CompanyAddress',

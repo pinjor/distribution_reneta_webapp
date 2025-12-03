@@ -46,7 +46,7 @@ export default function ExportDeliveryList() {
     try {
       setLoading(true);
       // In production, this would call a specific API endpoint for export deliveries
-      // const result = await apiEndpoints.deliveryOrders.getExportDeliveries();
+      // const result = await apiEndpoints.orderDeliveries.getExportDeliveries();
       // For now, using mock data
       const mockDeliveries: ExportDelivery[] = [
         {

@@ -13,7 +13,7 @@ import { apiEndpoints } from "@/lib/api";
 import { format } from "date-fns";
 import { Loader2, Save, Truck, ArrowLeft, Printer } from "lucide-react";
 
-interface DeliveryOrderItemForm {
+interface OrderDeliveryItemForm {
   id?: number;
   order_item_id: number;
   product_id: number;
@@ -37,7 +37,7 @@ interface DeliveryOrderItemForm {
   vat_amount?: number;
 }
 
-interface DeliveryOrderForm {
+interface OrderDeliveryForm {
   id: number;
   order_id: number;
   delivery_number: string;
@@ -52,7 +52,7 @@ interface DeliveryOrderForm {
   driver_id?: number | null;
   remarks?: string;
   status: string;
-  items: DeliveryOrderItemForm[];
+  items: OrderDeliveryItemForm[];
 }
 
 interface LedgerEntry {
@@ -98,14 +98,14 @@ const DEFAULT_THRESHOLD = 100;
 const DEFAULT_FREE = 5;
 const VAT_RATE = 0.15;
 
-export default function DeliveryOrderDetail() {
+export default function OrderDeliveryDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [data, setData] = useState<DeliveryOrderForm | null>(null);
+  const [data, setData] = useState<OrderDeliveryForm | null>(null);
   const [ledgerMap, setLedgerMap] = useState<Record<number, LedgerEntry[]>>({});
   const [ledgerReady, setLedgerReady] = useState(false);
   const [productIndex, setProductIndex] = useState<ProductIndex>({ byId: {}, byCode: {} });
@@ -256,7 +256,7 @@ export default function DeliveryOrderDetail() {
   );
 
   const initializeItemsFromOrder = useCallback(
-    async (delivery: DeliveryOrderForm) => {
+    async (delivery: OrderDeliveryForm) => {
       try {
         const order = await apiEndpoints.orders.getById(delivery.order_id);
         if (!order?.items) return;
@@ -265,7 +265,7 @@ export default function DeliveryOrderDetail() {
           Object.entries(ledgerMap).map(([key, entries]) => [Number(key), entries.map((entry) => ({ ...entry }))]),
         );
 
-        const built: DeliveryOrderItemForm[] = [];
+        const built: OrderDeliveryItemForm[] = [];
 
         for (const item of order.items) {
           const quantity = safeNumber(item.quantity, 0);
@@ -291,7 +291,7 @@ export default function DeliveryOrderDetail() {
             uom: item.uom || "IFC",
             free_goods_threshold: threshold,
             free_goods_quantity: freePerThreshold,
-          } as Pick<DeliveryOrderItemForm, keyof DeliveryOrderItemForm>;
+          } as Pick<OrderDeliveryItemForm, keyof OrderDeliveryItemForm>;
 
           const { allocations, shortage } = allocateFromLedger(productId, quantity, ledgerPool);
           if (shortage > 0 && (ledgerPool[productId]?.length ?? 0) > 0) {
@@ -313,7 +313,7 @@ export default function DeliveryOrderDetail() {
             const delivered = quantity - shortage;
             const tradeAmount = rate * delivered;
             built.push({
-              ...(baseRow as DeliveryOrderItemForm),
+              ...(baseRow as OrderDeliveryItemForm),
               batch_number: "",
               expiry_date: "",
               ordered_quantity: quantity,
@@ -329,7 +329,7 @@ export default function DeliveryOrderDetail() {
 
             if (shortage > 0) {
               built.push({
-                ...(baseRow as DeliveryOrderItemForm),
+                ...(baseRow as OrderDeliveryItemForm),
                 batch_number: "",
                 expiry_date: "",
                 ordered_quantity: shortage,
@@ -362,7 +362,7 @@ export default function DeliveryOrderDetail() {
             }
 
             built.push({
-              ...(baseRow as DeliveryOrderItemForm),
+              ...(baseRow as OrderDeliveryItemForm),
               batch_number: allocation.batch || "",
               expiry_date: allocation.expiryDate || "",
               ordered_quantity: remainingOrdered,
@@ -380,7 +380,7 @@ export default function DeliveryOrderDetail() {
 
           if (shortage > 0) {
             built.push({
-              ...(baseRow as DeliveryOrderItemForm),
+              ...(baseRow as OrderDeliveryItemForm),
               batch_number: "",
               expiry_date: "",
               ordered_quantity: Math.max(remainingOrdered, shortage),
@@ -410,7 +410,7 @@ export default function DeliveryOrderDetail() {
       if (!id) return;
       try {
         setLoading(true);
-        const result = await apiEndpoints.deliveryOrders.getById(id);
+        const result = await apiEndpoints.orderDeliveries.getById(id);
         const normalizedItems = Array.isArray(result.items)
           ? result.items.map((item: any) => ({
               ...item,
@@ -456,7 +456,7 @@ export default function DeliveryOrderDetail() {
     }
   }, [searchParams]);
 
-  const handleHeaderChange = (field: keyof DeliveryOrderForm, value: string | number | null) => {
+  const handleHeaderChange = (field: keyof OrderDeliveryForm, value: string | number | null) => {
     if (!data) return;
     setData({ ...data, [field]: value });
   };
@@ -497,7 +497,7 @@ export default function DeliveryOrderDetail() {
           vat_amount: item.vat_amount,
         })),
       };
-      const updated = await apiEndpoints.deliveryOrders.update(id, payload);
+      const updated = await apiEndpoints.orderDeliveries.update(id, payload);
       setData(updated);
       toast({ title: "Delivery order saved" });
     } catch (error) {
@@ -530,14 +530,14 @@ export default function DeliveryOrderDetail() {
     return <Badge variant={variant}>{data.status === "Draft" ? "Pending" : data.status}</Badge>;
   }, [data]);
 
-  const handleItemChange = (index: number, field: keyof DeliveryOrderItemForm, value: string) => {
+  const handleItemChange = (index: number, field: keyof OrderDeliveryItemForm, value: string) => {
     if (!data) return;
     setData((prev) => {
       if (!prev) return prev;
       const updatedItems = prev.items.map((item, idx) => {
         if (idx !== index) return item;
-        const next: DeliveryOrderItemForm = { ...item };
-        const numericFields: Array<keyof DeliveryOrderItemForm> = [
+        const next: OrderDeliveryItemForm = { ...item };
+        const numericFields: Array<keyof OrderDeliveryItemForm> = [
           "delivery_quantity",
           "picked_quantity",
           "available_stock",

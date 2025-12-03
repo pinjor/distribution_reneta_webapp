@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,13 @@ import {
   Loader2,
   FileText,
   Search,
-  ArrowLeft
+  ArrowLeft,
+  ClipboardList,
+  PlusCircle,
+  Wrench,
+  TruckIcon,
+  DollarSign,
+  Clock,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -42,6 +48,7 @@ interface RouteWiseOrderItem {
   route_name?: string | null;
   validated: boolean;
   printed: boolean;
+  postponed: boolean;
   loaded: boolean;
   pso_name?: string | null;
   pso_code?: string | null;
@@ -73,6 +80,7 @@ interface RouteStats {
   printed: number;
   pending_print: number;
   loaded: number;
+  postponed: number;
 }
 
 interface RouteWiseData {
@@ -95,6 +103,7 @@ interface OrderSummary {
   totalItems: number;
   validated: boolean;
   printed: boolean;
+  postponed: boolean;
   loaded: boolean;
   items: RouteWiseOrderItem[];
 }
@@ -107,11 +116,15 @@ interface RouteCard {
   validatedCount: number;
   totalOrderCount: number;
   orders: OrderSummary[];
-  hasUnvalidatedOrders: boolean;
 }
 
 export default function RouteWiseOrderList() {
   const { toast } = useToast();
+  
+  useEffect(() => {
+    document.title = "Route Wise Memo List | Renata";
+  }, []);
+
   const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Record<number, boolean>>({});
   const [expandedRoutes, setExpandedRoutes] = useState<Record<string, boolean>>({});
@@ -119,7 +132,6 @@ export default function RouteWiseOrderList() {
   const [selectedVehicle, setSelectedVehicle] = useState<string>("");
   const [printing, setPrinting] = useState(false);
   const [assigning, setAssigning] = useState(false);
-  const [validatingRoutes, setValidatingRoutes] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [routeFilter, setRouteFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -191,7 +203,6 @@ export default function RouteWiseOrderList() {
           validatedCount: 0,
           totalOrderCount: 0,
           orders: [],
-          hasUnvalidatedOrders: false,
         };
       }
       
@@ -215,6 +226,7 @@ export default function RouteWiseOrderList() {
             totalItems: 0,
             validated: item.validated,
             printed: item.printed,
+            postponed: item.postponed || false,
             loaded: item.loaded,
             items: [],
           };
@@ -231,6 +243,7 @@ export default function RouteWiseOrderList() {
         orderMap[orderId].totalItems += itemTotalQty;
         orderMap[orderId].validated = item.validated;
         orderMap[orderId].printed = item.printed;
+        orderMap[orderId].postponed = item.postponed || false;
         orderMap[orderId].loaded = item.loaded;
       });
       
@@ -239,14 +252,12 @@ export default function RouteWiseOrderList() {
       orders.sort((a, b) => b.orderId - a.orderId);
       
       const validatedCount = orders.filter(o => o.validated).length;
-      const hasUnvalidated = orders.some(o => !o.validated);
       const totalAmount = orders.reduce((sum, o) => sum + o.totalAmount, 0);
       
       routeMap[routeCode].orders = orders;
-      routeMap[routeCode].validatedCount = validatedCount;
-      routeMap[routeCode].totalOrderCount = orders.length;
+      routeMap[routeCode].validatedCount = routeData.stats?.validated || validatedCount;
+      routeMap[routeCode].totalOrderCount = routeData.stats?.total_order || orders.length; // Use backend stats which includes pending + validated
       routeMap[routeCode].totalAmount = totalAmount;
-      routeMap[routeCode].hasUnvalidatedOrders = hasUnvalidated;
     });
     
     return Object.values(routeMap).sort((a, b) => a.routeCode.localeCompare(b.routeCode));
@@ -274,14 +285,14 @@ export default function RouteWiseOrderList() {
     if (statusFilter !== "all") {
       filtered = filtered.filter((order) => {
         switch (statusFilter) {
-          case "validated":
-            return order.validated;
           case "pending_print":
-            return order.validated && !order.printed;
+            return !order.printed;
           case "printed":
             return order.printed;
           case "loaded":
             return order.loaded;
+          case "postponed":
+            return order.postponed;
           default:
             return true;
         }
@@ -332,14 +343,14 @@ export default function RouteWiseOrderList() {
         ...route,
         orders: route.orders.filter((order) => {
           switch (statusFilter) {
-            case "validated":
-              return order.validated;
             case "pending_print":
-              return order.validated && !order.printed;
+              return !order.printed;
             case "printed":
               return order.printed;
             case "loaded":
               return order.loaded;
+            case "postponed":
+              return order.postponed;
             default:
               return true;
           }
@@ -375,6 +386,36 @@ export default function RouteWiseOrderList() {
     }
   };
 
+  const handleSelectAllFiltered = (checked: boolean) => {
+    if (checked) {
+      // Select all orders from filtered route cards
+      const allFilteredOrderIds = filteredRouteCards.flatMap((route) => 
+        route.orders.map((order) => order.orderId)
+      );
+      setSelectedOrders([...new Set(allFilteredOrderIds)]);
+    } else {
+      // Unselect all filtered orders
+      const filteredOrderIds = filteredRouteCards.flatMap((route) => 
+        route.orders.map((order) => order.orderId)
+      );
+      setSelectedOrders((prev) => prev.filter((id) => !filteredOrderIds.includes(id)));
+    }
+  };
+
+  const handleTileClick = (filterType: string) => {
+    if (filterType === "assigned") {
+      navigate("/orders/assigned");
+    } else if (filterType === "validated") {
+      // Show all orders (clear status filter since all orders here are validated)
+      setStatusFilter("all");
+      setSelectedOrders([]); // Clear selection when changing filter
+    } else {
+      // Set the status filter (including postponed)
+      setStatusFilter(filterType);
+      setSelectedOrders([]); // Clear selection when changing filter
+    }
+  };
+
   const handlePrint = async () => {
     if (selectedOrders.length === 0) {
       toast({
@@ -387,19 +428,47 @@ export default function RouteWiseOrderList() {
 
     try {
       setPrinting(true);
-      // Group selected orders by route
+      // Filter to only pending print orders (not already printed and not postponed)
+      const pendingPrintOrders = filteredOrders.filter((order: any) => 
+        selectedOrders.includes(order.orderId) && !order.printed && !order.postponed
+      );
+
+      // Check for postponed orders
+      const postponedOrders = filteredOrders.filter((order: any) => 
+        selectedOrders.includes(order.orderId) && order.postponed
+      );
+
+      if (postponedOrders.length > 0) {
+        toast({
+          title: "Cannot print postponed orders",
+          description: `${postponedOrders.length} selected order(s) are postponed and cannot be printed.`,
+          variant: "destructive",
+        });
+        setPrinting(false);
+        return;
+      }
+
+      if (pendingPrintOrders.length === 0) {
+        toast({
+          title: "No pending orders to print",
+          description: "All selected orders are already printed.",
+          variant: "destructive",
+        });
+        setPrinting(false);
+        return;
+      }
+
+      // Group pending print orders by route
       const ordersByRoute: Record<string, number[]> = {};
-      filteredOrders.forEach((order: any) => {
-        if (selectedOrders.includes(order.orderId)) {
-          const route = order.routeCode;
-          if (!ordersByRoute[route]) {
-            ordersByRoute[route] = [];
-          }
-          ordersByRoute[route].push(order.orderId);
+      pendingPrintOrders.forEach((order: any) => {
+        const route = order.routeCode;
+        if (!ordersByRoute[route]) {
+          ordersByRoute[route] = [];
         }
+        ordersByRoute[route].push(order.orderId);
       });
 
-      // Print for each route (generate and download PDF)
+      // Print for each route (generate and download PDF) - only pending print orders
       for (const [routeCode, orderIds] of Object.entries(ordersByRoute)) {
         try {
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -463,11 +532,13 @@ export default function RouteWiseOrderList() {
         }
       }
       
+      const totalPrinted = Object.values(ordersByRoute).flat().length;
       toast({
         title: "Report generated",
-        description: `Packing report downloaded for ${selectedOrders.length} order(s).`,
+        description: `Packing report downloaded for ${totalPrinted} pending order(s). ${selectedOrders.length - totalPrinted > 0 ? `${selectedOrders.length - totalPrinted} order(s) were already printed and skipped.` : ''}`,
       });
       
+      // Reload orders to update printed status and stats
       refetchOrders();
       setSelectedOrders([]);
     } catch (error: any) {
@@ -512,27 +583,24 @@ export default function RouteWiseOrderList() {
 
     try {
       setAssigning(true);
-      // Group selected orders by route
-      const ordersByRoute: Record<string, number[]> = {};
-      filteredOrders.forEach((order: any) => {
-        if (selectedOrders.includes(order.orderId)) {
-          const route = order.routeCode;
-          if (!ordersByRoute[route]) {
-            ordersByRoute[route] = [];
-          }
-          ordersByRoute[route].push(order.orderId);
-        }
+      // Get all selected orders (can be from multiple routes)
+      const ordersToAssign = filteredOrders.filter((order: any) => 
+        selectedOrders.includes(order.orderId)
+      );
+      const allOrderIds = ordersToAssign.map((order: any) => order.orderId);
+      
+      // Get unique route codes from selected orders
+      const routeCodes = [...new Set(ordersToAssign.map((order: any) => order.routeCode))];
+      const firstRouteCode = routeCodes[0] || "";
+      
+      // Assign all orders at once (even from multiple routes)
+      await apiEndpoints.orders.assignRouteWise({
+        order_ids: allOrderIds,
+        employee_id: Number(selectedEmployee),
+        vehicle_id: Number(selectedVehicle),
+        route_code: firstRouteCode, // Pass first route for compatibility
+        route_codes: routeCodes, // Pass all route codes for display
       });
-
-      // Assign for each route
-      for (const [routeCode, orderIds] of Object.entries(ordersByRoute)) {
-        await apiEndpoints.orders.assignRouteWise({
-          order_ids: orderIds,
-          employee_id: Number(selectedEmployee),
-          vehicle_id: Number(selectedVehicle),
-          route_code: routeCode,
-        });
-      }
       
       toast({
         title: "Assignment successful",
@@ -555,56 +623,15 @@ export default function RouteWiseOrderList() {
     }
   };
 
-  const handleValidate = async (routeCode: string, selectedOrderIds?: number[]) => {
-    try {
-      setValidatingRoutes((prev) => new Set([...prev, routeCode]));
-      
-      // If specific orders are selected, validate only those
-      // Otherwise, validate all unvalidated orders in the route
-      const payload: any = {
-        route_code: routeCode,
-      };
-      
-      if (selectedOrderIds && selectedOrderIds.length > 0) {
-        payload.order_ids = selectedOrderIds;
-      }
-      
-      const response = await apiEndpoints.orders.validateRouteWise(payload);
-      
-      toast({
-        title: "Validation successful",
-        description: response.message || `Validated ${response.validated_count} order(s)`,
-      });
-      
-      // Clear selection after validation
-      if (selectedOrderIds && selectedOrderIds.length > 0) {
-        setSelectedOrders((prev) => prev.filter((id) => !selectedOrderIds.includes(id)));
-      }
-      
-      refetchOrders();
-    } catch (error: any) {
-      console.error("Failed to validate route", error);
-      toast({
-        title: "Validation failed",
-        description: error?.message || "Please try again later.",
-        variant: "destructive",
-      });
-    } finally {
-      setValidatingRoutes((prev) => {
-        const next = new Set(prev);
-        next.delete(routeCode);
-        return next;
-      });
-    }
-  };
-
-  // Calculate overall stats
+  // Calculate overall stats from backend route stats (which include pending + validated)
   const overallStats = useMemo(() => {
-    const total_order = filteredOrders.length;
-    const validated = filteredOrders.filter((order) => order.validated).length;
-    const printed = filteredOrders.filter((order) => order.printed).length;
-    const pending_print = filteredOrders.filter((order) => order.validated && !order.printed).length;
-    const loaded = filteredOrders.filter((order) => order.loaded).length;
+    // Sum up stats from all routes (backend already calculates total_order as pending + validated)
+    const total_order = routeWiseData.reduce((sum, route) => sum + (route.stats?.total_order || 0), 0);
+    const validated = routeWiseData.reduce((sum, route) => sum + (route.stats?.validated || 0), 0);
+    const printed = routeWiseData.reduce((sum, route) => sum + (route.stats?.printed || 0), 0);
+    const pending_print = routeWiseData.reduce((sum, route) => sum + (route.stats?.pending_print || 0), 0);
+    const loaded = routeWiseData.reduce((sum, route) => sum + (route.stats?.loaded || 0), 0);
+    const postponed = routeWiseData.reduce((sum, route) => sum + (route.stats?.postponed || 0), 0);
     
     return {
       total_order,
@@ -612,8 +639,9 @@ export default function RouteWiseOrderList() {
       printed,
       pending_print,
       loaded,
+      postponed,
     };
-  }, [filteredOrders]);
+  }, [routeWiseData]);
 
   const formatPrice = (value: any): string => {
     const num = typeof value === 'number' ? value : Number(value);
@@ -638,7 +666,7 @@ export default function RouteWiseOrderList() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-semibold text-foreground">Route Wise Order</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Route Wise Memo List</h1>
             <p className="text-muted-foreground">
               Manage orders by route, print invoices, and assign to employees and vehicles.
             </p>
@@ -646,8 +674,96 @@ export default function RouteWiseOrderList() {
         </div>
       </header>
 
+      {/* Navigation Tiles */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/orders")}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <ClipboardList className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Delivery Order</h3>
+                <p className="text-sm text-muted-foreground">View all orders</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/orders/new")}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <PlusCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Order Creation</h3>
+                <p className="text-sm text-muted-foreground">Create new order</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/warehouse/maintenance")}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                <Wrench className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Stock Management</h3>
+                <p className="text-sm text-muted-foreground">Manage inventory</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/orders/assigned")}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                <TruckIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Assigned Order List</h3>
+                <p className="text-sm text-muted-foreground">View assigned orders</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => navigate("/billing/deposits")}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
+                <DollarSign className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Collection Deposits</h3>
+                <p className="text-sm text-muted-foreground">Manage deposits</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Overall Dashboard Counters */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -659,7 +775,10 @@ export default function RouteWiseOrderList() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'all' ? 'ring-2 ring-green-500' : ''}`}
+          onClick={() => handleTileClick('validated')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -670,7 +789,10 @@ export default function RouteWiseOrderList() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'pending_print' ? 'border-2 border-yellow-500' : ''}`}
+          onClick={() => handleTileClick('pending_print')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -681,7 +803,10 @@ export default function RouteWiseOrderList() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'printed' ? 'border-2 border-blue-500' : ''}`}
+          onClick={() => handleTileClick('printed')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -692,14 +817,31 @@ export default function RouteWiseOrderList() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => handleTileClick('assigned')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Loaded</p>
+                <p className="text-sm text-muted-foreground">Assigned</p>
                 <p className="text-2xl font-bold">{overallStats.loaded}</p>
               </div>
               <Truck className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'postponed' ? 'border-2 border-red-500' : ''}`}
+          onClick={() => handleTileClick('postponed')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Postponed</p>
+                <p className="text-2xl font-bold">{overallStats.postponed}</p>
+              </div>
+              <Clock className="h-8 w-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
@@ -817,16 +959,49 @@ export default function RouteWiseOrderList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="validated">Validated</SelectItem>
                   <SelectItem value="pending_print">Pending Print</SelectItem>
                   <SelectItem value="printed">Printed</SelectItem>
-                  <SelectItem value="loaded">Loaded</SelectItem>
+                  <SelectItem value="loaded">Assigned</SelectItem>
+                  <SelectItem value="postponed">Postponed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Global Select All for Filtered Orders */}
+      {filteredRouteCards.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <Checkbox
+                checked={(() => {
+                  const allFilteredOrderIds = filteredRouteCards.flatMap((route) => 
+                    route.orders.map((order) => order.orderId)
+                  );
+                  return allFilteredOrderIds.length > 0 && allFilteredOrderIds.every((id) => selectedOrders.includes(id));
+                })()}
+                onCheckedChange={handleSelectAllFiltered}
+                disabled={ordersLoading || filteredRouteCards.flatMap((route) => route.orders).length === 0}
+              />
+              <Label className="text-sm font-medium">
+                Select All Filtered Orders
+                {selectedOrders.length > 0 && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    ({selectedOrders.length} selected)
+                  </span>
+                )}
+              </Label>
+              {statusFilter !== "all" && (
+                <span className="text-xs text-muted-foreground ml-auto">
+                  Filter: {statusFilter === "pending_print" ? "Pending Print" : statusFilter === "printed" ? "Printed" : statusFilter === "loaded" ? "Assigned" : statusFilter}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Route Cards with Orders */}
       <div className="space-y-4">
@@ -847,26 +1022,8 @@ export default function RouteWiseOrderList() {
         ) : (
           filteredRouteCards.map((route) => {
             const isRouteExpanded = expandedRoutes[route.routeCode];
-            const isValidating = validatingRoutes.has(route.routeCode);
             const routeOrders = route.orders;
             const allRouteOrdersSelected = routeOrders.length > 0 && routeOrders.every((o) => selectedOrders.includes(o.orderId));
-            const someRouteOrdersSelected = routeOrders.some((o) => selectedOrders.includes(o.orderId));
-            
-            // Get selected orders for this route
-            const selectedOrdersInRoute = routeOrders
-              .filter((o) => selectedOrders.includes(o.orderId))
-              .map((o) => o.orderId);
-            
-            // Check if selected orders are unvalidated
-            const hasUnvalidatedSelected = selectedOrdersInRoute.length > 0 && 
-              routeOrders.some((o) => selectedOrders.includes(o.orderId) && !o.validated);
-            
-            // Can validate if: has unvalidated orders in route OR has selected unvalidated orders
-            const canValidateRoute = route.hasUnvalidatedOrders && !isValidating;
-            const canValidateSelected = hasUnvalidatedSelected && !isValidating;
-            
-            // Determine which validate button to show
-            const showSelectedValidate = selectedOrdersInRoute.length > 0;
             
             return (
               <Card key={route.routeCode} className="overflow-hidden">
@@ -883,10 +1040,12 @@ export default function RouteWiseOrderList() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <CardTitle className="text-lg">{route.routeName}</CardTitle>
-                          <Badge variant="outline">{route.routeCode}</Badge>
-                          <Badge variant={route.status === "Active" ? "default" : "secondary"}>
+                          <span className="inline-flex items-center rounded-full text-white font-bold shadow-lg px-3 py-1.5 text-xs" style={{ backgroundColor: '#4f46e5' }}>
+                            {route.routeCode}
+                          </span>
+                          <span className="inline-flex items-center rounded-full text-white font-bold shadow-lg px-3 py-1.5 text-xs" style={{ backgroundColor: route.status === "Active" ? '#10b981' : '#64748b' }}>
                             {route.status}
-                          </Badge>
+                          </span>
                         </div>
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
                           <span>Total Amount: <span className="font-semibold text-foreground">৳{formatPrice(route.totalAmount)}</span></span>
@@ -894,45 +1053,6 @@ export default function RouteWiseOrderList() {
                           <span>Validated: <span className="font-semibold text-foreground">{route.validatedCount}</span></span>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      {showSelectedValidate && (
-                        <Button
-                          onClick={() => handleValidate(route.routeCode, selectedOrdersInRoute)}
-                          disabled={!canValidateSelected}
-                          variant={canValidateSelected ? "default" : "secondary"}
-                          size="sm"
-                        >
-                          {isValidating ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Validating...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Validate Selected ({selectedOrdersInRoute.length})
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      <Button
-                        onClick={() => handleValidate(route.routeCode)}
-                        disabled={!canValidateRoute}
-                        variant={canValidateRoute ? "default" : "secondary"}
-                      >
-                        {isValidating ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Validating...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Validate All
-                          </>
-                        )}
-                      </Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -998,10 +1118,22 @@ export default function RouteWiseOrderList() {
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-end gap-2">
-                                    <div className="flex flex-wrap gap-1 justify-end">
-                                      {order.validated && <Badge variant="default" className="bg-green-600 text-xs">Validated</Badge>}
-                                      {order.printed && <Badge variant="default" className="bg-blue-600 text-xs">Printed</Badge>}
-                                      {order.loaded && <Badge variant="default" className="bg-purple-600 text-xs">Loaded</Badge>}
+                                    <div className="flex flex-wrap gap-1.5 justify-end">
+                                      {order.postponed && (
+                                        <span className="inline-flex items-center rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1 shadow-lg ring-2 ring-rose-400/60" style={{ backgroundColor: '#e11d48' }}>
+                                          Postponed
+                                        </span>
+                                      )}
+                                      {order.printed && (
+                                        <span className="inline-flex items-center rounded-full bg-teal-500 hover:bg-teal-600 text-white font-bold text-xs px-3 py-1 shadow-lg ring-2 ring-teal-300/60" style={{ backgroundColor: '#14b8a6' }}>
+                                          Printed
+                                        </span>
+                                      )}
+                                      {order.loaded && (
+                                        <span className="inline-flex items-center rounded-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs px-3 py-1 shadow-lg ring-2 ring-violet-400/60" style={{ backgroundColor: '#7c3aed' }}>
+                                          Assigned
+                                        </span>
+                                      )}
                                     </div>
                                     <button
                                       onClick={() => toggleOrderExpand(order.orderId)}

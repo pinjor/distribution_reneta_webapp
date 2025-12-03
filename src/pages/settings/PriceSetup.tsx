@@ -99,7 +99,7 @@ export default function PriceSetup() {
   };
 
   useEffect(() => {
-    document.title = "Price Setup | App";
+    document.title = "Price Setup | Renata";
   }, []);
 
   const generateSetupCode = (): string => {

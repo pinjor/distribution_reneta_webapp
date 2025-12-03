@@ -83,7 +83,7 @@ export default function PickingOrderCreate() {
         setLoading(true);
         const results = await Promise.all(
           selectedDeliveryIds.map(async (id) => {
-            const response = await apiEndpoints.deliveryOrders.getById(id);
+            const response = await apiEndpoints.orderDeliveries.getById(id);
             const items = Array.isArray(response.items) ? response.items : [];
             return {
               id: Number(response.id),
@@ -301,7 +301,7 @@ export default function PickingOrderCreate() {
       <main className="p-6 space-y-4">
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            Select one or more delivery orders from the packing queue to create a picking challan.
+            Select one or more order deliveries from the packing queue to create a picking challan.
           </CardContent>
         </Card>
         <div className="flex justify-center">

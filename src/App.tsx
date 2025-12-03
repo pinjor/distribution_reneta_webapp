@@ -15,13 +15,19 @@ import OrderEntry from "./pages/orders/OrderEntry";
 import OrderListPage from "./pages/orders/OrderListPage";
 import RouteWiseOrderList from "./pages/orders/RouteWiseOrderList";
 import AssignedOrderList from "./pages/orders/AssignedOrderList";
+import DistributionCockpit from "./pages/orders/DistributionCockpit";
+import ApprovalForCollection from "./pages/orders/ApprovalForCollection";
+import MISReport from "./pages/orders/MISReport";
+import CollectionDeposits from "./pages/billing/CollectionDeposits";
+import CollectionReports from "./pages/billing/CollectionReports";
+import RemainingCashDeposit from "./pages/billing/RemainingCashDeposit";
 import ReceiveFactory from "./pages/receive/ReceiveFactory";
 import ReceiveDepot from "./pages/receive/ReceiveDepot";
 import ReceiveReturn from "./pages/receive/ReceiveReturn";
 import ReceiveList from "./pages/receive/ReceiveList";
 import ReceiveReport from "./pages/receive/ReceiveReport";
-import DeliveryOrderList from "./pages/orders/DeliveryOrderList";
-import DeliveryOrderDetail from "./pages/orders/DeliveryOrderDetail";
+import OrderDeliveryList from "./pages/orders/OrderDeliveryList";
+import OrderDeliveryDetail from "./pages/orders/OrderDeliveryDetail";
 import OrderTrackingPage from "./pages/orders/OrderTrackingPage";
 import PackingBoard from "./pages/orders/PackingBoard";
 import PackingReport from "./pages/orders/PackingReport";
@@ -81,8 +87,11 @@ const App = () => (
               <Route path="/orders" element={<MainLayout><OrderListPage /></MainLayout>} />
               <Route path="/orders/route-wise" element={<MainLayout><RouteWiseOrderList /></MainLayout>} />
               <Route path="/orders/assigned" element={<MainLayout><AssignedOrderList /></MainLayout>} />
-              <Route path="/orders/delivery" element={<MainLayout><DeliveryOrderList /></MainLayout>} />
-              <Route path="/orders/delivery/:id" element={<MainLayout><DeliveryOrderDetail /></MainLayout>} />
+              <Route path="/orders/collection-approval" element={<MainLayout><ApprovalForCollection /></MainLayout>} />
+              <Route path="/orders/mis-report" element={<MainLayout><MISReport /></MainLayout>} />
+              <Route path="/distribution/cockpit" element={<MainLayout><DistributionCockpit /></MainLayout>} />
+              <Route path="/orders/delivery" element={<MainLayout><OrderDeliveryList /></MainLayout>} />
+              <Route path="/orders/delivery/:id" element={<MainLayout><OrderDeliveryDetail /></MainLayout>} />
               <Route path="/orders/tracking" element={<MainLayout><OrderTrackingPage /></MainLayout>} />
               <Route path="/orders/picking" element={<MainLayout><PackingBoard /></MainLayout>} />
               <Route path="/orders/picking/report" element={<MainLayout><PackingReport /></MainLayout>} />
@@ -126,6 +135,9 @@ const App = () => (
               <Route path="/settings/primary-packaging" element={<MainLayout><PrimaryPackaging /></MainLayout>} />
               <Route path="/settings/price-setup" element={<MainLayout><PriceSetup /></MainLayout>} />
               <Route path="/settings/role-master" element={<MainLayout><RoleMaster /></MainLayout>} />
+              <Route path="/billing/deposits" element={<MainLayout><CollectionDeposits /></MainLayout>} />
+              <Route path="/billing/deposits/remaining-cash" element={<MainLayout><RemainingCashDeposit /></MainLayout>} />
+              <Route path="/billing/reports" element={<MainLayout><CollectionReports /></MainLayout>} />
               <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
             </Routes>
           </BrowserRouter>

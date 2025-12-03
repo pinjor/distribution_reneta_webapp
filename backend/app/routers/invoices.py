@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List
 from datetime import date
 from app.database import get_db
-from app.models import Invoice, PickingOrder, PickingOrderDelivery, DeliveryOrder, Customer, StockIssuance
+from app.models import Invoice, PickingOrder, PickingOrderDelivery, OrderDelivery, Customer, StockIssuance
 
 router = APIRouter()
 
@@ -55,7 +55,7 @@ def generate_bulk_invoices(challan_id: int, db: Session = Depends(get_db)):
     
     for picking_delivery in picking_deliveries:
         if picking_delivery.delivery_id:
-            delivery = db.query(DeliveryOrder).filter(DeliveryOrder.id == picking_delivery.delivery_id).first()
+            delivery = db.query(OrderDelivery).filter(OrderDelivery.id == picking_delivery.delivery_id).first()
             if delivery and delivery.customer_id:
                 customer_id = delivery.customer_id
                 if customer_id not in customer_groups:
@@ -94,7 +94,7 @@ def generate_bulk_invoices(challan_id: int, db: Session = Depends(get_db)):
         # Get the first delivery's issuance_id if available
         issuance_id = None
         if deliveries[0].delivery_id:
-            delivery = db.query(DeliveryOrder).filter(DeliveryOrder.id == deliveries[0].delivery_id).first()
+            delivery = db.query(OrderDelivery).filter(OrderDelivery.id == deliveries[0].delivery_id).first()
             if delivery:
                 issuance = db.query(StockIssuance).filter(StockIssuance.customer_id == customer_id).first()
                 if issuance:
