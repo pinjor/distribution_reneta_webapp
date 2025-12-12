@@ -21,6 +21,7 @@ interface OrderDeliverySummary {
   warehouse_no?: string;
   vehicle_info?: string;
   order_id: number;
+  order_number?: string | null;
   items: Array<{
     id: number;
     product_name: string;
@@ -167,6 +168,7 @@ export default function OrderDeliveryList() {
                         <Badge variant={statusVariant[delivery.status] || "secondary"}>{statusLabel(delivery.status)}</Badge>
                       </CardTitle>
                       <p className="text-xs text-muted-foreground">
+                        Order: {delivery.order_number || `order-${delivery.order_id}`} · 
                         Delivery Date: {delivery.delivery_date ? new Date(delivery.delivery_date).toLocaleDateString() : "—"} ·
                         Ship to: {delivery.ship_to_party || "—"}
                       </p>
@@ -176,6 +178,14 @@ export default function OrderDeliveryList() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={() => navigate(`/orders/new?orderId=${delivery.order_id}`)}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      Edit Order
+                    </Button>
                     <Button variant="secondary" size="sm" onClick={() => navigate(`/orders/delivery/${delivery.id}`)}>
                       Delivery
                     </Button>

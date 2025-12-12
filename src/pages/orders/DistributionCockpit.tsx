@@ -14,9 +14,12 @@ import {
   AlertCircle,
   List,
   MapPinned,
-  DollarSign,
+  Coins,
   CheckCircle2,
   FileText,
+  FileBarChart,
+  TruckIcon,
+  BarChart3,
 } from "lucide-react";
 
 export default function DistributionCockpit() {
@@ -38,7 +41,7 @@ export default function DistributionCockpit() {
     {
       title: "Delivery Order",
       description: "View and manage order deliveries",
-      icon: ClipboardList,
+      icon: List,
       path: "/orders",
       color: "bg-green-500 hover:bg-green-600",
     },
@@ -51,14 +54,21 @@ export default function DistributionCockpit() {
     },
     {
       title: "Assigned Order List",
-      description: "View assigned orders",
-      icon: Truck,
+      description: "View and approve assigned orders",
+      icon: TruckIcon,
       path: "/orders/assigned",
       color: "bg-orange-500 hover:bg-orange-600",
     },
     {
+      title: "Remaining Cash and Collection",
+      description: "Manage remaining cash deposits and collections",
+      icon: Coins,
+      path: "/orders/remaining-cash-list",
+      color: "bg-yellow-500 hover:bg-yellow-600",
+    },
+    {
       title: "Approval for Collection",
-      description: "Approve and manage collection approvals",
+      description: "Approve mobile app collection requests",
       icon: CheckCircle2,
       path: "/orders/collection-approval",
       color: "bg-teal-500 hover:bg-teal-600",
@@ -66,7 +76,7 @@ export default function DistributionCockpit() {
     {
       title: "MIS Report",
       description: "View comprehensive memo lifecycle reports",
-      icon: FileText,
+      icon: FileBarChart,
       path: "/orders/mis-report",
       color: "bg-indigo-500 hover:bg-indigo-600",
     },
@@ -125,9 +135,23 @@ export default function DistributionCockpit() {
     {
       title: "Collection Deposits",
       description: "Manage collection deposits",
-      icon: DollarSign,
+      icon: FileText,
       path: "/billing/deposits",
       color: "bg-emerald-500 hover:bg-emerald-600",
+    },
+    {
+      title: "Receive Remaining Cash",
+      description: "Document remaining cash deposits from employees",
+      icon: Coins,
+      path: "/billing/deposits/remaining-cash",
+      color: "bg-amber-500 hover:bg-amber-600",
+    },
+    {
+      title: "Collection Reports",
+      description: "View collection reports and analytics",
+      icon: BarChart3,
+      path: "/billing/reports",
+      color: "bg-cyan-500 hover:bg-cyan-600",
     },
   ];
 
@@ -219,7 +243,7 @@ export default function DistributionCockpit() {
         <div>
           <h2 className="text-xl font-semibold text-foreground mb-4">Billing & Collection</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {navigationTiles.slice(14).map((tile) => (
+            {navigationTiles.slice(14, 17).map((tile) => (
               <Card
                 key={tile.path}
                 className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"

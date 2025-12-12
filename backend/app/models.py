@@ -278,10 +278,20 @@ class Vehicle(Base):
     vendor = Column(String(255))
     status = Column(String(50), default="Active")
     is_active = Column(Boolean, default=True)
+    # TMS fields
+    fuel_type = Column(String(50))  # Petrol, Diesel, CNG, Electric
+    fuel_rate = Column(Numeric(10, 2))  # Cost per km
+    fuel_efficiency = Column(Numeric(10, 2))  # km per liter
+    model = Column(String(100))
+    year = Column(Integer)
+    maintenance_schedule_km = Column(Numeric(10, 2))  # Next maintenance at km
+    last_maintenance_date = Column(Date)
+    last_maintenance_km = Column(Numeric(10, 2))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     depot = relationship("Depot")
+    trips = relationship("Trip", back_populates="vehicle")
 
 class Driver(Base):
     __tablename__ = "drivers"
@@ -297,8 +307,12 @@ class Driver(Base):
     route = Column(String(255))
     status = Column(String(50), default="Available")
     is_active = Column(Boolean, default=True)
+    email = Column(String(255))
+    address = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    trips = relationship("Trip", back_populates="driver")
 
 class Route(Base):
     __tablename__ = "routes"
@@ -315,6 +329,9 @@ class Route(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     depot = relationship("Depot")
+    route_stops = relationship("RouteStop", back_populates="route", cascade="all, delete-orphan")
+    route_shipping_points = relationship("RouteShippingPoint", back_populates="route", cascade="all, delete-orphan")
+    trips = relationship("Trip", back_populates="route")
 
 class StockLedger(Base):
     __tablename__ = "stock_ledger"
@@ -481,6 +498,10 @@ class Order(Base):
     loading_number = Column(String(50), nullable=True)
     loading_date = Column(Date, nullable=True)
     area = Column(String(100), nullable=True)
+    # Mobile app acceptance fields
+    mobile_accepted = Column(Boolean, default=False)  # Whether memo was accepted by mobile user
+    mobile_accepted_by = Column(String(100), nullable=True)  # Mobile app user ID who accepted
+    mobile_accepted_at = Column(DateTime, nullable=True)  # Timestamp when accepted
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -879,3 +900,91 @@ class CollectionTransaction(Base):
     order = relationship("Order")
     collection_person = relationship("Employee", foreign_keys=[collection_person_id])
     deposit = relationship("CollectionDeposit")
+
+
+# Transport Management System (TMS) Models
+
+class RouteStop(Base):
+    """Stores route stop coordinates for distance calculation"""
+    __tablename__ = "route_stops"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    route_id = Column(Integer, ForeignKey("routes.id"), nullable=False)
+    stop_sequence = Column(Integer, nullable=False)  # Order of stops in route
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    customer_name = Column(String(255))
+    address = Column(Text)
+    latitude = Column(Numeric(10, 7))  # Decimal degrees
+    longitude = Column(Numeric(10, 7))  # Decimal degrees
+    city = Column(String(100))
+    state = Column(String(100))
+    pincode = Column(String(20))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    route = relationship("Route", back_populates="route_stops")
+    customer = relationship("Customer")
+
+
+class Trip(Base):
+    """Tracks vehicle/driver assignments to delivery routes"""
+    __tablename__ = "trips"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    trip_number = Column(String(50), unique=True, nullable=False)
+    delivery_id = Column(Integer, ForeignKey("orders.id"), nullable=True)  # Link to order/delivery
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    driver_id = Column(Integer, ForeignKey("drivers.id"), nullable=False)
+    route_id = Column(Integer, ForeignKey("routes.id"), nullable=False)
+    trip_date = Column(Date, nullable=False)
+    distance_km = Column(Numeric(10, 2))  # Calculated distance
+    estimated_fuel_cost = Column(Numeric(10, 2))  # Auto-calculated
+    actual_fuel_cost = Column(Numeric(10, 2))  # Can be overridden
+    status = Column(String(50), default="Scheduled")  # Scheduled, In Progress, Completed, Cancelled
+    start_time = Column(DateTime, nullable=True)
+    end_time = Column(DateTime, nullable=True)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    vehicle = relationship("Vehicle", back_populates="trips")
+    driver = relationship("Driver", back_populates="trips")
+    route = relationship("Route", back_populates="trips")
+    order = relationship("Order")
+    expenses = relationship("TransportExpense", back_populates="trip", cascade="all, delete-orphan")
+
+
+class RouteShippingPoint(Base):
+    """Links shipping points to routes with distance"""
+    __tablename__ = "route_shipping_points"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    route_id = Column(Integer, ForeignKey("routes.id"), nullable=False)
+    shipping_point_id = Column(Integer, ForeignKey("shipping_points.id"), nullable=False)
+    distance_km = Column(Numeric(10, 2), nullable=False)  # Distance from route start to this shipping point
+    sequence = Column(Integer, nullable=False)  # Order of shipping point in route
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    route = relationship("Route", back_populates="route_shipping_points")
+    shipping_point = relationship("ShippingPoint")
+
+class TransportExpense(Base):
+    """Tracks expenses for each trip"""
+    __tablename__ = "transport_expenses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    trip_id = Column(Integer, ForeignKey("trips.id"), nullable=True)  # Made nullable for route-based expenses
+    trip_number = Column(String(50), nullable=True)  # Link to trip by number
+    route_id = Column(Integer, ForeignKey("routes.id"), nullable=True)  # Link to route
+    expense_type = Column(String(50), nullable=False)  # fuel, toll, repair, maintenance, other
+    amount = Column(Numeric(10, 2), nullable=False)
+    description = Column(Text)
+    expense_date = Column(Date, nullable=False)
+    is_auto_calculated = Column(Boolean, default=False)  # True for auto fuel costs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    trip = relationship("Trip", back_populates="expenses")
+    route = relationship("Route")

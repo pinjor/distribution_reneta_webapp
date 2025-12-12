@@ -9,7 +9,7 @@ from app.models import StockLedger, Product, ProductItemStock, ProductItemStockD
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("/", response_model=List[dict])
 def get_stock_ledger(skip: int = 0, limit: int = 10000, db: Session = Depends(get_db)):
     """
     Get stock ledger from new product_item_stock tables.
@@ -62,6 +62,8 @@ def get_stock_ledger(skip: int = 0, limit: int = 10000, db: Session = Depends(ge
             "expiry": detail.expiry_date.isoformat() if detail.expiry_date else None,
             "manufacturing_date": detail.manufacturing_date.isoformat() if detail.manufacturing_date else None,
             "status": detail.status or "Unrestricted",
+            "created_at": detail.created_at.isoformat() if detail.created_at else None,
+            "updated_at": detail.updated_at.isoformat() if detail.updated_at else None,
         })
     
     return result

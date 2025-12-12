@@ -132,7 +132,7 @@ export default function AdjustmentRequest() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="bg-gray-800 text-white px-6 py-4 rounded-t-lg">
-        <h1 className="text-xl font-semibold">Stock Adjustment Work List (CMSD)</h1>
+        <h1 className="text-xl font-semibold">Stock Adjustment Work List</h1>
       </div>
 
       {/* Filter Section */}

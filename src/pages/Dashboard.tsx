@@ -1,14 +1,19 @@
 import { useEffect } from "react";
-import { Package, Truck, CheckCircle, Clock } from "lucide-react";
+import { Package, Truck, CheckCircle, Clock, ClipboardList, FileCheck, TruckIcon, Coins, AlertCircle, XCircle } from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { StockChart } from "@/components/dashboard/StockChart";
 import { DispatchChart } from "@/components/dashboard/DispatchChart";
 import { ExpiryAlerts } from "@/components/dashboard/ExpiryAlerts";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { TAG_COLORS } from "@/lib/tagColors";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  
   useEffect(() => {
     document.title = "Dashboard | Renata";
   }, []);
@@ -24,6 +29,34 @@ const Dashboard = () => {
     return num.toLocaleString();
   };
 
+  const getStatusBadge = (status: string, count: number) => {
+    const colorConfig = TAG_COLORS[status as keyof typeof TAG_COLORS] || TAG_COLORS["Pending"];
+    
+    return (
+      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer" onClick={() => {
+        // Navigate to appropriate page based on status
+        if (status === "Pending Validation") navigate("/orders");
+        else if (status === "Validated") navigate("/orders/route-wise");
+        else if (status === "Assigned") navigate("/orders/assigned");
+        else if (status === "Fully Delivered") navigate("/orders/remaining-cash-list?status_filter=Fully Collected");
+        else if (status === "Partial Delivered") navigate("/orders/remaining-cash-list?status_filter=Partially Collected");
+        else if (status === "Postponed") navigate("/orders/remaining-cash-list?status_filter=Postponed");
+        else if (status === "Pending Collection") navigate("/orders/remaining-cash-list?status_filter=Pending");
+      }}>
+        <div className="flex items-center gap-3">
+          <span 
+            className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2"
+            style={{ backgroundColor: colorConfig.bg }}
+          >
+            {status}
+          </span>
+          <span className="text-sm font-medium">{count}</span>
+        </div>
+        <span className="text-xs text-muted-foreground">orders</span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -32,7 +65,7 @@ const Dashboard = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Total Stock"
           value={isLoading ? "..." : formatNumber(kpis?.total_stock)}
@@ -48,20 +81,41 @@ const Dashboard = () => {
           trend={!isLoading && kpis?.orders_today > 0 ? { value: 0, direction: "up" } : undefined}
         />
         <KPICard
-          title="Dispatched"
-          value={isLoading ? "..." : formatNumber(kpis?.dispatched_today)}
-          icon={CheckCircle}
-          description="Orders sent out"
-          trend={!isLoading && kpis?.dispatched_today > 0 ? { value: 0, direction: "up" } : undefined}
+          title="Validated"
+          value={isLoading ? "..." : formatNumber(kpis?.validated_today)}
+          icon={FileCheck}
+          description="Orders validated (not assigned)"
+          trend={!isLoading && kpis?.validated_today > 0 ? { value: 0, direction: "up" } : undefined}
         />
         <KPICard
-          title="Delivered"
-          value={isLoading ? "..." : formatNumber(kpis?.delivered_today)}
-          icon={CheckCircle}
-          description="Successfully completed"
-          trend={!isLoading && kpis?.delivered_today > 0 ? { value: 0, direction: "up" } : undefined}
+          title="Assigned"
+          value={isLoading ? "..." : formatNumber(kpis?.assigned_today)}
+          icon={TruckIcon}
+          description="Orders assigned to vehicles"
+          trend={!isLoading && kpis?.assigned_today > 0 ? { value: 0, direction: "up" } : undefined}
         />
       </div>
+
+      {/* Order Management Section */}
+      <Card className="card-elevated">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5" />
+            Order Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {getStatusBadge("Pending Validation", kpis?.order_management?.pending_validation || 0)}
+            {getStatusBadge("Validated", kpis?.order_management?.validated || 0)}
+            {getStatusBadge("Assigned", kpis?.order_management?.assigned || 0)}
+            {getStatusBadge("Fully Delivered", kpis?.order_management?.fully_delivered || 0)}
+            {getStatusBadge("Partial Delivered", kpis?.order_management?.partially_delivered || 0)}
+            {getStatusBadge("Postponed", kpis?.order_management?.postponed || 0)}
+            {getStatusBadge("Pending Collection", kpis?.order_management?.pending_collection || 0)}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">

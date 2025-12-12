@@ -95,6 +95,9 @@ def seed_delivery_orders():
             db.add(order)
             db.flush()
             
+            # Generate order number in format order-{id}
+            order.order_number = f"order-{order.id}"
+            
             # Add items (all selected by default)
             for item_data in order_data["items"]:
                 total_qty = item_data["quantity"] + item_data["free_goods"]

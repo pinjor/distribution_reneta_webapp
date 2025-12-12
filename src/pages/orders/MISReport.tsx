@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import {
   Clock,
   XCircle,
   DollarSign,
+  Coins,
   MapPin,
   User,
   Printer,
@@ -30,6 +32,7 @@ import {
   List,
 } from "lucide-react";
 import { format } from "date-fns";
+import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 
 interface MISReportMemo {
   id: number;
@@ -95,6 +98,8 @@ interface MISReportMemoDetail extends MISReportMemo {
 export default function MISReport() {
   const { toast } = useToast();
   
+  const [searchParams, setSearchParams] = useSearchParams();
+
   useEffect(() => {
     document.title = "MIS Report | Renata";
   }, []);
@@ -106,6 +111,23 @@ export default function MISReport() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedMemo, setSelectedMemo] = useState<number | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+  // Check for memo_id in query params to auto-open detail dialog (only on mount)
+  useEffect(() => {
+    const memoIdParam = searchParams.get('memo_id');
+    if (memoIdParam) {
+      const memoId = parseInt(memoIdParam, 10);
+      if (!isNaN(memoId)) {
+        setSelectedMemo(memoId);
+        setShowDetailDialog(true);
+        // Remove query param after opening
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('memo_id');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch memos
   const { data: memosData, isLoading, refetch } = useQuery({
@@ -182,11 +204,7 @@ export default function MISReport() {
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return "N/A";
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
-      minimumFractionDigits: 2,
-    }).format(amount);
+    return `৳${Number(amount).toFixed(2)}`;
   };
 
   const formatDateTime = (dateStr: string | null | undefined) => {
@@ -209,6 +227,7 @@ export default function MISReport() {
 
   return (
     <div className="space-y-6">
+      <OrderBreadcrumb />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -379,7 +398,7 @@ export default function MISReport() {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-blue-600" />
-                          {memo.memo_number || memo.order_number || `#${memo.id}`}
+                          {memo.memo_number || memo.order_number || `order-${memo.id}`}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -447,7 +466,7 @@ export default function MISReport() {
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-2">
               <FileText className="h-6 w-6 text-blue-600" />
-              Memo Details - {memoDetail?.memo_number || memoDetail?.order_number || `#${selectedMemo}`}
+              Memo Details - {memoDetail?.memo_number || memoDetail?.order_number || `order-${selectedMemo}`}
             </DialogTitle>
             <DialogDescription>
               Complete lifecycle history and transaction details
@@ -522,7 +541,7 @@ export default function MISReport() {
                         <div className="text-sm text-muted-foreground">
                           Created on {formatDateTime(memoDetail.created_at)}
                           {memoDetail.order_number && (
-                            <> • Order #: {memoDetail.order_number}</>
+                            <> • Order: {memoDetail.order_number || `order-${memoDetail.order_id}`}</>
                           )}
                         </div>
                       </div>
@@ -700,7 +719,7 @@ export default function MISReport() {
                           memoDetail.collection_status === "Postponed" ? 'bg-rose-100 text-rose-600 border-rose-300' :
                           'bg-gray-100 text-gray-400 border-gray-300'
                         }`}>
-                          <DollarSign className="h-5 w-5" />
+                          <Coins className="h-5 w-5" />
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold text-sm">10. Collection</div>
@@ -743,7 +762,7 @@ export default function MISReport() {
                     {memoDetail.collection_approved && (
                       <div className="flex items-start gap-4 relative z-10">
                         <div className="p-2 rounded-full bg-green-100 text-green-600 border-2 border-green-300">
-                          <DollarSign className="h-5 w-5" />
+                          <Coins className="h-5 w-5" />
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold text-sm">12. Deposit</div>
@@ -763,7 +782,7 @@ export default function MISReport() {
                     {memoDetail.collection_approved && memoDetail.pending_amount && memoDetail.pending_amount > 0 && (
                       <div className="flex items-start gap-4 relative z-10">
                         <div className="p-2 rounded-full bg-yellow-100 text-yellow-600 border-2 border-yellow-300">
-                          <DollarSign className="h-5 w-5" />
+                          <Coins className="h-5 w-5" />
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold text-sm">13. Remaining Cash Return</div>

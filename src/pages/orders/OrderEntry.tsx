@@ -12,8 +12,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { masterData, type CustomerOption, type EmployeeOption, type ProductOption } from "@/lib/masterData";
 import { apiEndpoints } from "@/lib/api";
-import { CalendarIcon, Loader2, Trash2, ChevronsUpDown } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, ChevronsUpDown, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ComboboxOption {
   value: string;
@@ -181,6 +184,7 @@ function SearchableCombobox({ label, placeholder, options, value, onSelect, disa
 export default function OrderEntry() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [loadingOrder, setLoadingOrder] = useState(false);
@@ -197,6 +201,8 @@ export default function OrderEntry() {
   const [referenceOrders, setReferenceOrders] = useState<ApiOrder[]>([]);
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [referenceId, setReferenceId] = useState("");
+  const [editingItem, setEditingItem] = useState<DraftItem | null>(null);
+  const [editForm, setEditForm] = useState<Partial<DraftItem>>({});
 
   const [form, setForm] = useState<FormState>({
     customerId: "",
@@ -662,7 +668,7 @@ export default function OrderEntry() {
 
   const referenceOptions: ComboboxOption[] = referenceOrders.map((order) => ({
     value: String(order.id),
-    label: order.order_number || `Order #${order.id}`,
+    label: order.order_number || `order-${order.id}`,
     description: `${formatDate(order.delivery_date)} • ${order.status}`,
     payload: order,
   }));
@@ -697,6 +703,9 @@ export default function OrderEntry() {
     const newErrors: Record<string, string> = {};
     if (!form.customerId) newErrors.customerId = "Select a customer";
     if (!form.psoId) newErrors.psoId = "Select a PSO/employee";
+    if (!form.routeCode || form.routeCode.trim() === '') {
+      newErrors.routeCode = "Route is required. Please select a route before adding items.";
+    }
     if (!form.productCode) newErrors.productCode = "Select a product code";
     if (!form.batchNumber) {
       newErrors.batchNumber = "Batch number is required. Products without batch numbers have no stock.";
@@ -777,6 +786,50 @@ export default function OrderEntry() {
     setItems((prev) => prev.filter((item) => item.key !== key));
   };
 
+  const startEditItem = (item: DraftItem) => {
+    setEditingItem(item);
+    setEditForm({
+      ...item,
+    });
+  };
+
+  const cancelEditItem = () => {
+    setEditingItem(null);
+    setEditForm({});
+  };
+
+  const saveEditItem = () => {
+    if (!editingItem) return;
+    
+    const updatedQuantity = Number(editForm.quantity || editingItem.quantity);
+    const updatedFreeGoods = Number(editForm.freeGoods || editingItem.freeGoods);
+    const updatedTotalQuantity = updatedQuantity + updatedFreeGoods;
+    const updatedUnitPrice = Number(editForm.unitPrice || editingItem.unitPrice);
+    const updatedDiscountPercent = Number(editForm.discountPercent || editingItem.discountPercent);
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.key === editingItem.key
+          ? {
+              ...item,
+              quantity: updatedQuantity,
+              freeGoods: updatedFreeGoods,
+              totalQuantity: updatedTotalQuantity,
+              unitPrice: updatedUnitPrice,
+              discountPercent: updatedDiscountPercent,
+            }
+          : item
+      )
+    );
+
+    toast({
+      title: "Item updated",
+      description: `${editingItem.productName} has been updated.`,
+    });
+
+    cancelEditItem();
+  };
+
   const mapDraftItemsToPayload = () =>
     items.map((item) => ({
       id: item.id,
@@ -795,17 +848,41 @@ export default function OrderEntry() {
       selected: item.selected,
     }));
 
-  const canSave = Boolean(form.customerId && form.psoId && items.length > 0);
+  const canSave = Boolean(form.customerId && form.psoId && form.routeCode && items.length > 0);
 
   const handleSave = async (navigateAfter: boolean) => {
+    // MANDATORY: Route validation - Route is required for all orders
+    if (!form.routeCode || form.routeCode.trim() === '') {
+      setErrors((prev) => ({ ...prev, routeCode: "Route is required. Please select a route before saving the order." }));
+      toast({
+        title: "Route Missing",
+        description: "Route selection is mandatory. Please select a route to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!canSave) {
-      setErrors((prev) => ({
-        ...prev,
-        ...(items.length === 0 ? { items: "Add at least one item" } : {}),
-      }));
+      const newErrors: Record<string, string> = {};
+      if (!form.customerId) newErrors.customerId = "Select a customer";
+      if (!form.psoId) newErrors.psoId = "Select a PSO/employee";
+      if (!form.routeCode) newErrors.routeCode = "Route is required. Please select a route before saving the order.";
+      if (items.length === 0) newErrors.items = "Add at least one item";
+      setErrors((prev) => ({ ...prev, ...newErrors }));
       toast({
         title: "Incomplete order",
-        description: "Select customer, PSO, and add at least one item before saving.",
+        description: "Select customer, PSO, route, and add at least one item before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate route is selected
+    if (!form.routeCode || form.routeCode.trim() === '') {
+      setErrors((prev) => ({ ...prev, routeCode: "Route is required. Please select a route before saving the order." }));
+      toast({
+        title: "Route Missing",
+        description: "Route selection is mandatory. Please select a route to continue.",
         variant: "destructive",
       });
       return;
@@ -850,7 +927,7 @@ export default function OrderEntry() {
       notes:
         referenceId && referenceOrders.length
           ? `Reference order ${
-              referenceOrders.find((order) => String(order.id) === referenceId)?.order_number || `#${referenceId}`
+              referenceOrders.find((order) => String(order.id) === referenceId)?.order_number || `order-${referenceId}`
             }`
           : undefined,
       items: mapDraftItemsToPayload(),
@@ -863,6 +940,12 @@ export default function OrderEntry() {
         : await apiEndpoints.orders.create(payload);
       setOrderId(response.id);
       setItems(response.items.map(mapApiItemToDraft));
+      
+      // Invalidate cache to refresh related pages
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['route-wise-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-orders'] });
+      
       toast({
         title: "Order saved",
         description: navigateAfter
@@ -888,6 +971,7 @@ export default function OrderEntry() {
 
   return (
     <main className="p-6 space-y-6">
+      <OrderBreadcrumb />
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-foreground">Order Management</h1>
         <p className="text-muted-foreground">
@@ -965,8 +1049,8 @@ export default function OrderEntry() {
               error={errors.psoId}
             />
             <SearchableCombobox
-              label="Route"
-              placeholder="Select route"
+              label="Route *"
+              placeholder="Select route (Required)"
               options={routeOptions}
               value={form.routeCode}
               onSelect={(option) => {
@@ -1212,9 +1296,14 @@ export default function OrderEntry() {
                         <TableCell className="text-right">৳{priceAfterDiscount.toFixed(2)} ({item.discountPercent}%)</TableCell>
                         <TableCell className="text-right font-medium">৳{totalPrice.toFixed(2)}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => removeItem(item.key)} disabled={isBusy}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => startEditItem(item)} disabled={isBusy}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => removeItem(item.key)} disabled={isBusy}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1249,6 +1338,153 @@ export default function OrderEntry() {
           Save & Continue
         </Button>
       </div>
+
+      {/* Edit Item Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={(open) => !open && cancelEditItem()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Product Item</DialogTitle>
+          </DialogHeader>
+          {editingItem && (
+            <div className="space-y-4 py-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Product Code</Label>
+                  <Input value={editingItem.productCode} readOnly className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Product Name</Label>
+                  <Input value={editingItem.productName} readOnly className="bg-muted" />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Batch Number</Label>
+                  <Input value={editingItem.batchNumber || ""} readOnly className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Available Stock</Label>
+                  <Input value={editingItem.currentStock || "0"} readOnly className="bg-muted" />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Quantity *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={editingItem.currentStock || 0}
+                    value={editForm.quantity ?? editingItem.quantity}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      const maxStock = Number(editingItem.currentStock || 0);
+                      if (value > maxStock) {
+                        toast({
+                          title: "Quantity exceeds stock",
+                          description: `Maximum available stock is ${maxStock}.`,
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setEditForm((prev) => ({
+                        ...prev,
+                        quantity: value,
+                        totalQuantity: value + (prev.freeGoods ?? editingItem.freeGoods),
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Free Goods</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={editForm.freeGoods ?? editingItem.freeGoods}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setEditForm((prev) => ({
+                        ...prev,
+                        freeGoods: value,
+                        totalQuantity: (prev.quantity ?? editingItem.quantity) + value,
+                      }));
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Total Quantity</Label>
+                  <Input
+                    value={editForm.totalQuantity ?? editingItem.totalQuantity}
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Unit Price *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={editForm.unitPrice ?? editingItem.unitPrice}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        unitPrice: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Discount (%)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    value={editForm.discountPercent ?? editingItem.discountPercent}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        discountPercent: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Price After Discount</Label>
+                  <Input
+                    value={(
+                      (editForm.unitPrice ?? editingItem.unitPrice) *
+                      (1 - (editForm.discountPercent ?? editingItem.discountPercent) / 100)
+                    ).toFixed(2)}
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Total Price</Label>
+                <Input
+                  value={(
+                    (editForm.unitPrice ?? editingItem.unitPrice) *
+                    (1 - (editForm.discountPercent ?? editingItem.discountPercent) / 100) *
+                    (editForm.totalQuantity ?? editingItem.totalQuantity)
+                  ).toFixed(2)}
+                  readOnly
+                  className="bg-muted font-medium"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelEditItem}>
+              Cancel
+            </Button>
+            <Button onClick={saveEditItem}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

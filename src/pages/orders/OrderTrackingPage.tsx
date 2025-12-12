@@ -124,7 +124,7 @@ export default function OrderTrackingPage() {
           <CardHeader className="flex flex-col gap-3 border-b bg-gradient-to-r from-muted/70 via-muted/40 to-background sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-xl font-semibold text-foreground">
-                Order #{tracking.order_number || tracking.order_id}
+                {tracking.order_number || `order-${tracking.order_id}`}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Delivery reference: {tracking.delivery_number || "Pending"}

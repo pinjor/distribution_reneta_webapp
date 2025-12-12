@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -26,9 +26,13 @@ import {
   Wrench,
   TruckIcon,
   DollarSign,
+  Coins,
   Clock,
+  FileBarChart,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface RouteWiseOrderItem {
   id: number;
@@ -120,6 +124,7 @@ interface RouteCard {
 
 export default function RouteWiseOrderList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   useEffect(() => {
     document.title = "Route Wise Memo List | Renata";
@@ -215,7 +220,7 @@ export default function RouteWiseOrderList() {
         if (!orderMap[orderId]) {
           orderMap[orderId] = {
             orderId,
-            orderNumber: item.order_number || `Order #${orderId}`,
+            orderNumber: item.order_number || `order-${orderId}`,
             memoNumber: item.memo_number || null,
             customerName: item.customer_name || "—",
             customerCode: item.customer_code || "—",
@@ -607,7 +612,13 @@ export default function RouteWiseOrderList() {
         description: `Assigned ${selectedOrders.length} order(s) to employee and vehicle.`,
       });
       
-      refetchOrders();
+      // Invalidate cache to sync with Assigned Order List and refresh stats
+      queryClient.invalidateQueries({ queryKey: ['route-wise-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['route-wise-orders-all'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-orders'] });
+      
+      // Refetch to update the stats immediately
+      await refetchOrders();
       setSelectedOrders([]);
       setSelectedEmployee("");
       setSelectedVehicle("");
@@ -655,6 +666,7 @@ export default function RouteWiseOrderList() {
 
   return (
     <main className="p-6 space-y-6">
+      <OrderBreadcrumb />
       <header className="space-y-2">
         <div className="flex items-center gap-4">
           <Button
@@ -751,7 +763,7 @@ export default function RouteWiseOrderList() {
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
-                <DollarSign className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                <Coins className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">Collection Deposits</h3>
@@ -1086,7 +1098,7 @@ export default function RouteWiseOrderList() {
                                   />
                                   <div className="flex-1">
                                     <CardTitle className="text-base mb-1.5">
-                                      {order.memoNumber || order.orderNumber || `Memo #${order.orderId}`}
+                                      {order.memoNumber || `order-${order.orderId}`}
                                     </CardTitle>
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                                       <div className="flex items-center gap-1">
@@ -1113,7 +1125,7 @@ export default function RouteWiseOrderList() {
                                       </div>
                                       <div className="flex items-center gap-1">
                                         <span className="text-muted-foreground text-[10px]">Order:</span>
-                                        <span className="font-medium">{order.orderNumber || "—"}</span>
+                                        <span className="font-medium">{order.orderNumber || `order-${order.orderId}`}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -1135,13 +1147,30 @@ export default function RouteWiseOrderList() {
                                         </span>
                                       )}
                                     </div>
-                                    <button
-                                      onClick={() => toggleOrderExpand(order.orderId)}
-                                      className="flex h-8 w-8 items-center justify-center rounded border bg-background text-muted-foreground transition hover:text-foreground"
-                                      aria-label={isOrderExpanded ? "Collapse order" : "Expand order"}
-                                    >
-                                      {isOrderExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              onClick={() => navigate(`/orders/mis-report?memo_id=${order.orderId}`)}
+                                              className="h-8 w-8"
+                                            >
+                                              <FileBarChart className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>View in MIS Report</TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                      <button
+                                        onClick={() => toggleOrderExpand(order.orderId)}
+                                        className="flex h-8 w-8 items-center justify-center rounded border bg-background text-muted-foreground transition hover:text-foreground"
+                                        aria-label={isOrderExpanded ? "Collapse order" : "Expand order"}
+                                      >
+                                        {isOrderExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -1152,14 +1181,13 @@ export default function RouteWiseOrderList() {
                                     <Table>
                                       <TableHeader className="bg-muted/50">
                                         <TableRow className="uppercase text-xs text-muted-foreground tracking-wide">
-                                          <TableHead>Product code</TableHead>
-                                          <TableHead>Size</TableHead>
-                                          <TableHead className="text-right">Free goods</TableHead>
-                                          <TableHead className="text-right">Total Qty</TableHead>
-                                          <TableHead className="text-right">Unit Price</TableHead>
-                                          <TableHead>Use code</TableHead>
-                                          <TableHead className="text-right">Price - Dis.%</TableHead>
-                                          <TableHead className="text-right">Total Price</TableHead>
+                                          <TableHead className="w-[120px]">Product Code</TableHead>
+                                          <TableHead className="w-[80px]">Size</TableHead>
+                                          <TableHead className="text-right w-[100px]">Free Goods</TableHead>
+                                          <TableHead className="text-right w-[100px]">Total Qty</TableHead>
+                                          <TableHead className="text-right w-[110px]">Unit Price</TableHead>
+                                          <TableHead className="text-right w-[130px]">Price - Dis.%</TableHead>
+                                          <TableHead className="text-right w-[120px]">Total Price</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -1182,8 +1210,8 @@ export default function RouteWiseOrderList() {
                                             <TableRow key={item.id} className="text-sm">
                                               <TableCell className="font-mono text-xs">{item.product_code}</TableCell>
                                               <TableCell>{item.size || "—"}</TableCell>
-                                              <TableCell className="text-right">{item.free_goods}</TableCell>
-                                              <TableCell className="text-right">{item.total_quantity}</TableCell>
+                                              <TableCell className="text-right">{Number(item.free_goods || 0).toLocaleString()}</TableCell>
+                                              <TableCell className="text-right">{Number(item.total_quantity || 0).toLocaleString()}</TableCell>
                                               <TableCell className="text-right">৳{formatPrice(unitPrice)}</TableCell>
                                               <TableCell className="text-right">৳{formatPrice(priceAfterDiscount)} ({discountPercent}%)</TableCell>
                                               <TableCell className="text-right font-medium">৳{formatPrice(totalPrice)}</TableCell>

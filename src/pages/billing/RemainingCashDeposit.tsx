@@ -14,6 +14,7 @@ import {
   Save,
   Download,
   DollarSign,
+  Coins,
   User,
   Calendar,
   FileText,
@@ -282,7 +283,7 @@ export default function RemainingCashDeposit() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
+            <Coins className="h-5 w-5" />
             Cash Receipt Form
           </CardTitle>
         </CardHeader>
@@ -370,7 +371,7 @@ export default function RemainingCashDeposit() {
             {/* Cash Receipt Details */}
             <div className="space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
+                <Coins className="h-4 w-4" />
                 Cash Receipt Details
               </h3>
               

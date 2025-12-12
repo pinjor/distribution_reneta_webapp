@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -24,10 +24,12 @@ import {
   PlusCircle,
   X,
   ScanLine,
-  CheckCircle2
+  CheckCircle2,
+  FileBarChart,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 
 interface AssignedOrder {
   id: number;
@@ -95,6 +97,7 @@ const statusBadgeVariant = (status: AssignedOrder["status"]) => {
 
 export default function AssignedOrderList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   useEffect(() => {
     document.title = "Assigned Order List | Renata";
@@ -352,7 +355,7 @@ export default function AssignedOrderList() {
   const prepareApprovalMemos = (group: LoadingGroup) => {
     // Create memo-level summary with quantities
     const memoList = group.orders.map((order) => {
-      const memoNumber = order.memo_number || order.order_number || `Order #${order.order_id}`;
+      const memoNumber = order.memo_number || order.order_number || `order-${order.order_id}`;
       
       // Calculate total quantity from items
       const items = order.items || [
@@ -393,16 +396,38 @@ export default function AssignedOrderList() {
   const handleApproveDelivery = async (group: LoadingGroup) => {
     setIsApproving(true);
     try {
-      // TODO: Call backend API to approve delivery
-      // await apiEndpoints.orders.approveDelivery(group.loading_number);
+      // Prepare memo list with quantities for fully delivered orders
+      const memoList = group.orders.map((order) => {
+        const memoNumber = order.memo_number || order.order_number || `order-${order.order_id}`;
+        const items = order.items || [];
+        const loadingQuantity = items.reduce((sum, item) => sum + item.total_quantity, 0);
+        
+        return {
+          memo_number: memoNumber,
+          delivered_quantity: loadingQuantity, // Fully delivered = all quantity
+          returned_quantity: 0,
+        };
+      });
+      
+      // Call backend API to approve delivery
+      await apiEndpoints.orders.approveDelivery({
+        loading_number: group.loading_number,
+        memos: memoList,
+      });
       
       toast({
         title: "Delivery approved",
         description: `Loading ${group.loading_number} has been approved successfully.`,
       });
       
+      // Auto-print loading report
+      await handleDownloadReport(group.loading_number);
+      
+      // Invalidate cache for remaining cash list so orders appear immediately
+      queryClient.invalidateQueries({ queryKey: ['remaining-cash-list'] });
+      
       // Refetch orders to update status
-      refetchOrders();
+      await refetchOrders();
     } catch (error: any) {
       console.error("Failed to approve delivery", error);
       toast({
@@ -416,23 +441,38 @@ export default function AssignedOrderList() {
   };
 
   const handleApprovePartialDelivery = async () => {
+    if (!selectedLoadingGroup) return;
+    
     setIsApproving(true);
     try {
-      // TODO: Call backend API to approve partial delivery with quantities
-      // await apiEndpoints.orders.approvePartialDelivery({
-      //   loading_number: selectedLoadingGroup?.loading_number,
-      //   memos: approvalMemos,
-      // });
+      // Prepare memo list with quantities
+      const memoList = approvalMemos.map((memo) => ({
+        memo_number: memo.memo_number,
+        delivered_quantity: memo.delivered_quantity,
+        returned_quantity: memo.returned_quantity,
+      }));
+      
+      // Call backend API to approve delivery
+      await apiEndpoints.orders.approveDelivery({
+        loading_number: selectedLoadingGroup.loading_number,
+        memos: memoList,
+      });
       
       toast({
         title: "Partial delivery approved",
-        description: `Loading ${selectedLoadingGroup?.loading_number} has been approved with partial quantities.`,
+        description: `Loading ${selectedLoadingGroup.loading_number} has been approved with partial quantities.`,
       });
+      
+      // Auto-print loading report
+      await handleDownloadReport(selectedLoadingGroup.loading_number);
+      
+      // Invalidate cache for remaining cash list so orders appear immediately
+      queryClient.invalidateQueries({ queryKey: ['remaining-cash-list'] });
       
       setShowApprovalDialog(false);
       setSelectedLoadingGroup(null);
       setApprovalMemos([]);
-      refetchOrders();
+      await refetchOrders();
     } catch (error: any) {
       console.error("Failed to approve partial delivery", error);
       toast({
@@ -445,19 +485,15 @@ export default function AssignedOrderList() {
     }
   };
 
-  const updateApprovalMemo = (memoNumber: string, field: 'delivered_quantity' | 'returned_quantity', value: number) => {
+  const updateApprovalMemo = (memoNumber: string, deliveredValue: number) => {
     setApprovalMemos((prev) =>
       prev.map((memo) => {
         if (memo.memo_number === memoNumber) {
-          const updated = { ...memo, [field]: value };
-          // Auto-calculate returned quantity if delivered quantity changes
-          if (field === 'delivered_quantity') {
-            updated.returned_quantity = Math.max(0, updated.loading_quantity - value);
-          }
-          // Auto-calculate delivered quantity if returned quantity changes
-          if (field === 'returned_quantity') {
-            updated.delivered_quantity = Math.max(0, updated.loading_quantity - value);
-          }
+          const updated = { ...memo };
+          // Only update delivered quantity (always editable)
+          updated.delivered_quantity = Math.min(Math.max(0, deliveredValue), memo.loading_quantity);
+          // Auto-calculate returned quantity (non-editable, read-only)
+          updated.returned_quantity = Math.max(0, memo.loading_quantity - updated.delivered_quantity);
           return updated;
         }
         return memo;
@@ -552,6 +588,7 @@ export default function AssignedOrderList() {
 
   return (
     <main className="p-6 space-y-6">
+      <OrderBreadcrumb />
       <header className="space-y-2">
         <div className="flex items-center gap-4">
           <Button
@@ -757,7 +794,7 @@ export default function AssignedOrderList() {
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                                         <span className="font-medium text-foreground">
-                                          {order.memo_number || order.order_number || `Order #${order.order_id}`}
+                                          {order.memo_number || order.order_number || `order-${order.order_id}`}
                                         </span>
                                         {/* Delivery Status Tags */}
                                         {order.delivery_status === "Fully Delivered" && (
@@ -782,6 +819,15 @@ export default function AssignedOrderList() {
                                         <span>Value: <span className="font-medium text-foreground">৳{order.total_value.toFixed(2)}</span></span>
                                       </div>
                                     </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => navigate(`/orders/mis-report?memo_id=${order.order_id}`)}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <FileBarChart className="h-4 w-4" />
+                                      <span>View in MIS</span>
+                                    </Button>
                                   </div>
                                 </div>
                               ))}
@@ -977,38 +1023,28 @@ export default function AssignedOrderList() {
                       </TableCell>
                       <TableCell className="text-right font-medium">{memo.loading_quantity}</TableCell>
                       <TableCell className="text-right">
-                        {memo.delivery_status === "Fully Delivered" ? (
-                          <span className="font-medium">{memo.delivered_quantity}</span>
-                        ) : (
-                          <Input
-                            type="number"
-                            min="0"
-                            max={memo.loading_quantity}
-                            value={memo.delivered_quantity}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              updateApprovalMemo(memo.memo_number, 'delivered_quantity', Math.min(value, memo.loading_quantity));
-                            }}
-                            className="w-24 ml-auto text-right"
-                          />
-                        )}
+                        {/* Delivered quantity is always editable */}
+                        <Input
+                          type="number"
+                          min="0"
+                          max={memo.loading_quantity}
+                          value={memo.delivered_quantity}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            updateApprovalMemo(memo.memo_number, Math.min(value, memo.loading_quantity));
+                          }}
+                          className="w-24 ml-auto text-right"
+                        />
                       </TableCell>
                       <TableCell className="text-right">
-                        {memo.delivery_status === "Fully Delivered" ? (
-                          <span className="font-medium">0</span>
-                        ) : (
-                          <Input
-                            type="number"
-                            min="0"
-                            max={memo.loading_quantity}
-                            value={memo.returned_quantity}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              updateApprovalMemo(memo.memo_number, 'returned_quantity', Math.min(value, memo.loading_quantity));
-                            }}
-                            className="w-24 ml-auto text-right"
-                          />
-                        )}
+                        {/* Returned quantity is always non-editable (read-only) */}
+                        <Input
+                          type="number"
+                          value={memo.returned_quantity}
+                          readOnly
+                          disabled
+                          className="w-24 ml-auto text-right bg-muted cursor-not-allowed"
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1018,8 +1054,7 @@ export default function AssignedOrderList() {
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> For full deliveries, quantities are auto-filled. For partial and postponed deliveries, 
-                returned quantity is automatically calculated as (Loading Quantity - Delivered), but you can edit it manually.
+                <strong>Note:</strong> Delivered quantity is editable. Returned quantity is automatically calculated as (Loading Quantity - Delivered Quantity) and cannot be edited.
               </p>
             </div>
           </div>

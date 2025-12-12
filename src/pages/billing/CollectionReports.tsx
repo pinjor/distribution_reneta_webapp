@@ -15,6 +15,7 @@ import {
   Loader2,
   FileText,
   DollarSign,
+  Coins,
   Download,
   User,
   TrendingUp,
@@ -141,7 +142,7 @@ export default function CollectionReports() {
                 <p className="text-sm text-muted-foreground">Total Collected</p>
                 <p className="text-2xl font-bold">৳{totals.total_collected.toFixed(2)}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <Coins className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>

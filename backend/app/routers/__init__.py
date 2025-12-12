@@ -30,6 +30,7 @@ from . import (
     invoices,
     depot_transfers,
     billing,
+    mobile,
 )
 
 from . import product_receipts, order_deliveries  # noqa: F401

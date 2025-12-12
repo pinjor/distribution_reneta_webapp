@@ -9,12 +9,12 @@ import traceback
 from app.database import engine, Base
 from app.routers import (
     auth, companies, depots, employees, customers, vendors,
-    products, materials, shipping_points, uoms, primary_packagings, price_setups,
+    products, materials, shipping_points, route_shipping_points, uoms, primary_packagings, price_setups,
     role_masters, orders, product_receipts, order_deliveries,
     vehicles, drivers, routes, picking_orders,
     stock_receipt, stock_issuance, vehicle_loading,
     stock_adjustment, stock_maintenance, product_item_stock,
-    dashboard, invoices, depot_transfers, billing
+    dashboard, invoices, depot_transfers, billing, mobile, transport
 )
 
 # Redis client
@@ -122,6 +122,7 @@ app.include_router(vendors.router, prefix="/api/vendors", tags=["Vendors"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
 app.include_router(materials.router, prefix="/api/materials", tags=["Materials"])
 app.include_router(shipping_points.router, prefix="/api/shipping-points", tags=["Shipping Points"])
+app.include_router(route_shipping_points.router, prefix="/api/route-shipping-points", tags=["Route Shipping Points"])
 app.include_router(uoms.router, prefix="/api/uoms", tags=["UOMs"])
 app.include_router(primary_packagings.router, prefix="/api/primary-packagings", tags=["Primary Packagings"])
 app.include_router(price_setups.router, prefix="/api/price-setups", tags=["Price Setups"])
@@ -143,6 +144,8 @@ app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"]
 app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
 app.include_router(depot_transfers.router, prefix="/api", tags=["Depot Transfers"])
 app.include_router(billing.router, prefix="/api/billing", tags=["Billing"])
+app.include_router(mobile.router, prefix="/api/mobile", tags=["Mobile App"])
+app.include_router(transport.router, prefix="/api/transport", tags=["Transport Management"])
 
 @app.get("/")
 async def root():

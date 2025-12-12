@@ -63,49 +63,153 @@ def map_item_to_model(item_data: schemas.OrderItemCreate, order: models.Order) -
 
 @router.get("", response_model=List[schemas.Order])
 def list_orders(db: Session = Depends(get_db)) -> List[schemas.Order]:
-    """Get all orders that are not yet validated and have items"""
+    """Get all orders that are not yet validated, have items, and have a route assigned"""
     from sqlalchemy import exists
-    # Only show non-validated orders that have at least one item
+    # Only show non-validated orders that have at least one item AND have a route
     orders = (
         db.query(models.Order)
         .filter(models.Order.validated == False)  # Only show non-validated orders
+        .filter(models.Order.route_code.isnot(None))  # Must have a route assigned
+        .filter(models.Order.route_code != "")  # Route code must not be empty
         .filter(exists().where(models.OrderItem.order_id == models.Order.id))  # Must have at least one item
         .order_by(models.Order.created_at.desc())
         .all()
     )
-    # Filter out orders with empty items list (additional safety check)
-    return [order for order in orders if order.items and len(order.items) > 0]
+    # Filter out orders with empty items list or missing route (additional safety check)
+    return [order for order in orders if order.items and len(order.items) > 0 and order.route_code]
 
 
 # IMPORTANT: /collection-approval route MUST be defined BEFORE /{order_id} route
 # FastAPI matches routes in order, so specific routes must come before parameterized routes
 @router.get("/collection-approval")
+@router.get("/remaining-cash-list")
+def get_remaining_cash_list(
+    status_filter: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of orders after delivery approval (for Remaining Cash and Collection list).
+    Returns orders that have been approved for delivery, including fully collected, partially collected, and cancelled/postponed.
+    These orders should appear grouped by loading number.
+    """
+    try:
+        query = db.query(models.Order).filter(
+            models.Order.loading_number.isnot(None),
+            or_(
+                models.Order.collection_status == "Pending",
+                models.Order.collection_status == "Partially Collected",
+                models.Order.collection_status == "Postponed",
+                models.Order.collection_status == "Fully Collected"  # Include fully collected
+            ),
+            models.Order.collection_source == "Web"  # Only orders approved from web (Assigned Order List)
+        )
+        
+        if status_filter and status_filter != "all":
+            query = query.filter(models.Order.collection_status == status_filter)
+        
+        orders = query.order_by(
+            models.Order.loading_number.desc().nullslast(),
+            models.Order.loading_date.desc().nullslast(),
+            models.Order.created_at.desc()
+        ).all()
+        
+        result = []
+        for order in orders:
+            employee = order.assigned_employee
+            vehicle = order.assigned_vehicle_rel
+            
+            total_amount = Decimal('0')
+            for item in order.items:
+                unit_price = item.unit_price or item.trade_price or Decimal('0')
+                discount = item.discount_percent or Decimal('0')
+                price_after_discount = unit_price * (1 - discount / 100)
+                item_qty = item.total_quantity or (item.quantity + (item.free_goods or Decimal('0')))
+                total_price = price_after_discount * item_qty
+                total_amount += total_price
+            
+            collected = order.collected_amount or Decimal('0')
+            pending = total_amount - collected
+            
+            order_dict = {
+                "id": order.id,
+                "order_number": order.order_number,
+                "memo_number": order.memo_number,
+                "customer_id": order.customer_id,
+                "customer_name": order.customer_name,
+                "customer_code": order.customer_code,
+                "pso_id": order.pso_id,
+                "pso_name": order.pso_name,
+                "pso_code": order.pso_code,
+                "delivery_date": order.delivery_date.isoformat() if order.delivery_date else None,
+                "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+                "collection_status": order.collection_status or "Pending",
+                "collection_type": order.collection_type,
+                "collected_amount": float(collected),
+                "pending_amount": float(pending),
+                "total_amount": float(total_amount),
+                "collection_source": order.collection_source or "Web",
+                "collection_approved": order.collection_approved or False,
+                "loading_number": order.loading_number,
+                "loading_date": order.loading_date.isoformat() if order.loading_date else None,
+                "area": order.area,
+                "assigned_employee_id": order.assigned_to,
+                "assigned_employee_name": f"{employee.first_name} {employee.last_name or ''}".strip() if employee else None,
+                "assigned_employee_code": employee.employee_id if employee else None,
+                "assigned_vehicle_id": order.assigned_vehicle,
+                "assigned_vehicle_registration": vehicle.registration_number if vehicle else None,
+                "assigned_vehicle_model": vehicle.vehicle_type if vehicle else None,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+            }
+            result.append(order_dict)
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        import traceback
+        error_msg = f"Error in get_remaining_cash_list: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return Response(
+            content=json.dumps({"error": str(e), "detail": error_msg}),
+            media_type="application/json",
+            status_code=500
+        )
+
+
 def get_collection_approval_list(
     status_filter: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
-    Get list of orders that need collection approval.
-    Returns orders with collection_status = Pending, Partially Collected, or Postponed
+    Get list of orders that need collection approval from mobile app.
+    Returns orders with collection_status = Partially Collected or Postponed
+    that were marked from mobile app and need approval.
     """
     print("=== get_collection_approval_list CALLED ===")
     print(f"status_filter: {status_filter}")
     try:
         query = db.query(models.Order).filter(
             or_(
-                models.Order.collection_status == "Pending",
                 models.Order.collection_status == "Partially Collected",
                 models.Order.collection_status == "Postponed"
-            )
+            ),
+            models.Order.collection_source == "Mobile App",  # Only mobile app collections need approval
+            models.Order.collection_approved == False  # Only show orders that need approval
         )
         
         if status_filter and status_filter != "all":
             query = query.filter(models.Order.collection_status == status_filter)
         
-        orders = query.order_by(models.Order.created_at.desc()).all()
+        orders = query.order_by(
+            models.Order.loading_number.desc().nullslast(),
+            models.Order.loading_date.desc().nullslast(),
+            models.Order.created_at.desc()
+        ).all()
         
         result = []
         for order in orders:
+            employee = order.assigned_employee
+            vehicle = order.assigned_vehicle_rel
+            
             total_amount = Decimal('0')
             for item in order.items:
                 item_total = (item.trade_price or Decimal('0')) * (item.total_quantity or Decimal('0'))
@@ -134,6 +238,15 @@ def get_collection_approval_list(
                 "collection_source": order.collection_source or "Mobile App",
                 "collection_approved": order.collection_approved or False,
                 "collection_approved_at": order.collection_approved_at.isoformat() if order.collection_approved_at else None,
+                "loading_number": order.loading_number,
+                "loading_date": order.loading_date.isoformat() if order.loading_date else None,
+                "area": order.area,
+                "assigned_employee_id": order.assigned_to,
+                "assigned_employee_name": f"{employee.first_name} {employee.last_name or ''}".strip() if employee else None,
+                "assigned_employee_code": employee.employee_id if employee else None,
+                "assigned_vehicle_id": order.assigned_vehicle,
+                "assigned_vehicle_registration": vehicle.registration_number if vehicle else None,
+                "assigned_vehicle_model": vehicle.vehicle_type if vehicle else None,
                 "created_at": order.created_at.isoformat() if order.created_at else None,
                 "updated_at": order.updated_at.isoformat() if order.updated_at else None,
             }
@@ -488,6 +601,13 @@ def get_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
 @router.post("", response_model=schemas.Order, status_code=status.HTTP_201_CREATED)
 def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db)) -> schemas.Order:
     try:
+        # MANDATORY: Route validation - Route is required for all orders
+        if not order_data.route_code or order_data.route_code.strip() == '':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Route is required. Please select a route before saving the order."
+            )
+        
         if not order_data.items:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order requires at least one item")
         
@@ -628,6 +748,12 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
             order.items.append(map_item_to_model(item, order))
 
         db.add(order)
+        db.flush()  # Flush to get the order ID without committing
+        
+        # Generate order number in format "order-{id}" (lowercase)
+        if not order.order_number:
+            order.order_number = f"order-{order.id}"
+        
         db.commit()
         db.refresh(order)
         return order
@@ -650,6 +776,20 @@ def update_order(order_id: int, order_update: schemas.OrderUpdate, db: Session =
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    # MANDATORY: Route validation - If route_code is being updated, it must not be empty
+    if order_update.route_code is not None:
+        if order_update.route_code.strip() == '':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Route is required. Please select a route before saving the order."
+            )
+    # If route_code is not being updated, ensure existing route is still valid
+    elif not order.route_code or order.route_code.strip() == '':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Route is required. Please select a route before saving the order."
+        )
     
     # Validate batch stock for each item if items are being updated
     if order_update.items:
@@ -931,8 +1071,11 @@ def validate_orders(payload: schemas.OrderValidationRequest, db: Session = Depen
     if not payload.order_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No orders selected for validation")
 
+    # IMPORTANT: Load orders with items to ensure selected status is checked correctly
+    from sqlalchemy.orm import joinedload
     orders = (
         db.query(models.Order)
+        .options(joinedload(models.Order.items))
         .filter(models.Order.id.in_(payload.order_ids))
         .all()
     )
@@ -968,7 +1111,7 @@ def validate_orders(payload: schemas.OrderValidationRequest, db: Session = Depen
         # Update status based on selection and validate
         if all_selected:
             order.status = models.OrderStatusEnum.APPROVED
-            # Mark order as validated
+            # Mark order as validated (fully validated - all items selected)
             order.validated = True
         else:
             order.status = models.OrderStatusEnum.PARTIALLY_APPROVED
@@ -993,6 +1136,7 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
     from sqlalchemy import func
     from decimal import Decimal
     from app.models import Route
+    from sqlalchemy.orm import joinedload
     
     # Get all active routes
     routes = db.query(models.Route).filter(models.Route.status == "Active").order_by(models.Route.route_id).all()
@@ -1001,8 +1145,10 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
     for route in routes:
         # Get approved orders for this route (including loaded ones for stats, but exclude from items)
         # Order by most recent first
+        # IMPORTANT: Use joinedload to ensure items are loaded correctly
         all_orders = (
             db.query(models.Order)
+            .options(joinedload(models.Order.items))
             .filter(
                 models.Order.route_code == route.route_id,
                 models.Order.status.in_([models.OrderStatusEnum.APPROVED, models.OrderStatusEnum.PARTIALLY_APPROVED])
@@ -1012,7 +1158,8 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
         )
         
         # Only show validated and unloaded orders for the items list
-        validated_unloaded_orders = [o for o in all_orders if o.validated and not o.loaded]
+        # validated=True means all items were selected during validation (fully validated)
+        validated_unloaded_orders = [o for o in all_orders if o.validated == True and (o.loaded == False or o.loaded is None)]
         
         # Generate memo numbers for orders that don't have them
         for order in validated_unloaded_orders:
@@ -1063,18 +1210,18 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
                     pso_code=order.pso_code,
                 ))
         
-        # Calculate statistics (from all orders, including loaded)
-        # Total order = pending (unvalidated) + validated orders
-        validated_orders = [o for o in all_orders if o.validated]
-        pending_orders = [o for o in all_orders if not o.validated]
-        total_order = len(all_orders)  # This is pending + validated
-        validated = len(validated_orders)
-        printed = sum(1 for o in all_orders if o.printed)
-        pending_print = validated - printed
-        # Count assigned orders (have assigned_to and assigned_vehicle) - matches Assigned Order List count
-        # This counts individual orders, not loading groups
-        loaded = sum(1 for o in all_orders if o.assigned_to is not None and o.assigned_vehicle is not None)
-        postponed = sum(1 for o in all_orders if o.postponed or False)
+        # Calculate statistics - items list shows unloaded orders, but stats count all orders
+        # Items list: only validated and unloaded orders (for display)
+        total_order = len(validated_unloaded_orders)
+        validated = len([o for o in validated_unloaded_orders if o.validated == True])
+        printed = len([o for o in validated_unloaded_orders if o.printed == True])
+        pending_print = validated - printed  # Only validated orders can be printed
+        
+        # Loaded/assigned count: count from ALL orders (including loaded ones) for accurate stats
+        # This ensures the "Assigned" tile count increases when orders are assigned
+        loaded = len([o for o in all_orders if o.loaded == True and o.validated == True])
+        
+        postponed = len([o for o in validated_unloaded_orders if getattr(o, 'postponed', False) == True])
         
         stats = schemas.RouteWiseOrderStats(
             total_order=total_order,
@@ -1399,7 +1546,7 @@ def print_route_wise_orders(payload: schemas.RouteWisePrintRequest, db: Session 
 def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Session = Depends(get_db)):
     """Assign orders to employee and vehicle"""
     from datetime import datetime, date
-    from sqlalchemy import func
+    from sqlalchemy import func, count
     
     # Verify employee and vehicle exist
     employee = db.query(models.Employee).filter(models.Employee.id == payload.employee_id).first()
@@ -1470,6 +1617,126 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
             order.area = route_name or route_code or "N/A"
     
     db.commit()
+    
+    # Create trip assignment automatically
+    try:
+        from app.models import Route, Driver, Trip, TransportExpense, RouteStop
+        from haversine import haversine, Unit
+        
+        # Helper function to calculate route distance
+        def calc_route_distance(route_id: int) -> float:
+            stops = db.query(RouteStop).filter(
+                RouteStop.route_id == route_id
+            ).order_by(RouteStop.stop_sequence).all()
+            
+            if len(stops) < 2:
+                return 0.0
+            
+            total_distance = 0.0
+            for i in range(len(stops) - 1):
+                stop1 = stops[i]
+                stop2 = stops[i + 1]
+                
+                if stop1.latitude and stop1.longitude and stop2.latitude and stop2.longitude:
+                    point1 = (float(stop1.latitude), float(stop1.longitude))
+                    point2 = (float(stop2.latitude), float(stop2.longitude))
+                    distance_km = haversine(point1, point2, unit=Unit.KILOMETERS)
+                    total_distance += distance_km
+            
+            return round(total_distance, 2)
+        
+        # Helper function to generate trip number
+        def gen_trip_number() -> str:
+            year = today.strftime("%Y")
+            month = today.strftime("%m")
+            from sqlalchemy import func
+            count = db.query(func.count(Trip.id)).filter(
+                func.date(Trip.created_at) == today
+            ).scalar() or 0
+            return f"TRP-{year}{month}-{str(count + 1).zfill(4)}"
+        
+        # Find route by route_code
+        route = None
+        if route_code:
+            route = db.query(Route).filter(Route.route_id == route_code).first()
+        
+        # Find driver - employees and drivers are separate, so just get any available driver
+        # Or try to match by name if employee name matches driver name
+        driver = None
+        employee = db.query(models.Employee).filter(models.Employee.id == payload.employee_id).first()
+        
+        if employee:
+            # Try to find driver by matching first name and last name
+            driver = db.query(Driver).filter(
+                Driver.first_name == employee.first_name,
+                Driver.last_name == employee.last_name
+            ).first()
+        
+        # If no match, get any available driver
+        if not driver:
+            driver = db.query(Driver).filter(Driver.status == "Available", Driver.is_active == True).first()
+        
+        # If still no driver, get any active driver
+        if not driver:
+            driver = db.query(Driver).filter(Driver.is_active == True).first()
+        
+        # Create trip even if route or driver is missing (with defaults)
+        if not route:
+            print(f"Warning: Route not found for route_code: {route_code}")
+        if not driver:
+            print(f"Warning: No driver found for employee_id: {payload.employee_id}")
+        
+        # Only create trip if we have both route and driver
+        if route and driver:
+            # Calculate distance
+            distance_km = calc_route_distance(route.id)
+            
+            # Calculate estimated fuel cost
+            estimated_fuel_cost = 0.0
+            if hasattr(vehicle, 'fuel_rate') and vehicle.fuel_rate and distance_km > 0:
+                estimated_fuel_cost = float(vehicle.fuel_rate) * distance_km
+            
+            # Generate trip number
+            trip_number = gen_trip_number()
+            
+            # Create trip for the first order
+            trip_data = {
+                "trip_number": trip_number,
+                "delivery_id": orders[0].id,  # Link to first order
+                "vehicle_id": payload.vehicle_id,
+                "driver_id": driver.id,
+                "route_id": route.id,
+                "trip_date": today,
+                "distance_km": distance_km,
+                "estimated_fuel_cost": estimated_fuel_cost,
+                "status": "Scheduled",
+                "notes": f"Auto-created from order assignment. Loading Number: {loading_number}"
+            }
+            
+            db_trip = Trip(**trip_data)
+            db.add(db_trip)
+            db.flush()  # Flush to get trip.id
+            
+            # Create auto-calculated fuel expense
+            if estimated_fuel_cost > 0:
+                fuel_expense = TransportExpense(
+                    trip_id=db_trip.id,
+                    expense_type="fuel",
+                    amount=estimated_fuel_cost,
+                    description=f"Auto-calculated fuel cost for {distance_km} km (Loading: {loading_number})",
+                    expense_date=today,
+                    is_auto_calculated=True
+                )
+                db.add(fuel_expense)
+            
+            db.commit()
+    except Exception as e:
+        # Log error but don't fail the order assignment
+        import traceback
+        print(f"Error creating trip assignment: {str(e)}")
+        traceback.print_exc()
+        # Don't rollback - keep the order assignment
+        pass
     
     return {
         "message": f"Assigned {len(orders)} order(s) to {employee.first_name} {employee.last_name} and vehicle {vehicle.registration_number}",
@@ -1565,6 +1832,125 @@ def create_assigned_order_list_from_barcodes(payload: schemas.BarcodeAssignReque
         assigned_order_ids.append(order.id)
     
     db.commit()
+    
+    # Create trip assignment automatically
+    try:
+        from app.models import Route, Driver, Trip, TransportExpense, RouteStop
+        from haversine import haversine, Unit
+        
+        # Helper function to calculate route distance
+        def calc_route_distance(route_id: int) -> float:
+            stops = db.query(RouteStop).filter(
+                RouteStop.route_id == route_id
+            ).order_by(RouteStop.stop_sequence).all()
+            
+            if len(stops) < 2:
+                return 0.0
+            
+            total_distance = 0.0
+            for i in range(len(stops) - 1):
+                stop1 = stops[i]
+                stop2 = stops[i + 1]
+                
+                if stop1.latitude and stop1.longitude and stop2.latitude and stop2.longitude:
+                    point1 = (float(stop1.latitude), float(stop1.longitude))
+                    point2 = (float(stop2.latitude), float(stop2.longitude))
+                    distance_km = haversine(point1, point2, unit=Unit.KILOMETERS)
+                    total_distance += distance_km
+            
+            return round(total_distance, 2)
+        
+        # Helper function to generate trip number
+        def gen_trip_number() -> str:
+            year = today.strftime("%Y")
+            month = today.strftime("%m")
+            from sqlalchemy import func
+            count = db.query(func.count(Trip.id)).filter(
+                func.date(Trip.created_at) == today
+            ).scalar() or 0
+            return f"TRP-{year}{month}-{str(count + 1).zfill(4)}"
+        
+        # Find route by route_code from first order
+        route = None
+        if orders and orders[0].route_code:
+            route = db.query(Route).filter(Route.route_id == orders[0].route_code).first()
+        
+        # Find driver - employees and drivers are separate, so match by name or get any available
+        driver = None
+        employee = db.query(models.Employee).filter(models.Employee.id == payload.employee_id).first()
+        
+        if employee:
+            # Try to find driver by matching first name and last name
+            driver = db.query(Driver).filter(
+                Driver.first_name == employee.first_name,
+                Driver.last_name == employee.last_name
+            ).first()
+        
+        # If no match, get any available driver
+        if not driver:
+            driver = db.query(Driver).filter(Driver.status == "Available", Driver.is_active == True).first()
+        
+        # If still no driver, get any active driver
+        if not driver:
+            driver = db.query(Driver).filter(Driver.is_active == True).first()
+        
+        # Create trip even if route or driver is missing (with defaults)
+        if not route:
+            print(f"Warning: Route not found for route_code: {route_code}")
+        if not driver:
+            print(f"Warning: No driver found for employee_id: {payload.employee_id}")
+        
+        # Only create trip if we have both route and driver
+        if route and driver:
+            # Calculate distance
+            distance_km = calc_route_distance(route.id)
+            
+            # Calculate estimated fuel cost
+            estimated_fuel_cost = 0.0
+            if hasattr(vehicle, 'fuel_rate') and vehicle.fuel_rate and distance_km > 0:
+                estimated_fuel_cost = float(vehicle.fuel_rate) * distance_km
+            
+            # Generate trip number
+            trip_number = gen_trip_number()
+            
+            # Create trip
+            trip_data = {
+                "trip_number": trip_number,
+                "delivery_id": orders[0].id if orders else None,
+                "vehicle_id": payload.vehicle_id,
+                "driver_id": driver.id,
+                "route_id": route.id,
+                "trip_date": today,
+                "distance_km": distance_km,
+                "estimated_fuel_cost": estimated_fuel_cost,
+                "status": "Scheduled",
+                "notes": f"Auto-created from barcode assignment. Loading Number: {loading_number}"
+            }
+            
+            db_trip = Trip(**trip_data)
+            db.add(db_trip)
+            db.flush()  # Flush to get trip.id
+            
+            # Create auto-calculated fuel expense
+            if estimated_fuel_cost > 0:
+                fuel_expense = TransportExpense(
+                    trip_id=db_trip.id,
+                    expense_type="fuel",
+                    amount=estimated_fuel_cost,
+                    description=f"Auto-calculated fuel cost for {distance_km} km (Loading: {loading_number})",
+                    expense_date=today,
+                    is_auto_calculated=True
+                )
+                db.add(fuel_expense)
+            
+            db.commit()
+    except Exception as e:
+        # Log error but don't fail the order assignment
+        import traceback
+        print(f"Error creating trip assignment: {str(e)}")
+        traceback.print_exc()
+        # Don't rollback - keep the order assignment
+        pass
     
     return {
         "message": f"Successfully created assigned order list with {len(orders)} order(s)",
@@ -1862,6 +2248,227 @@ def get_loading_report(loading_number: str, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/money-receipt/{loading_number}")
+def get_money_receipt_report(loading_number: str, db: Session = Depends(get_db)):
+    """Generate money receipt PDF for a specific loading number after collection approval"""
+    from datetime import datetime
+    from decimal import Decimal
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from io import BytesIO
+    from fastapi.responses import Response
+    
+    # Get all orders with this loading number that are collection approved
+    orders = (
+        db.query(models.Order)
+        .filter(
+            models.Order.loading_number == loading_number,
+            models.Order.collection_approved == True
+        )
+        .order_by(models.Order.order_number)
+        .all()
+    )
+    
+    if not orders:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No approved orders found for loading number {loading_number}")
+    
+    # Get employee and vehicle info from first order
+    first_order = orders[0]
+    employee = first_order.assigned_employee
+    vehicle = first_order.assigned_vehicle_rel
+    
+    # Create PDF buffer
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch, leftMargin=0.5*inch, rightMargin=0.5*inch)
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=6,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Company Header
+    company_name = first_order.depot_name if first_order.depot_name else "CENTRAL STORE"
+    story.append(Paragraph(company_name.upper(), title_style))
+    story.append(Spacer(1, 0.15*inch))
+    
+    # Report Title
+    report_title_style = ParagraphStyle(
+        'ReportTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold',
+        leading=16
+    )
+    story.append(Paragraph("MONEY RECEIPT", report_title_style))
+    story.append(Spacer(1, 0.25*inch))
+    
+    # Header Information
+    employee_name = f"{employee.first_name} {employee.last_name or ''}".strip() if employee else "N/A"
+    employee_code = employee.employee_id if employee else "N/A"
+    vehicle_reg = vehicle.registration_number if vehicle else "N/A"
+    loading_date = first_order.loading_date.strftime('%d/%m/%Y') if first_order.loading_date else datetime.utcnow().strftime('%d/%m/%Y')
+    area = first_order.area or "N/A"
+    
+    header_data = [
+        ['Depot:', company_name[:25], 'Delivery By:', f"{employee_name} ({employee_code})"[:30]],
+        ['Van No.:', vehicle_reg[:15], 'Loading No.:', loading_number[:15]],
+        ['Date:', loading_date, 'Area:', area[:20]],
+    ]
+    
+    header_table = Table(header_data, colWidths=[0.9*inch, 2.4*inch, 1.1*inch, 2.37*inch])
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('ALIGN', (2, 0), (2, -1), 'LEFT'),
+        ('ALIGN', (3, 0), (3, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (3, 0), (3, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('WORDWRAP', (0, 0), (-1, -1), True),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Money Receipt Table
+    story.append(Paragraph("Collection Details", ParagraphStyle(
+        'TableTitle',
+        parent=styles['Heading3'],
+        fontSize=12,
+        textColor=colors.HexColor('#000000'),
+        spaceAfter=8,
+        alignment=TA_LEFT,
+        fontName='Helvetica-Bold'
+    )))
+    
+    # Table headers
+    table_data = [['Memo No.', 'Total Amount', 'Collected', 'Pending', 'Status']]
+    
+    # Calculate totals
+    total_amount = Decimal("0")
+    total_collected = Decimal("0")
+    total_pending = Decimal("0")
+    
+    # Add order rows
+    for order in orders:
+        # Calculate order total amount
+        order_total = Decimal("0")
+        for item in order.items:
+            unit_price = item.unit_price or item.trade_price or Decimal("0")
+            discount = item.discount_percent or Decimal("0")
+            price_after_discount = unit_price * (1 - discount / 100)
+            total_price = price_after_discount * (item.total_quantity or (item.quantity + (item.free_goods or 0)))
+            order_total += total_price
+        
+        memo_no = (order.memo_number or order.order_number or str(order.id))[:15]
+        collected = order.collected_amount or Decimal("0")
+        pending = order.pending_amount or Decimal("0")
+        status_val = order.collection_status or "Pending"
+        
+        table_data.append([
+            memo_no,
+            f"{float(order_total):.2f}",
+            f"{float(collected):.2f}",
+            f"{float(pending):.2f}",
+            status_val[:20]
+        ])
+        
+        total_amount += order_total
+        total_collected += collected
+        total_pending += pending
+    
+    # Add summary rows
+    table_data.append(['Total:', f"{float(total_amount):.2f}", f"{float(total_collected):.2f}", f"{float(total_pending):.2f}", ''])
+    
+    # Create table
+    table = Table(table_data, colWidths=[1.5*inch, 1.2*inch, 1.2*inch, 1.2*inch, 1.37*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E0E0E0')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#000000')),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+        ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+        ('ALIGN', (4, 0), (4, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('TOPPADDING', (0, 0), (-1, 0), 6),
+        ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -2), 7),
+        ('WORDWRAP', (0, 0), (-1, -1), True),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('GRID', (0, 0), (-1, -2), 0.5, colors.HexColor('#CCCCCC')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#E8E8E8')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, -1), (-1, -1), 8),
+        ('LINEBELOW', (0, -1), (-1, -1), 2, colors.HexColor('#000000')),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#FAFAFA')]),
+    ]))
+    
+    story.append(table)
+    story.append(Spacer(1, 0.4*inch))
+    
+    # Footer Section
+    footer_data = [
+        ['Received Amount:', f"৳{float(total_collected):.2f}"],
+        ['', ''],
+        ['Cashier', ''],
+        ['Signature:', ''],
+        ['Date:', datetime.utcnow().strftime('%d/%m/%Y')],
+    ]
+    
+    footer_table = Table(footer_data, colWidths=[3*inch, 4.27*inch])
+    footer_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (1, 0), (1, 0), 10),
+        ('LINEBELOW', (0, 2), (-1, 2), 0.5, colors.HexColor('#000000')),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    story.append(footer_table)
+    
+    # Build PDF
+    doc.build(story)
+    buffer.seek(0)
+    
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=Money_Receipt_{loading_number}.pdf"
+        }
+    )
+
+
 @router.put("/assigned/{order_id}/status", status_code=status.HTTP_200_OK)
 def update_assigned_order_status(
     order_id: int,
@@ -1894,6 +2501,107 @@ def update_assigned_order_status(
         "order_id": order_id,
         "status": status_update.status,
     }
+
+@router.post("/assigned/approve-delivery", status_code=status.HTTP_200_OK, response_model=schemas.DeliveryApprovalResponse)
+def approve_delivery(
+    payload: schemas.DeliveryApprovalRequest,
+    db: Session = Depends(get_db)
+):
+    """Approve delivery for a loading group, update quantities, and move orders to collection approval"""
+    from datetime import datetime
+    from decimal import Decimal
+    
+    # Get all orders with this loading number
+    orders = (
+        db.query(models.Order)
+        .filter(models.Order.loading_number == payload.loading_number)
+        .all()
+    )
+    
+    if not orders:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No orders found for loading number {payload.loading_number}"
+        )
+    
+    # Create a map of memo_number to approval data
+    memo_map = {memo.memo_number: memo for memo in payload.memos}
+    
+    approved_count = 0
+    orders_moved_to_collection = []
+    
+    # Update each order based on memo data
+    for order in orders:
+        memo_number = order.memo_number or order.order_number
+        if not memo_number:
+            continue
+            
+        # Try to find matching memo in approval data
+        approval_memo = None
+        for memo_key, memo_data in memo_map.items():
+            if memo_key == memo_number or memo_key == str(order.id):
+                approval_memo = memo_data
+                break
+        
+        if not approval_memo:
+            # If no specific approval data, check if fully delivered
+            continue
+        
+        # Calculate total order amount (original loading quantity)
+        total_amount = Decimal('0')
+        for item in order.items:
+            unit_price = item.unit_price or item.trade_price or Decimal('0')
+            discount = item.discount_percent or Decimal('0')
+            price_after_discount = unit_price * (1 - discount / 100)
+            # Use original loading quantity (total_quantity)
+            loading_qty_item = item.total_quantity or (item.quantity + (item.free_goods or Decimal('0')))
+            total_price = price_after_discount * loading_qty_item
+            total_amount += total_price
+        
+        # Determine collection status based on delivered and returned quantities
+        loading_qty = approval_memo.delivered_quantity + approval_memo.returned_quantity
+        
+        if approval_memo.returned_quantity == 0 and approval_memo.delivered_quantity > 0:
+            # Fully delivered (returned = 0, delivered = full)
+            # Set to "Pending" so it appears in Approval for Collection (will be marked as Fully Collected after approval)
+            order.collection_status = "Pending"
+            order.collected_amount = total_amount
+            order.pending_amount = Decimal('0')
+        elif approval_memo.delivered_quantity == 0:
+            # Postponed (delivered = 0, all returned)
+            order.collection_status = "Postponed"
+            order.collection_type = "Postponed"
+            order.collected_amount = Decimal('0')
+            order.pending_amount = total_amount
+        else:
+            # Partial delivered (some delivered, some returned)
+            order.collection_status = "Partially Collected"
+            order.collection_type = "Partial"
+            # Calculate collected amount based on delivered quantity ratio
+            if loading_qty > 0:
+                delivered_ratio = Decimal(str(approval_memo.delivered_quantity)) / Decimal(str(loading_qty))
+                order.collected_amount = total_amount * delivered_ratio
+                order.pending_amount = total_amount - order.collected_amount
+            else:
+                order.collected_amount = Decimal('0')
+                order.pending_amount = total_amount
+        
+        # Mark as pending collection approval (will go to Remaining Cash Deposit list)
+        order.collection_approved = False
+        order.collection_source = "Web"  # Mark as Web source to distinguish from mobile app
+        
+        approved_count += 1
+        orders_moved_to_collection.append(memo_number)
+    
+    db.commit()
+    
+    return {
+        "message": f"Delivery approved for loading {payload.loading_number}. {approved_count} order(s) moved to collection approval.",
+        "loading_number": payload.loading_number,
+        "approved_count": approved_count,
+        "orders_moved_to_collection": orders_moved_to_collection
+    }
+
 
 @router.post("/route-wise/validate", status_code=status.HTTP_200_OK)
 def validate_route_wise_orders(payload: schemas.RouteWiseValidateRequest, db: Session = Depends(get_db)):
@@ -1944,6 +2652,119 @@ def validate_route_wise_orders(payload: schemas.RouteWiseValidateRequest, db: Se
 
 
 # Collection approval action endpoints (defined after /collection-approval route)
+@router.post("/remaining-cash/collect/{loading_number}", response_model=None)
+def collect_remaining_cash(
+    loading_number: str,
+    payload: schemas.CollectionCollectRequest = schemas.CollectionCollectRequest(memos=None),
+    db: Session = Depends(get_db)
+):
+    """
+    Collect remaining cash for a loading number (for Remaining Cash Deposit List).
+    If memos provided, update collection amounts. Otherwise, approve all as-is.
+    """
+    from decimal import Decimal
+    
+    # Get all orders with this loading number that need collection
+    orders = db.query(models.Order).filter(
+        models.Order.loading_number == loading_number,
+        models.Order.collection_source == "Web",
+        models.Order.collection_approved == False
+    ).all()
+    
+    if not orders:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No orders found for loading number {loading_number} that need cash collection"
+        )
+    
+    # If memos provided, update amounts
+    if payload and payload.memos and len(payload.memos) > 0:
+        memo_map = {memo.memo_number: memo for memo in payload.memos}
+        for order in orders:
+            memo_number = order.memo_number or order.order_number or str(order.id)
+            # Try to match by memo_number, order_number, or order id
+            memo_data = None
+            for key in [order.memo_number, order.order_number, str(order.id), f"order-{order.id}"]:
+                if key and key in memo_map:
+                    memo_data = memo_map[key]
+                    break
+            
+            if memo_data:
+                # Update collected, remaining, and deposited amounts
+                order.collected_amount = Decimal(str(memo_data.collected_amount))
+                order.pending_amount = Decimal(str(memo_data.remaining_amount))
+                
+                # Update collection status based on amounts
+                if order.pending_amount == 0 or order.pending_amount is None or order.pending_amount < Decimal('0.01'):
+                    order.collection_status = "Fully Collected"
+                    order.collection_type = "Full"
+                elif order.collected_amount > 0:
+                    order.collection_status = "Partially Collected"
+                    order.collection_type = "Partial"
+                else:
+                    order.collection_status = "Postponed"
+                    order.collection_type = "Postponed"
+    
+    # Approve all orders for collection
+    approved_count = 0
+    for order in orders:
+        order.collection_approved = True
+        order.collection_approved_at = datetime.utcnow()
+        approved_count += 1
+    
+    db.commit()
+    
+    return JSONResponse(content={
+        "message": f"Remaining cash collected for loading {loading_number}. {approved_count} order(s) approved.",
+        "loading_number": loading_number,
+        "approved_count": approved_count,
+        "approved_at": datetime.utcnow().isoformat()
+    })
+
+
+@router.post("/collection-approval/approve-loading/{loading_number}", response_model=None)
+def approve_collection_by_loading(
+    loading_number: str,
+    db: Session = Depends(get_db)
+):
+    """Approve all orders in a loading number for collection processing (for mobile app partial/cancelled collections)"""
+    # Get all orders with this loading number that need approval
+    orders = db.query(models.Order).filter(
+        models.Order.loading_number == loading_number,
+        or_(
+            models.Order.collection_status == "Partially Collected",
+            models.Order.collection_status == "Postponed"
+        ),
+        models.Order.collection_source == "Mobile App",
+        models.Order.collection_approved == False
+    ).all()
+    
+    if not orders:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"No orders found for loading number {loading_number} that need collection approval"
+        )
+    
+    approved_count = 0
+    for order in orders:
+        order.collection_approved = True
+        order.collection_approved_at = datetime.utcnow()
+        # If collection_status is "Pending" and fully collected, mark as "Fully Collected"
+        if order.collection_status == "Pending" and (order.pending_amount == 0 or order.pending_amount is None):
+            order.collection_status = "Fully Collected"
+            order.collection_type = "Full"
+        approved_count += 1
+    
+    db.commit()
+    
+    return JSONResponse(content={
+        "message": f"Collection approved for loading {loading_number}. {approved_count} order(s) approved.",
+        "loading_number": loading_number,
+        "approved_count": approved_count,
+        "approved_at": datetime.utcnow().isoformat()
+    })
+
+
 @router.post("/{order_id}/approve-collection", response_model=None)
 def approve_collection(
     order_id: int,
@@ -1963,6 +2784,11 @@ def approve_collection(
     order.collection_approved = True
     order.collection_approved_at = datetime.utcnow()
     # Note: collection_approved_by should be set from authenticated user context
+    
+    # If collection_status is "Pending" and fully collected, mark as "Fully Collected"
+    if order.collection_status == "Pending" and (order.pending_amount == 0 or order.pending_amount is None):
+        order.collection_status = "Fully Collected"
+        order.collection_type = "Full"
     
     db.commit()
     db.refresh(order)

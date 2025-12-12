@@ -55,7 +55,7 @@ export default function Products() {
     {
       key: "price",
       header: "Price",
-      render: (value) => `$${value.toFixed(2)}`,
+      render: (value) => `৳${value.toFixed(2)}`,
       align: "right",
     },
   ];

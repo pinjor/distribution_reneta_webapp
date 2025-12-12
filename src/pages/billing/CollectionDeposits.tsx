@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   XCircle,
   DollarSign,
+  Coins,
   Upload,
   Download,
 } from "lucide-react";
@@ -190,7 +191,7 @@ export default function CollectionDeposits() {
             onClick={() => navigate("/billing/deposits/remaining-cash")}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
-            <DollarSign className="h-4 w-4 mr-2" />
+            <Coins className="h-4 w-4 mr-2" />
             Receive Remaining Cash
           </Button>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>

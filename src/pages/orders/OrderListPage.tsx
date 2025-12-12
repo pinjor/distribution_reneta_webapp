@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { masterData } from "@/lib/masterData";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, Filter, X, PlusCircle, Package, MapPinned, TruckIcon, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, Filter, X, PlusCircle, Package, MapPinned, TruckIcon, Loader2, Trash2, FileBarChart } from "lucide-react";
+import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 
 interface ApiOrderItem {
   id: number;
@@ -89,6 +91,7 @@ const mapItemPayload = (item: ApiOrderItem) => ({
 export default function OrderListPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [selectedOrders, setSelectedOrders] = useState<number[]>([]);
@@ -170,6 +173,11 @@ export default function OrderListPage() {
   // Filter orders based on selected filters
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // IMPORTANT: Only show orders with a route assigned (no orders without route in delivery list)
+      if (!order.route_code || order.route_code.trim() === '') {
+        return false;
+      }
+      
       // Filter by PSO (match by ID or code)
       if (filterPSO) {
         const psoMatch = String(order.pso_id) === filterPSO || 
@@ -306,6 +314,10 @@ export default function OrderListPage() {
       // Reload orders to get updated status
       await loadOrders();
       
+      // Invalidate cache to sync with Route Wise List
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['route-wise-orders'] });
+      
       // Show success message
       toast({
         title: "Orders validated",
@@ -374,6 +386,10 @@ export default function OrderListPage() {
       
       // Reload orders to get updated status
       await loadOrders();
+      
+      // Invalidate cache to sync with Route Wise List
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['route-wise-orders'] });
       
       const allSelected = selectedItems.length === order.items.length;
       toast({
@@ -468,6 +484,7 @@ export default function OrderListPage() {
 
   return (
     <main className="p-6 space-y-6">
+      <OrderBreadcrumb />
       {/* Navigation Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/new")}>
@@ -683,13 +700,17 @@ export default function OrderListPage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-semibold text-foreground">
-                              {order.order_number || `Order #${order.id}`}
+                              {order.order_number || `order-${order.id}`}
                             </span>
                             {order.route_name || order.route_code ? (
                               <Badge variant="outline" className="font-mono text-[11px]">
                                 {order.route_name || order.route_code}
                               </Badge>
-                            ) : null}
+                            ) : (
+                              <Badge variant="destructive" className="text-[11px]">
+                                No Route
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-1">
                             <span>Delivery: {formatDate(order.delivery_date)}</span>
@@ -738,6 +759,20 @@ export default function OrderListPage() {
                             </TooltipContent>
                           </Tooltip>
 
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate(`/orders/mis-report?memo_id=${order.id}`)}
+                                disabled={loading}
+                              >
+                                <FileBarChart className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View in MIS Report</TooltipContent>
+                          </Tooltip>
+
                           <AlertDialog open={deletingOrderId === order.id} onOpenChange={(open) => !open && setDeletingOrderId(null)}>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -762,7 +797,7 @@ export default function OrderListPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Order</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete order <strong>{order.order_number || `#${order.id}`}</strong>?
+                                  Are you sure you want to delete order <strong>{order.order_number || `order-${order.id}`}</strong>?
                                   This action cannot be undone. All items in this order will be permanently deleted.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>

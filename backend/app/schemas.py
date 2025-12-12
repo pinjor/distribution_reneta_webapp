@@ -439,8 +439,8 @@ class ProductItemStockDetailCreate(ProductItemStockDetailBase):
 class ProductItemStockDetail(ProductItemStockDetailBase):
     id: int
     item_code: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -961,6 +961,7 @@ class OrderDelivery(OrderDeliveryBase):
     created_at: datetime
     updated_at: datetime
     items: List[OrderDeliveryItem]
+    order_number: Optional[str] = None  # Include order number from related Order
 
     class Config:
         from_attributes = True
@@ -1245,3 +1246,331 @@ class MISReportMemoDetail(BaseModel):
     class Config:
         from_attributes = True
 
+
+# Delivery approval schemas
+class DeliveryApprovalMemo(BaseModel):
+    memo_number: str
+    delivered_quantity: int
+    returned_quantity: int
+
+
+class DeliveryApprovalRequest(BaseModel):
+    loading_number: str
+    memos: List[DeliveryApprovalMemo]
+
+
+class DeliveryApprovalResponse(BaseModel):
+    message: str
+    loading_number: str
+    approved_count: int
+    orders_moved_to_collection: List[str]  # List of memo numbers
+
+
+class CollectionMemoUpdate(BaseModel):
+    memo_number: str
+    collected_amount: float
+    remaining_amount: float
+    deposited_amount: Optional[float] = None
+
+
+class CollectionCollectRequest(BaseModel):
+    memos: Optional[List[CollectionMemoUpdate]] = None
+
+
+# Mobile App schemas
+class MobileAssignedMemo(BaseModel):
+    id: int
+    order_id: int
+    memo_number: Optional[str] = None
+    order_number: Optional[str] = None
+    loading_number: Optional[str] = None
+    customer_name: str
+    customer_code: Optional[str] = None
+    route_code: Optional[str] = None
+    route_name: Optional[str] = None
+    delivery_date: Optional[str] = None
+    assigned_employee_id: Optional[int] = None
+    assigned_employee_name: Optional[str] = None
+    assigned_vehicle_id: Optional[int] = None
+    assigned_vehicle_registration: Optional[str] = None
+    assignment_date: Optional[str] = None
+    items_count: int
+    total_value: float
+    mobile_accepted: bool
+    mobile_accepted_by: Optional[str] = None
+    mobile_accepted_at: Optional[str] = None
+    area: Optional[str] = None
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class MobileAcceptMemoRequest(BaseModel):
+    memo_number: Optional[str] = None
+    order_id: Optional[int] = None
+    user_id: str  # Mobile app user ID
+
+
+class MobileAcceptMemoResponse(BaseModel):
+    success: bool
+    message: str
+    memo_number: Optional[str] = None
+    loading_number: Optional[str] = None
+    accepted_at: Optional[str] = None
+    accepted_by: Optional[str] = None
+
+
+class MobileMemoStatus(BaseModel):
+    memo_number: str
+    order_id: int
+    customer_name: str
+    accepted: bool
+    accepted_by: Optional[str] = None
+    accepted_at: Optional[str] = None
+
+
+class MobileLoadingNumberStatus(BaseModel):
+    loading_number: str
+    total_memos: int
+    accepted_memos: int
+    pending_memos: int
+    acceptance_rate: float
+    all_accepted: bool
+    memos: List[MobileMemoStatus]
+
+
+# Transport Management System (TMS) Schemas
+
+class VehicleBase(BaseModel):
+    vehicle_id: str
+    vehicle_type: str
+    registration_number: str
+    capacity: Optional[float] = None
+    depot_id: int
+    vendor: Optional[str] = None
+    status: str = "Active"
+    fuel_type: Optional[str] = None
+    fuel_rate: Optional[float] = None
+    fuel_efficiency: Optional[float] = None
+    model: Optional[str] = None
+    year: Optional[int] = None
+    maintenance_schedule_km: Optional[float] = None
+    last_maintenance_date: Optional[date] = None
+    last_maintenance_km: Optional[float] = None
+
+class VehicleCreate(VehicleBase):
+    pass
+
+class VehicleUpdate(BaseModel):
+    vehicle_type: Optional[str] = None
+    capacity: Optional[float] = None
+    depot_id: Optional[int] = None
+    vendor: Optional[str] = None
+    status: Optional[str] = None
+    fuel_type: Optional[str] = None
+    fuel_rate: Optional[float] = None
+    fuel_efficiency: Optional[float] = None
+    model: Optional[str] = None
+    year: Optional[int] = None
+    maintenance_schedule_km: Optional[float] = None
+    last_maintenance_date: Optional[date] = None
+    last_maintenance_km: Optional[float] = None
+
+class Vehicle(VehicleBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class DriverBase(BaseModel):
+    driver_id: str
+    first_name: str
+    last_name: Optional[str] = None
+    license_number: str
+    license_expiry: Optional[date] = None
+    contact: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    status: str = "Available"
+
+class DriverCreate(DriverBase):
+    pass
+
+class DriverUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    license_expiry: Optional[date] = None
+    contact: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    status: Optional[str] = None
+
+class Driver(DriverBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class RouteStopBase(BaseModel):
+    route_id: int
+    stop_sequence: int
+    customer_id: Optional[int] = None
+    customer_name: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+
+class RouteStopCreate(RouteStopBase):
+    pass
+
+class RouteStop(RouteStopBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class TripBase(BaseModel):
+    delivery_id: Optional[int] = None
+    vehicle_id: int
+    driver_id: int
+    route_id: int
+    trip_date: date
+    distance_km: Optional[float] = None
+    estimated_fuel_cost: Optional[float] = None
+    actual_fuel_cost: Optional[float] = None
+    status: str = "Scheduled"
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class TripCreate(TripBase):
+    pass
+
+class TripUpdate(BaseModel):
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    route_id: Optional[int] = None
+    trip_date: Optional[date] = None
+    distance_km: Optional[float] = None
+    estimated_fuel_cost: Optional[float] = None
+    actual_fuel_cost: Optional[float] = None
+    status: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    notes: Optional[str] = None
+
+class Trip(TripBase):
+    id: int
+    trip_number: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class TripWithDetails(Trip):
+    vehicle: Optional[Vehicle] = None
+    driver: Optional[Driver] = None
+    route: Optional[dict] = None
+    total_expenses: Optional[float] = None
+    
+    class Config:
+        from_attributes = True
+
+class RouteShippingPointBase(BaseModel):
+    route_id: int
+    shipping_point_id: int
+    distance_km: float
+    sequence: int
+    is_active: bool = True
+
+class RouteShippingPointCreate(RouteShippingPointBase):
+    pass
+
+class RouteShippingPointUpdate(BaseModel):
+    route_id: Optional[int] = None
+    shipping_point_id: Optional[int] = None
+    distance_km: Optional[float] = None
+    sequence: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class RouteShippingPoint(RouteShippingPointBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class TransportExpenseBase(BaseModel):
+    trip_id: Optional[int] = None
+    trip_number: Optional[str] = None
+    route_id: Optional[int] = None
+    expense_type: str  # fuel, toll, repair, maintenance, other
+    amount: float
+    description: Optional[str] = None
+    expense_date: date
+    is_auto_calculated: bool = False
+
+class TransportExpenseCreate(TransportExpenseBase):
+    pass
+
+class TransportExpenseUpdate(BaseModel):
+    trip_id: Optional[int] = None
+    trip_number: Optional[str] = None
+    route_id: Optional[int] = None
+    expense_type: Optional[str] = None
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    expense_date: Optional[date] = None
+
+class TransportExpense(TransportExpenseBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+class TripAssignmentRequest(BaseModel):
+    delivery_id: Optional[int] = None
+    vehicle_id: int
+    driver_id: int
+    route_id: int
+    trip_date: date
+    notes: Optional[str] = None
+
+class TripAssignmentResponse(BaseModel):
+    trip: Trip
+    calculated_distance: float
+    estimated_fuel_cost: float
+    message: str
+
+class TransportReportRequest(BaseModel):
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+    route_id: Optional[int] = None
+
+class TransportReportResponse(BaseModel):
+    total_trips: int
+    total_distance: float
+    total_fuel_cost: float
+    total_expenses: float
+    trips_by_vehicle: List[dict]
+    trips_by_driver: List[dict]
+    monthly_stats: List[dict]
+    expenses_by_trip: List[dict] = []  # Expenses grouped by trip number

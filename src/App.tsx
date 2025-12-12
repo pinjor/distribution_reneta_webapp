@@ -21,6 +21,7 @@ import MISReport from "./pages/orders/MISReport";
 import CollectionDeposits from "./pages/billing/CollectionDeposits";
 import CollectionReports from "./pages/billing/CollectionReports";
 import RemainingCashDeposit from "./pages/billing/RemainingCashDeposit";
+import RemainingCashList from "./pages/orders/RemainingCashList";
 import ReceiveFactory from "./pages/receive/ReceiveFactory";
 import ReceiveDepot from "./pages/receive/ReceiveDepot";
 import ReceiveReturn from "./pages/receive/ReceiveReturn";
@@ -61,11 +62,19 @@ import Customers from "./pages/settings/Customers";
 import Vendors from "./pages/settings/Vendors";
 import Products from "./pages/settings/Products";
 import ShippingPoints from "./pages/settings/ShippingPoints";
+import RouteShippingPoints from "./pages/settings/RouteShippingPoints";
 import UOM from "./pages/settings/UOM";
 import PrimaryPackaging from "./pages/settings/PrimaryPackaging";
 import PriceSetup from "./pages/settings/PriceSetup";
 import RoleMaster from "./pages/settings/RoleMaster";
+import ChemistShop from "./pages/settings/ChemistShop";
+import Doctor from "./pages/settings/Doctor";
 import NotFound from "./pages/NotFound";
+import VehicleManagement from "./pages/transport/VehicleManagement";
+import DriverManagement from "./pages/transport/DriverManagement";
+import TripAssignment from "./pages/transport/TripAssignment";
+import ExpenseManagement from "./pages/transport/ExpenseManagement";
+import TransportReports from "./pages/transport/TransportReports";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +96,7 @@ const App = () => (
               <Route path="/orders" element={<MainLayout><OrderListPage /></MainLayout>} />
               <Route path="/orders/route-wise" element={<MainLayout><RouteWiseOrderList /></MainLayout>} />
               <Route path="/orders/assigned" element={<MainLayout><AssignedOrderList /></MainLayout>} />
+              <Route path="/orders/remaining-cash-list" element={<MainLayout><RemainingCashList /></MainLayout>} />
               <Route path="/orders/collection-approval" element={<MainLayout><ApprovalForCollection /></MainLayout>} />
               <Route path="/orders/mis-report" element={<MainLayout><MISReport /></MainLayout>} />
               <Route path="/distribution/cockpit" element={<MainLayout><DistributionCockpit /></MainLayout>} />
@@ -131,13 +141,21 @@ const App = () => (
               <Route path="/settings/vendors" element={<MainLayout><Vendors /></MainLayout>} />
               <Route path="/settings/products" element={<MainLayout><Products /></MainLayout>} />
               <Route path="/settings/shipping-points" element={<MainLayout><ShippingPoints /></MainLayout>} />
+              <Route path="/settings/route-shipping-points" element={<MainLayout><RouteShippingPoints /></MainLayout>} />
               <Route path="/settings/uom" element={<MainLayout><UOM /></MainLayout>} />
               <Route path="/settings/primary-packaging" element={<MainLayout><PrimaryPackaging /></MainLayout>} />
               <Route path="/settings/price-setup" element={<MainLayout><PriceSetup /></MainLayout>} />
               <Route path="/settings/role-master" element={<MainLayout><RoleMaster /></MainLayout>} />
+              <Route path="/settings/chemist-shop" element={<MainLayout><ChemistShop /></MainLayout>} />
+              <Route path="/settings/doctor" element={<MainLayout><Doctor /></MainLayout>} />
               <Route path="/billing/deposits" element={<MainLayout><CollectionDeposits /></MainLayout>} />
               <Route path="/billing/deposits/remaining-cash" element={<MainLayout><RemainingCashDeposit /></MainLayout>} />
               <Route path="/billing/reports" element={<MainLayout><CollectionReports /></MainLayout>} />
+              <Route path="/transport/vehicles" element={<MainLayout><VehicleManagement /></MainLayout>} />
+              <Route path="/transport/drivers" element={<MainLayout><DriverManagement /></MainLayout>} />
+              <Route path="/transport/trips" element={<MainLayout><TripAssignment /></MainLayout>} />
+              <Route path="/transport/expenses" element={<MainLayout><ExpenseManagement /></MainLayout>} />
+              <Route path="/transport/reports" element={<MainLayout><TransportReports /></MainLayout>} />
               <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
             </Routes>
           </BrowserRouter>

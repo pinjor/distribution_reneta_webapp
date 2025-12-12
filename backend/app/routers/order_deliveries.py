@@ -166,17 +166,52 @@ def list_order_deliveries(
     status_filter: Optional[models.DeliveryStatusEnum] = Query(None),
     db: Session = Depends(get_db),
 ) -> schemas.OrderDeliveryListResponse:
-    query = db.query(models.OrderDelivery)
+    from sqlalchemy.orm import joinedload
+    query = db.query(models.OrderDelivery).options(joinedload(models.OrderDelivery.order))
     if status_filter:
         query = query.filter(models.OrderDelivery.status == status_filter)
     deliveries = query.order_by(models.OrderDelivery.created_at.desc()).all()
-    return schemas.OrderDeliveryListResponse(data=deliveries, total=len(deliveries))
+    # Convert to response format with order_number
+    delivery_data = []
+    for delivery in deliveries:
+        # Get order_number from the related Order
+        order_number = delivery.order.order_number if delivery.order else None
+        
+        # Create delivery dict with order_number
+        delivery_dict = {
+            "id": delivery.id,
+            "order_id": delivery.order_id,
+            "delivery_number": delivery.delivery_number,
+            "ship_to_party": delivery.ship_to_party,
+            "sold_to_party": delivery.sold_to_party,
+            "delivery_date": delivery.delivery_date,
+            "planned_dispatch_time": delivery.planned_dispatch_time,
+            "vehicle_info": delivery.vehicle_info,
+            "driver_name": delivery.driver_name,
+            "warehouse_no": delivery.warehouse_no,
+            "vehicle_id": delivery.vehicle_id,
+            "driver_id": delivery.driver_id,
+            "status": delivery.status,
+            "remarks": delivery.remarks,
+            "created_at": delivery.created_at,
+            "updated_at": delivery.updated_at,
+            "items": [schemas.OrderDeliveryItem.model_validate(item).model_dump() for item in delivery.items],
+            "order_number": order_number
+        }
+        delivery_data.append(schemas.OrderDelivery(**delivery_dict))
+    return schemas.OrderDeliveryListResponse(data=delivery_data, total=len(delivery_data))
 
 
 @router.get("/{delivery_id}", response_model=schemas.OrderDelivery)
 def retrieve_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
-    delivery = get_delivery(db, delivery_id)
-    return delivery
+    from sqlalchemy.orm import joinedload
+    delivery = db.query(models.OrderDelivery).options(joinedload(models.OrderDelivery.order)).filter(models.OrderDelivery.id == delivery_id).first()
+    if not delivery:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery order not found")
+    # Include order_number in response
+    delivery_dict = schemas.OrderDelivery.model_validate(delivery).model_dump()
+    delivery_dict["order_number"] = delivery.order.order_number if delivery.order else None
+    return schemas.OrderDelivery(**delivery_dict)
 
 
 @router.post("/from-order/{identifier}", response_model=schemas.OrderDelivery, status_code=status.HTTP_201_CREATED)

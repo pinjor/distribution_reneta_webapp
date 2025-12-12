@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.database import get_db
 from app.models import ShippingPoint
 from pydantic import BaseModel
@@ -12,11 +12,11 @@ class ShippingPointResponse(BaseModel):
     name: str
     code: str
     depot_id: int
-    address: str = None
-    city: str = None
-    state: str = None
-    pincode: str = None
-    phone: str = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
     is_active: bool = True
     
     class Config:

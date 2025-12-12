@@ -203,6 +203,17 @@ export const apiEndpoints = {
     getAll: () => api.get('/shipping-points'),
   },
   
+  routeShippingPoints: {
+    getAll: (routeId?: number) => {
+      const params = routeId ? `?route_id=${routeId}` : '';
+      return api.get(`/route-shipping-points${params}`);
+    },
+    getById: (id: number) => api.get(`/route-shipping-points/${id}`),
+    create: (data: any) => api.post('/route-shipping-points', data),
+    update: (id: number, data: any) => api.put(`/route-shipping-points/${id}`, data),
+    delete: (id: number) => api.delete(`/route-shipping-points/${id}`),
+  },
+  
   uoms: {
     getAll: () => api.get('/uoms'),
     getById: (id: number) => api.get(`/uoms/${id}`),
@@ -261,8 +272,13 @@ export const apiEndpoints = {
     updateAssignedStatus: (id: number, data: any) => api.put(`/orders/assigned/${id}/status`, data),
     createAssignedFromBarcodes: (data: { memo_numbers: string[]; employee_id: number; vehicle_id: number }) => 
       api.post('/orders/assigned/from-barcodes', data),
+    approveDelivery: (data: { loading_number: string; memos: Array<{ memo_number: string; delivered_quantity: number; returned_quantity: number }> }) => 
+      api.post('/orders/assigned/approve-delivery', data),
     getMISReport: (params?: Record<string, any>) => api.get(`/orders/mis-report${buildQuery(params)}`),
     getMISReportDetail: (memoId: number | string) => api.get(`/orders/mis-report/${memoId}`),
+    getRemainingCashList: (params?: Record<string, any>) => api.get(`/orders/remaining-cash-list${buildQuery(params)}`),
+    collectRemainingCash: (loadingNumber: string, payload?: any) => api.post(`/orders/remaining-cash/collect/${loadingNumber}`, payload || {}),
+    approveCollectionByLoading: (loadingNumber: string) => api.post(`/orders/collection-approval/approve-loading/${loadingNumber}`, {}),
   },
 
   productReceipts: {
@@ -392,6 +408,67 @@ export const apiEndpoints = {
     reports: {
       getByPerson: (personId: number, params?: Record<string, any>) => api.get(`/billing/reports/collection-person/${personId}${buildQuery(params)}`),
       getAll: (params?: Record<string, any>) => api.get(`/billing/reports/all${buildQuery(params)}`),
+    },
+  },
+
+  transport: {
+    vehicles: {
+      getAll: (params?: Record<string, any>) => api.get(`/transport/vehicles${buildQuery(params)}`),
+      getById: (id: number) => api.get(`/transport/vehicles/${id}`),
+      create: (data: any) => api.post('/transport/vehicles', data),
+      update: (id: number, data: any) => api.put(`/transport/vehicles/${id}`, data),
+      delete: (id: number) => api.delete(`/transport/vehicles/${id}`),
+    },
+    drivers: {
+      getAll: (params?: Record<string, any>) => api.get(`/transport/drivers${buildQuery(params)}`),
+      getById: (id: number) => api.get(`/transport/drivers/${id}`),
+      create: (data: any) => api.post('/transport/drivers', data),
+      update: (id: number, data: any) => api.put(`/transport/drivers/${id}`, data),
+      delete: (id: number) => api.delete(`/transport/drivers/${id}`),
+    },
+    routes: {
+      getStops: (routeId: number) => api.get(`/transport/routes/${routeId}/stops`),
+      createStop: (routeId: number, data: any) => api.post(`/transport/routes/${routeId}/stops`, data),
+      deleteStop: (stopId: number) => api.delete(`/transport/routes/stops/${stopId}`),
+      getDistance: (routeId: number) => api.get(`/transport/routes/${routeId}/distance`),
+    },
+    trips: {
+      getAll: (params?: Record<string, any>) => api.get(`/transport/trips${buildQuery(params)}`),
+      getById: (id: number) => api.get(`/transport/trips/${id}`),
+      assign: (data: any) => api.post('/transport/trips/assign', data),
+      update: (id: number, data: any) => api.put(`/transport/trips/${id}`, data),
+      delete: (id: number) => api.delete(`/transport/trips/${id}`),
+      backfillFromOrders: () => api.post('/transport/trips/backfill-from-orders'),
+    },
+    expenses: {
+      getAll: (params?: { route_id?: number; trip_number?: string }) => {
+        const query = new URLSearchParams();
+        if (params?.route_id) query.append('route_id', params.route_id.toString());
+        if (params?.trip_number) query.append('trip_number', params.trip_number);
+        const queryString = query.toString();
+        return api.get(`/transport/expenses${queryString ? `?${queryString}` : ''}`);
+      },
+      getByTrip: (tripId: number) => api.get(`/transport/trips/${tripId}/expenses`),
+      create: (data: any) => api.post('/transport/expenses', data),
+      update: (id: number, data: any) => api.put(`/transport/expenses/${id}`, data),
+      delete: (id: number) => api.delete(`/transport/expenses/${id}`),
+    },
+    reports: {
+      getReport: (params?: Record<string, any>) => api.get(`/transport/reports${buildQuery(params)}`),
+      getVehicleExpenses: (params?: Record<string, any>) => api.get(`/transport/reports/vehicle-expenses${buildQuery(params)}`),
+      getDriverExpenses: (params?: Record<string, any>) => api.get(`/transport/reports/driver-expenses${buildQuery(params)}`),
+      getPDF: (params?: Record<string, any>) => {
+        const query = buildQuery(params);
+        return fetch(`${API_URL}/transport/reports/pdf${query}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem("token") || sessionStorage.getItem("token")}`,
+          },
+        }).then(res => {
+          if (!res.ok) throw new Error('Failed to generate PDF');
+          return res.blob();
+        });
+      },
     },
   },
   
