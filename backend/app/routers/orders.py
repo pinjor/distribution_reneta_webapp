@@ -2727,15 +2727,16 @@ def approve_collection_by_loading(
     loading_number: str,
     db: Session = Depends(get_db)
 ):
-    """Approve all orders in a loading number for collection processing (for mobile app partial/cancelled collections)"""
+    """Approve all orders in a loading number for collection processing (for both web and mobile app collections)"""
     # Get all orders with this loading number that need approval
+    # Support both Web and Mobile App sources
     orders = db.query(models.Order).filter(
         models.Order.loading_number == loading_number,
         or_(
             models.Order.collection_status == "Partially Collected",
-            models.Order.collection_status == "Postponed"
+            models.Order.collection_status == "Postponed",
+            models.Order.collection_status == "Pending"  # Also allow pending orders
         ),
-        models.Order.collection_source == "Mobile App",
         models.Order.collection_approved == False
     ).all()
     

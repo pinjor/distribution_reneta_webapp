@@ -15,6 +15,9 @@ fi
 echo "Docker is installed."
 echo ""
 
+echo "Cleaning up any existing containers..."
+docker-compose down >/dev/null 2>&1
+
 echo "Starting all services..."
 echo "This may take a few minutes on first run..."
 echo ""

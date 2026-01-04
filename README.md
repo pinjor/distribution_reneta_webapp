@@ -47,10 +47,12 @@ A comprehensive warehouse distribution management system with full-stack impleme
 
 ## Quick Start
 
+### Docker Setup (Recommended)
+
 1. **Clone the repository**
 ```bash
 git clone <repository-url>
-cd swift-distro-hub
+cd distribution_reneta_webapp
 ```
 
 2. **Start all services**
@@ -65,11 +67,29 @@ start.bat
 docker-compose up --build
 ```
 
-3. **Access the application**
-- Frontend: http://localhost:80
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Nginx: http://localhost (proxies both frontend and backend)
+3. **Seed the database** (First time only)
+```bash
+# Windows
+.\seed_database.bat
+
+# Linux/macOS
+./seed_database.sh
+
+# Or manually
+docker exec swift_distro_api python -m db.seed_all_data
+```
+
+4. **Access the application**
+- **Frontend (via Nginx)**: http://localhost
+- **Frontend (Direct)**: http://localhost:8080
+- **Backend API**: http://localhost/api
+- **API Docs**: http://localhost/api/docs
+- **Health Check**: http://localhost/api/health
+
+📚 **For detailed Docker setup instructions, see:**
+- **[QUICK_START_DOCKER.md](QUICK_START_DOCKER.md)** - Quick reference
+- **[DOCKER_SETUP.md](DOCKER_SETUP.md)** - Complete guide
+- **[DOCKER_SETUP_SUMMARY.md](DOCKER_SETUP_SUMMARY.md)** - Setup summary
 
 ## Useful Commands
 
@@ -191,6 +211,12 @@ Proprietary - All Rights Reserved
 
 ## Documentation
 
+### Docker Setup
+- **[QUICK_START_DOCKER.md](QUICK_START_DOCKER.md)** - Quick Docker start guide
+- **[DOCKER_SETUP.md](DOCKER_SETUP.md)** - Complete Docker setup guide
+- **[DOCKER_SETUP_SUMMARY.md](DOCKER_SETUP_SUMMARY.md)** - Docker setup summary
+
+### General Documentation
 - **[GETTING_STARTED.md](GETTING_STARTED.md)** - Quick start guide
 - **[CHECKLIST.md](CHECKLIST.md)** - Verification checklist
 - **[MIGRATION_COMPLETE.md](MIGRATION_COMPLETE.md)** - Migration summary
