@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -11,12 +14,13 @@ export default defineConfig(({ mode }) => ({
     watch: {
       usePolling: true, // Enable polling for file changes in Docker
     },
-    hmr: {
-      // When accessed through nginx on port 80, use the same origin for WebSocket
-      // When accessed directly on port 8080, use port 8080
-      clientPort: process.env.NODE_ENV === 'production' ? 80 : 8080,
-      host: 'localhost',
-    },
+    hmr:
+      process.env.VITE_DISABLE_HMR === "1"
+        ? false
+        : {
+            clientPort: process.env.NODE_ENV === "production" ? 80 : 8080,
+            host: process.env.VITE_HMR_HOST || "localhost",
+          },
   },
   plugins: [react()],
   resolve: {

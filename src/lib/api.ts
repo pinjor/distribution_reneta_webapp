@@ -44,16 +44,6 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
       
-      // If we get a CORS error or network error, try direct backend connection
-      if (!response.ok && response.status === 0) {
-        console.warn("Proxy request failed, trying direct backend connection");
-        const directUrl = url.replace('/api', 'http://localhost:8000/api');
-        const directResponse = await fetch(directUrl, config);
-        if (directResponse.ok) {
-          return await directResponse.json();
-        }
-      }
-      
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem("token");
@@ -91,28 +81,6 @@ class ApiClient {
       return await response.text();
     } catch (error: any) {
       console.error('API request failed:', error);
-      
-      // If it's a network/CORS error, try direct backend connection as fallback
-      if ((error.message?.includes("Failed to fetch") || error.message?.includes("CORS") || error.name === "TypeError") && 
-          this.baseUrl.includes('/api')) {
-        console.warn("Network/CORS error detected, trying direct backend connection");
-        try {
-          // Replace the baseUrl with direct backend URL, keeping the /api prefix
-          const directUrl = url.replace(this.baseUrl, 'http://localhost:8000/api');
-          const directResponse = await fetch(directUrl, config);
-          if (directResponse.ok) {
-            const contentType = directResponse.headers.get("Content-Type") || "";
-            if (contentType.includes("application/json")) {
-              return await directResponse.json();
-            }
-            return await directResponse.text();
-          } else {
-            console.error(`Direct backend connection failed with status: ${directResponse.status}`);
-          }
-        } catch (directError) {
-          console.error("Direct backend connection also failed:", directError);
-        }
-      }
       
       throw error;
     }

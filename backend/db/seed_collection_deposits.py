@@ -354,6 +354,12 @@ def seed_collection_data():
     finally:
         db.close()
 
-if __name__ == "__main__":
+
+def main():
+    """Entry point for `python -m db.seed_all_data`."""
     seed_collection_data()
+
+
+if __name__ == "__main__":
+    main()
 

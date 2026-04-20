@@ -30,3 +30,6 @@ Thumbs.db
 # Docker volumes
 postgres_data/
 redis_data/
+
+# Local DB dumps (do not commit)
+swift_backup.dump

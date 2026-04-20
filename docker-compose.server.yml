@@ -1,0 +1,25 @@
+# Server deployment overlay. Do NOT repeat postgres/redis/nginx/frontend `ports` here —
+# Compose merges lists by appending, which would stack two host port mappings and fail.
+#
+# Set host ports via deploy.server.env (see POSTGRES_HOST_PORT, etc. in main compose file).
+#
+# Run on server:
+#   docker compose --env-file deploy.server.env -f docker-compose.yml -f docker-compose.server.yml up -d --build
+#
+# Public app URL: http://118.179.223.42:8081/
+# Replace the IP below if you use another host or domain.
+
+services:
+  backend:
+    environment:
+      - DATABASE_URL=postgresql://swift_user:swift_password@postgres:5432/swift_distro_hub
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+      - CORS_ORIGINS=http://118.179.223.42:8081,http://118.179.223.42,http://localhost:8081,http://localhost
+
+  frontend:
+    environment:
+      # Same-origin /api via nginx (avoids wrong-port redirects & CORS)
+      - VITE_API_URL=/api
+      - VITE_DISABLE_HMR=1
+      - NODE_ENV=development
