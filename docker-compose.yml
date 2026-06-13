@@ -71,6 +71,7 @@ services:
       - ./vite.config.ts:/app/vite.config.ts
       - ./index.html:/app/index.html
       - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
       - ./tsconfig.app.json:/app/tsconfig.app.json
       - ./tsconfig.node.json:/app/tsconfig.node.json
@@ -86,6 +87,7 @@ services:
       - backend
     environment:
       - VITE_API_URL=http://localhost/api
+      - VITE_DEV_PORT=8080
       - NODE_ENV=development
     stdin_open: true
     tty: true

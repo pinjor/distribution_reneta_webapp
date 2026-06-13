@@ -21,14 +21,14 @@ def seed_depot_transfers():
             print("Need at least 1 product to create transfers")
             return
         
-        # Delete all existing transfers to start fresh
-        print("Deleting existing transfers...")
-        db.query(DepotTransferItem).delete()
-        db.query(DepotTransfer).delete()
-        db.commit()
-        existing_numbers = set()
-        
-        print("Creating fresh sample data...")
+        existing_numbers = {
+            t.transfer_number
+            for t in db.query(DepotTransfer.transfer_number).all()
+        }
+        if existing_numbers:
+            print(f"Found {len(existing_numbers)} existing transfers, adding only new ones...")
+        else:
+            print("Creating depot transfer sample data...")
         
         # Create sample transfers
         transfers_data = [

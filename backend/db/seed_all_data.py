@@ -76,11 +76,15 @@ def seed_all_data():
         ("seed_drivers", "Seeding Drivers"),
         ("seed_simple_routes", "Creating Basic Routes"),
         ("seed_product_stock_data", "Seeding Product Stock Data"),
+        ("seed_settings_master", "Seeding Settings Master (Vendors, UOM, Roles, Shipping Points)"),
         ("seed_complete_orders", "Seeding Complete Orders"),
         ("seed_delivery_orders", "Seeding Delivery Orders"),
         ("seed_collection_data", "Seeding Collection Orders"),
         ("seed_collection_deposits", "Seeding Collection Deposits (Billing)"),
         ("seed_transport_data", "Seeding Transport Trips and Expenses"),
+        ("seed_demo_modules", "Seeding Demo Modules (Receipts, Deliveries, Picking, Stock)"),
+        ("seed_depot_transfers", "Seeding Depot Transfers"),
+        ("seed_test_users", "Creating Test Users & Login Passwords"),
     ]
     
     success_count = 0
@@ -106,9 +110,12 @@ def seed_all_data():
         print("\n🎉 All data seeded successfully!")
         print("\nYou can now access:")
         print("  - Order Management: Orders, Route Wise Orders, Delivery Orders")
-        print("  - Delivery Management: Delivery orders and tracking")
+        print("  - Delivery Management: Delivery orders, depot transfers, picking/loading")
+        print("  - Receive Product: Factory/Depot/Return receipts")
         print("  - Billing: Collection deposits and reports")
         print("  - Transport Management: Vehicles, drivers, trips, expenses")
+        print("  - Settings: Vendors, UOM, Packaging, Prices, Roles, Shipping Points")
+        print("\nLogin: admin@swiftdistro.com / admin123")
     else:
         print("\n⚠️  Some scripts failed. Check the errors above.")
     

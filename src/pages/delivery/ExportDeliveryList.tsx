@@ -49,34 +49,12 @@ export default function ExportDeliveryList() {
       // const result = await apiEndpoints.orderDeliveries.getExportDeliveries();
       // For now, using mock data
       const mockDeliveries: ExportDelivery[] = [
-        {
-          id: 1,
-          delivery_number: "EX-2025-001",
-          status: "InTransit",
-          delivery_date: "2025-01-15",
-          destination_country: "USA",
-          port_of_loading: "Mumbai",
-          port_of_discharge: "Los Angeles",
-          shipping_line: "Maersk Line",
-          container_number: "MSKU1234567",
-          total_items: 25,
-          total_quantity: 5000,
-          total_value: 125000,
-        },
-        {
-          id: 2,
-          delivery_number: "EX-2025-002",
-          status: "CustomsCleared",
-          delivery_date: "2025-01-16",
-          destination_country: "UK",
-          port_of_loading: "Chennai",
-          port_of_discharge: "London",
-          shipping_line: "CMA CGM",
-          container_number: "CMAU9876543",
-          total_items: 18,
-          total_quantity: 3600,
-          total_value: 95000,
-        },
+        { id: 1, delivery_number: "EX-2026-001", status: "InTransit", delivery_date: "2026-04-15", destination_country: "Malaysia", port_of_loading: "Chattogram", port_of_discharge: "Port Klang", shipping_line: "Maersk Line", container_number: "MSKU1234567", total_items: 25, total_quantity: 5000, total_value: 125000 },
+        { id: 2, delivery_number: "EX-2026-002", status: "CustomsCleared", delivery_date: "2026-04-14", destination_country: "India", port_of_loading: "Mongla", port_of_discharge: "Kolkata", shipping_line: "CMA CGM", container_number: "CMAU9876543", total_items: 18, total_quantity: 3600, total_value: 95000 },
+        { id: 3, delivery_number: "EX-2026-003", status: "Shipped", delivery_date: "2026-04-13", destination_country: "Nepal", port_of_loading: "Benapole", port_of_discharge: "Birgunj", shipping_line: "Himalaya Logistics", container_number: "HMLU4455667", total_items: 12, total_quantity: 2400, total_value: 62000 },
+        { id: 4, delivery_number: "EX-2026-004", status: "Draft", delivery_date: "2026-04-16", destination_country: "Sri Lanka", port_of_loading: "Chattogram", port_of_discharge: "Colombo", shipping_line: "Bay Line Shipping", container_number: "BLSU7788990", total_items: 20, total_quantity: 4000, total_value: 108000 },
+        { id: 5, delivery_number: "EX-2026-005", status: "Delivered", delivery_date: "2026-04-10", destination_country: "Singapore", port_of_loading: "Chattogram", port_of_discharge: "Singapore", shipping_line: "Evergreen Marine", container_number: "EVGU3344556", total_items: 30, total_quantity: 6000, total_value: 185000 },
+        { id: 6, delivery_number: "EX-2026-006", status: "Pending", delivery_date: "2026-04-17", destination_country: "UAE", port_of_loading: "Chattogram", port_of_discharge: "Jebel Ali", shipping_line: "MSC", container_number: "MSCU1122334", total_items: 22, total_quantity: 4400, total_value: 142000 },
       ];
       setDeliveries(mockDeliveries);
     } catch (error) {

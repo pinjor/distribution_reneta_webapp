@@ -45,28 +45,12 @@ export default function SampleGiftDeliveryList() {
       // const result = await apiEndpoints.orderDeliveries.getSampleGiftDeliveries();
       // For now, using mock data
       const mockDeliveries: SampleGiftDelivery[] = [
-        {
-          id: 1,
-          delivery_number: "SG-2025-001",
-          status: "Dispatched",
-          delivery_date: "2025-01-15",
-          recipient_name: "Dr. Mohammad Rahman",
-          recipient_type: "Doctor",
-          gift_type: "Product Samples",
-          total_items: 5,
-          total_quantity: 50,
-        },
-        {
-          id: 2,
-          delivery_number: "SG-2025-002",
-          status: "Prepared",
-          delivery_date: "2025-01-16",
-          recipient_name: "Rahman Pharmacy",
-          recipient_type: "Pharmacy",
-          gift_type: "Promotional Items",
-          total_items: 3,
-          total_quantity: 30,
-        },
+        { id: 1, delivery_number: "SG-2026-001", status: "Dispatched", delivery_date: "2026-04-15", recipient_name: "Dr. Mohammad Rahman", recipient_type: "Doctor", gift_type: "Product Samples", total_items: 5, total_quantity: 50 },
+        { id: 2, delivery_number: "SG-2026-002", status: "Prepared", delivery_date: "2026-04-14", recipient_name: "Green Pharmacy", recipient_type: "Chemist Shop", gift_type: "Promotional Items", total_items: 3, total_quantity: 30 },
+        { id: 3, delivery_number: "SG-2026-003", status: "Delivered", delivery_date: "2026-04-12", recipient_name: "Dr. Fatema Khatun", recipient_type: "Doctor", gift_type: "Vaccine Samples", total_items: 4, total_quantity: 40 },
+        { id: 4, delivery_number: "SG-2026-004", status: "Pending", delivery_date: "2026-04-16", recipient_name: "City Medical Store", recipient_type: "Chemist Shop", gift_type: "Product Samples", total_items: 6, total_quantity: 60 },
+        { id: 5, delivery_number: "SG-2026-005", status: "Draft", delivery_date: "2026-04-17", recipient_name: "Dr. Abdul Karim", recipient_type: "Doctor", gift_type: "Conference Kit", total_items: 2, total_quantity: 20 },
+        { id: 6, delivery_number: "SG-2026-006", status: "Dispatched", delivery_date: "2026-04-11", recipient_name: "Popular Pharmacy", recipient_type: "Chemist Shop", gift_type: "Promotional Items", total_items: 5, total_quantity: 45 },
       ];
       setDeliveries(mockDeliveries);
     } catch (error) {
