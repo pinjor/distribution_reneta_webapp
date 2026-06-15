@@ -75,6 +75,9 @@ import DriverManagement from "./pages/transport/DriverManagement";
 import TripAssignment from "./pages/transport/TripAssignment";
 import ExpenseManagement from "./pages/transport/ExpenseManagement";
 import TransportReports from "./pages/transport/TransportReports";
+import AuditLogsPage from "./pages/platform/AuditLogsPage";
+import ReportCenterPage from "./pages/platform/ReportCenterPage";
+import ProfilePage from "./pages/ProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +136,8 @@ const App = () => (
               <Route path="/distribution/drivers" element={<MainLayout><Drivers /></MainLayout>} />
               <Route path="/distribution/routes" element={<MainLayout><RoutePlanning /></MainLayout>} />
               <Route path="/distribution/reconciliation" element={<MainLayout><Reconciliation /></MainLayout>} />
+              <Route path="/platform/audit-logs" element={<MainLayout><AuditLogsPage /></MainLayout>} />
+              <Route path="/platform/reports" element={<MainLayout><ReportCenterPage /></MainLayout>} />
               <Route path="/masters" element={<MainLayout><Masters /></MainLayout>} />
               <Route path="/settings/company" element={<MainLayout><Company /></MainLayout>} />
               <Route path="/settings/depot" element={<MainLayout><Depot /></MainLayout>} />
@@ -156,6 +161,7 @@ const App = () => (
               <Route path="/transport/trips" element={<MainLayout><TripAssignment /></MainLayout>} />
               <Route path="/transport/expenses" element={<MainLayout><ExpenseManagement /></MainLayout>} />
               <Route path="/transport/reports" element={<MainLayout><TransportReports /></MainLayout>} />
+              <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
               <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
             </Routes>
           </BrowserRouter>

@@ -61,10 +61,11 @@ class Employee(Base):
     hashed_password = Column(String(255))
     department = Column(String(100))
     designation = Column(String(100))
-    role = Column(String(50), default="user")  # user, admin, manager
+    role = Column(String(50), default="user")  # user, admin, manager, billing, finance, transport
     depot_id = Column(Integer, ForeignKey("depots.id"))
     role_master_id = Column(Integer, ForeignKey("role_masters.id"), nullable=True)
     is_active = Column(Boolean, default=True)
+    is_blocked = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -477,7 +478,15 @@ class Order(Base):
     route_name = Column(String(255), nullable=True)
     delivery_date = Column(Date, nullable=False)
     status = Column(Enum(OrderStatusEnum), nullable=False, default=OrderStatusEnum.DRAFT)
+    order_source = Column(String(50), default="MANUAL_DMS")
+    order_type = Column(String(50), default="COD")
+    delivery_status = Column(String(50), default="ORDER_CREATED", index=True)
     validated = Column(Boolean, default=False)
+    validation_status = Column(String(50), nullable=True)
+    risk_level = Column(String(20), nullable=True)
+    requires_approval = Column(Boolean, default=False)
+    external_order_id = Column(String(100), nullable=True)
+    external_source = Column(String(50), nullable=True)
     printed = Column(Boolean, default=False)
     printed_at = Column(DateTime, nullable=True)
     postponed = Column(Boolean, default=False)

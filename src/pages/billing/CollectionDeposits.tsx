@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface CollectionDeposit {
   id: number;
@@ -174,14 +175,13 @@ export default function CollectionDeposits() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Collection Deposits</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage daily collection deposits from collection team
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        title="Collection Deposits"
+        subtitle="Manage daily collection deposits from collection team"
+        icon={Coins}
+        variant="amber"
+        actions={(
+          <div className="flex gap-2">
           <Button onClick={() => refetch()} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -189,14 +189,14 @@ export default function CollectionDeposits() {
           <Button
             variant="outline"
             onClick={() => navigate("/billing/deposits/remaining-cash")}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
           >
             <Coins className="h-4 w-4 mr-2" />
             Receive Remaining Cash
           </Button>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
                 <Plus className="h-4 w-4 mr-2" />
                 New Deposit
               </Button>
@@ -337,7 +337,8 @@ export default function CollectionDeposits() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+        )}
+      />
 
       <Card>
         <CardHeader>

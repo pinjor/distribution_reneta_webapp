@@ -4,6 +4,8 @@ import { apiEndpoints } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { FileText } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface ReceiptReport {
   id: number;
@@ -76,12 +78,17 @@ export default function ReceiveReport() {
 
   return (
     <main className="p-6 space-y-4 print:p-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-foreground">Product Receive Report</h1>
-        <Button onClick={handlePrint} className="hidden print:hidden md:inline-flex">
-          Print
-        </Button>
-      </div>
+      <PageHeader
+        title="Product Receive Report"
+        subtitle={`Receipt ${receipt.receipt_number}`}
+        icon={FileText}
+        variant="blue"
+        actions={(
+          <Button onClick={handlePrint} className="hidden print:hidden md:inline-flex bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+            Print
+          </Button>
+        )}
+      />
 
       <Card>
         <CardContent className="space-y-4 p-6">

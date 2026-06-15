@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Package, ClipboardList, AlertCircle } from "lucide-react";
+import { Package, ClipboardList, AlertCircle, Layers } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { masterData, type ProductOption } from "@/lib/masterData";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface StockLedgerRow {
   id: number;
@@ -268,20 +269,26 @@ export default function StockMaintenance() {
       className="space-y-6"
     >
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold mb-2">Stock Management</h1>
-            <p className="text-muted-foreground">
-              {activeTab === "products"
-                ? "Product-level availability across all depots and batches."
-                : "Batch-wise inventory reflecting approved receipts."}
-            </p>
-          </div>
-          <TabsList>
-            <TabsTrigger value="products">Product stock</TabsTrigger>
-            <TabsTrigger value="batches">Batchwise stock</TabsTrigger>
-          </TabsList>
-        </div>
+        <PageHeader
+          title="Stock Management"
+          subtitle={activeTab === "products"
+            ? "Product-level availability across all depots and batches."
+            : "Batch-wise inventory reflecting approved receipts."}
+          icon={Package}
+          variant="sky"
+          footer={(
+            <TabsList variant="header" className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+              <TabsTrigger variant="header" value="products">
+                <Package className="h-4 w-4" />
+                Product stock
+              </TabsTrigger>
+              <TabsTrigger variant="header" value="batches">
+                <Layers className="h-4 w-4" />
+                Batchwise stock
+              </TabsTrigger>
+            </TabsList>
+          )}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {activeTab === "products" ? (

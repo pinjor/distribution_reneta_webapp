@@ -11,28 +11,30 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  Search, 
-  Filter,
-  Eye,
+import {
   Calendar,
-  FileText,
-  Truck,
-  Package,
   CheckCircle2,
   Clock,
-  XCircle,
-  DollarSign,
   Coins,
-  MapPin,
-  User,
-  Printer,
-  Loader2,
-  RefreshCw,
+  DollarSign,
+  Eye,
+  FileBarChart,
+  FileText,
+  Filter,
   List,
+  Loader2,
+  MapPin,
+  Package,
+  Printer,
+  RefreshCw,
+  Search,
+  Truck,
+  User,
+  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface MISReportMemo {
   id: number;
@@ -228,21 +230,23 @@ export default function MISReport() {
   return (
     <div className="space-y-6">
       <OrderBreadcrumb />
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            MIS Report
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Comprehensive memo lifecycle tracking and analytics
-          </p>
-        </div>
-        <Button onClick={() => refetch()} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="MIS Report"
+        subtitle="Comprehensive memo lifecycle tracking and analytics"
+        icon={FileBarChart}
+        variant="indigo"
+        actions={(
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            size="sm"
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        )}
+      />
 
       {/* Filters Card */}
       <Card className="border-2 shadow-lg">

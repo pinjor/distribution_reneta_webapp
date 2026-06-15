@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface SampleGiftDelivery {
   id: number;
@@ -85,28 +86,30 @@ export default function SampleGiftDeliveryList() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Sample Gift Delivery List</h1>
-          <p className="text-muted-foreground">Manage sample and gift deliveries to doctors, pharmacies, and partners</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search deliveries..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-64"
-          />
-          <Button variant="outline" onClick={fetchDeliveries} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button onClick={() => navigate("/delivery/sample-gift/new")}>
-            <Gift className="h-4 w-4 mr-2" />
-            New Sample Gift
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Sample Gift Delivery List"
+        subtitle="Manage sample and gift deliveries to doctors, pharmacies, and partners"
+        icon={Gift}
+        variant="teal"
+        actions={(
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Search deliveries..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64"
+            />
+            <Button variant="outline" onClick={fetchDeliveries} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/delivery/sample-gift/new")}>
+              <Gift className="h-4 w-4 mr-2" />
+              New Sample Gift
+            </Button>
+          </div>
+        )}
+      />
 
       {loading ? (
         <Card>

@@ -29,6 +29,7 @@ import { TAG_COLORS } from "@/lib/tagColors";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface RemainingCashOrder {
   id: number;
@@ -337,26 +338,29 @@ export default function RemainingCashList() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <OrderBreadcrumb />
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/orders/distribution-cockpit")}
-          className="h-8 w-8"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-foreground">Remaining Cash and Collection</h1>
-          <p className="text-muted-foreground mt-1">
-            Orders after delivery approval, grouped by loading number. Shows fully collected, partially collected, and cancelled/postponed memos.
-          </p>
-        </div>
-        <Button onClick={() => refetch()} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Remaining Cash and Collection"
+        subtitle="Orders after delivery approval, grouped by loading number. Shows fully collected, partially collected, and cancelled/postponed memos."
+        icon={Coins}
+        variant="amber"
+        actions={(
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/orders/distribution-cockpit")}
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <Button onClick={() => refetch()} variant="outline" size="sm" className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </>
+        )}
+      />
 
       {/* Filters */}
       <Card>

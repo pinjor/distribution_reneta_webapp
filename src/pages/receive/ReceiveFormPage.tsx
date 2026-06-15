@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2 } from "lucide-react";
+import { Trash2, PackagePlus } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 // Product and Depot option types
 type ProductOption = {
@@ -347,10 +348,12 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
 
   return (
     <main className="p-6 space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-        <p className="text-muted-foreground">Record product receipts and generate printable reports.</p>
-      </header>
+      <PageHeader
+        title={title}
+        subtitle="Record product receipts and generate printable reports."
+        icon={PackagePlus}
+        variant="blue"
+      />
 
       <Card>
         <CardHeader className="pb-4">

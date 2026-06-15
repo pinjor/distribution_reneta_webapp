@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { apiEndpoints } from "@/lib/api";
 import { Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface PickingOrderLine {
   id: number;
@@ -87,14 +88,14 @@ export default function PickingOrderPrint() {
 
   return (
     <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 print:hidden">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Loading report</h1>
-          <p className="text-muted-foreground">
-            Print-ready summary for picking challan {order.order_number}
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <div className="print:hidden">
+      <PageHeader
+        title="Loading report"
+        subtitle={`Print-ready summary for picking challan ${order.order_number}`}
+        icon={Loader2}
+        variant="indigo"
+        actions={(
+          <div className="flex gap-2">
           <Button variant="outline" onClick={() => window.print()}>
             Print
           </Button>
@@ -102,6 +103,8 @@ export default function PickingOrderPrint() {
             Back
           </Button>
         </div>
+        )}
+      />
       </div>
 
       <section className="space-y-2 text-center">

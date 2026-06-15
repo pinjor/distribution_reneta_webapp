@@ -10,6 +10,8 @@ from app.models import (
     ProductItemStock, ProductItemStockDetail, Employee,
     DepotTransferStatusEnum
 )
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_transfer_filter, coerce_depot_id_param
 from pydantic import BaseModel
 from typing import Optional as Opt
 
@@ -198,19 +200,23 @@ def get_depot_transfers(
     to_depot_id: Optional[int] = Query(None, alias="to_depot_id"),
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get list of depot transfers"""
     query = db.query(DepotTransfer)
+    query = apply_depot_transfer_filter(query, user, DepotTransfer)
     
     if status_filter:
         query = query.filter(DepotTransfer.status == status_filter)
     
-    if from_depot_id:
-        query = query.filter(DepotTransfer.from_depot_id == from_depot_id)
+    effective_from = coerce_depot_id_param(user, from_depot_id)
+    effective_to = coerce_depot_id_param(user, to_depot_id)
+    if effective_from:
+        query = query.filter(DepotTransfer.from_depot_id == effective_from)
     
-    if to_depot_id:
-        query = query.filter(DepotTransfer.to_depot_id == to_depot_id)
+    if effective_to:
+        query = query.filter(DepotTransfer.to_depot_id == effective_to)
     
     transfers = query.order_by(DepotTransfer.created_at.desc()).offset(skip).limit(limit).all()
     

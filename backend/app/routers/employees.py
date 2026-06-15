@@ -4,12 +4,20 @@ from typing import List
 from app.database import get_db
 from app.models import Employee
 from app.schemas import EmployeeCreate, Employee as EmployeeSchema, EmployeeUpdate
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter
 
 router = APIRouter()
 
 @router.get("/", response_model=List[EmployeeSchema])
-def get_employees(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    employees = db.query(Employee).offset(skip).limit(limit).all()
+def get_employees(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    query = apply_depot_id_filter(db.query(Employee), user, Employee.depot_id)
+    employees = query.offset(skip).limit(limit).all()
     return employees
 
 @router.get("/{employee_id}", response_model=EmployeeSchema)

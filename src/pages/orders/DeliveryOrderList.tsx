@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface OrderDeliverySummary {
   id: number;
@@ -118,23 +119,25 @@ export default function OrderDeliveryList() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Delivery Order List</h1>
-          <p className="text-muted-foreground">Monitor deliveries after order confirmation and manage batch allocations.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={fetchDeliveries} disabled={loading}>
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={() => navigate("/orders/picking")}>
-            Packing Queue
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <PlusCircle className="h-4 w-4 mr-2" /> Create from Order
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Delivery Order List"
+        subtitle="Monitor deliveries after order confirmation and manage batch allocations."
+        icon={Truck}
+        variant="indigo"
+        actions={(
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={fetchDeliveries} disabled={loading}>
+              Refresh
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/orders/picking")}>
+              Packing Queue
+            </Button>
+            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => setShowCreateDialog(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" /> Create from Order
+            </Button>
+          </div>
+        )}
+      />
 
       {loading ? (
         <Card>

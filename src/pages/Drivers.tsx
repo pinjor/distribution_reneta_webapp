@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function Drivers() {
   const { data: drivers = [], isLoading } = useQuery({
@@ -170,15 +171,17 @@ export default function Drivers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Driver Management</h1>
-          <p className="text-muted-foreground">Manage driver assignments and profiles</p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Add Driver
-        </Button>
-      </div>
+      <PageHeader
+        title="Driver Management"
+        subtitle="Manage driver assignments and profiles"
+        icon={User}
+        variant="emerald"
+        actions={(
+          <Button onClick={() => setShowCreateDialog(true)} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+            <Plus className="h-4 w-4 mr-2" /> Add Driver
+          </Button>
+        )}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">

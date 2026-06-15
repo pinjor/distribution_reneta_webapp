@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle, Search, Printer, Eye } from "lucide-react";
+import { CheckCircle, Search, Printer, Eye, Package } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
 import { useTableSort } from "@/hooks/useTableSort";
@@ -19,6 +19,7 @@ import { recentReceipts } from "@/lib/mockData";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Badge } from "@/components/ui/badge";
 import { masterData, type ProductOption } from "@/lib/masterData";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const StockReceipt = () => {
   const [challanVerified, setChallanVerified] = useState(false);
@@ -90,10 +91,12 @@ const StockReceipt = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Stock Receipt</h1>
-        <p className="text-muted-foreground">Record incoming stock from suppliers</p>
-      </div>
+      <PageHeader
+        title="Stock Receipt"
+        subtitle="Record incoming stock from suppliers"
+        icon={Package}
+        variant="blue"
+      />
 
       <Card className="p-6 card-elevated">
         <form className="space-y-6" onSubmit={handleSubmit}>

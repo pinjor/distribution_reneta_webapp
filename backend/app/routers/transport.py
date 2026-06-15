@@ -10,9 +10,11 @@ from haversine import haversine, Unit
 
 from app.database import get_db
 from app.models import (
-    Vehicle, Driver, Route, RouteStop, Trip, TransportExpense, Order
+    Vehicle, Driver, Route, RouteStop, Trip, TransportExpense, Order, Employee
 )
 import app.models as models
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
 from app.schemas import (
     VehicleCreate, VehicleUpdate, Vehicle as VehicleSchema,
     DriverCreate, DriverUpdate, Driver as DriverSchema,
@@ -33,13 +35,16 @@ def get_vehicles(
     limit: int = 100,
     depot_id: Optional[int] = None,
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get all vehicles with optional filters"""
     query = db.query(Vehicle)
-    
-    if depot_id:
-        query = query.filter(Vehicle.depot_id == depot_id)
+    effective_depot = coerce_depot_id_param(user, depot_id)
+    if effective_depot:
+        query = query.filter(Vehicle.depot_id == effective_depot)
+    else:
+        query = apply_depot_id_filter(query, user, Vehicle.depot_id)
     if status:
         query = query.filter(Vehicle.status == status)
     
@@ -390,10 +395,12 @@ def get_trips(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     status: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get all trips with optional filters"""
-    query = db.query(Trip)
+    query = db.query(Trip).join(Vehicle, Trip.vehicle_id == Vehicle.id)
+    query = apply_depot_id_filter(query, user, Vehicle.depot_id)
     
     if vehicle_id:
         query = query.filter(Trip.vehicle_id == vehicle_id)

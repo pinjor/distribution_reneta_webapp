@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Package, ArrowLeft, Mail, Phone, MapPin } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
@@ -235,27 +236,24 @@ export default function ChemistShop() {
   // Show form page if showAddForm is true
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Chemist Shop" : "Add New Chemist Shop"}
+          subtitle={editMode ? "Update chemist shop information" : "Create a new chemist shop profile"}
+          icon={Package}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Package className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Chemist Shop" : "Add New Chemist Shop"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update chemist shop information" : "Create a new chemist shop profile"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -362,20 +360,19 @@ export default function ChemistShop() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   // Show list view
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Package className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Chemist Shop Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage chemist shop profiles and licenses</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Chemist Shop Management"
+        subtitle="Manage chemist shop profiles and licenses"
+        icon={Package}
+        variant="slate"
+      />
 
       <MasterDataTable
         title="All Chemist Shops"
@@ -392,7 +389,7 @@ export default function ChemistShop() {
         showCode={true}
         codeKey="code"
       />
-    </main>
+    </div>
   );
 }
 

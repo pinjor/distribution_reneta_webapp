@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_code_filter, user_depot_code, is_admin
 
 router = APIRouter()
 
@@ -23,8 +25,24 @@ def fetch_picking_order(db: Session, order_id: int) -> models.PickingOrder:
 
 
 @router.get("", response_model=schemas.PickingOrderListResponse)
-def list_picking_orders(db: Session = Depends(get_db)) -> schemas.PickingOrderListResponse:
-    orders = db.query(models.PickingOrder).order_by(models.PickingOrder.created_at.desc()).all()
+def list_picking_orders(
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.PickingOrderListResponse:
+    query = db.query(models.PickingOrder)
+    if not is_admin(user) and user.depot_id:
+        code = user_depot_code(db, user)
+        if code:
+            loading_nums = (
+                db.query(models.Order.loading_number)
+                .filter(
+                    models.Order.loading_number.isnot(None),
+                    models.Order.depot_code == code,
+                )
+                .distinct()
+            )
+            query = query.filter(models.PickingOrder.loading_no.in_(loading_nums))
+    orders = query.order_by(models.PickingOrder.created_at.desc()).all()
     return schemas.PickingOrderListResponse(data=orders, total=len(orders))
 
 

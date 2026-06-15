@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ClipboardList,
   PlusCircle,
@@ -20,7 +19,10 @@ import {
   FileBarChart,
   TruckIcon,
   BarChart3,
+  PackageSearch,
 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { NavTileCard } from "@/components/ui/tile-card";
 
 export default function DistributionCockpit() {
   const navigate = useNavigate();
@@ -36,49 +38,48 @@ export default function DistributionCockpit() {
       description: "Create new sales orders",
       icon: PlusCircle,
       path: "/orders/new",
-      color: "bg-blue-500 hover:bg-blue-600",
     },
     {
       title: "Delivery Order",
       description: "View and manage order deliveries",
       icon: List,
       path: "/orders",
-      color: "bg-green-500 hover:bg-green-600",
     },
     {
       title: "Route Wise Memo List",
       description: "Route-wise order overview and memo management",
       icon: MapPinned,
       path: "/orders/route-wise",
-      color: "bg-purple-500 hover:bg-purple-600",
     },
     {
       title: "Assigned Order List",
       description: "View and approve assigned orders",
       icon: TruckIcon,
       path: "/orders/assigned",
-      color: "bg-orange-500 hover:bg-orange-600",
     },
     {
       title: "Remaining Cash and Collection",
       description: "Manage remaining cash deposits and collections",
       icon: Coins,
       path: "/orders/remaining-cash-list",
-      color: "bg-yellow-500 hover:bg-yellow-600",
     },
     {
       title: "Approval for Collection",
       description: "Approve mobile app collection requests",
       icon: CheckCircle2,
       path: "/orders/collection-approval",
-      color: "bg-teal-500 hover:bg-teal-600",
+    },
+    {
+      title: "Order Lifecycle Tracker",
+      description: "Track an order number through each pipeline stage",
+      icon: PackageSearch,
+      path: "/orders/tracking",
     },
     {
       title: "MIS Report",
       description: "View comprehensive memo lifecycle reports",
       icon: FileBarChart,
       path: "/orders/mis-report",
-      color: "bg-indigo-500 hover:bg-indigo-600",
     },
     // Stock Management
     {
@@ -86,28 +87,24 @@ export default function DistributionCockpit() {
       description: "Receive stock from suppliers",
       icon: PackagePlus,
       path: "/warehouse/receipt",
-      color: "bg-indigo-500 hover:bg-indigo-600",
     },
     {
       title: "Stock Management",
       description: "Manage inventory and stock levels",
       icon: Wrench,
       path: "/warehouse/maintenance",
-      color: "bg-teal-500 hover:bg-teal-600",
     },
     {
       title: "New Adjustment",
       description: "Create stock adjustments",
       icon: AlertCircle,
       path: "/warehouse/adjustment/new",
-      color: "bg-yellow-500 hover:bg-yellow-600",
     },
     {
       title: "Adjustment Request",
       description: "View adjustment requests",
       icon: List,
       path: "/warehouse/adjustment/request",
-      color: "bg-amber-500 hover:bg-amber-600",
     },
     // Delivery Management
     {
@@ -115,21 +112,18 @@ export default function DistributionCockpit() {
       description: "Transfer stock between depots",
       icon: Warehouse,
       path: "/delivery/depot",
-      color: "bg-cyan-500 hover:bg-cyan-600",
     },
     {
       title: "Sample Gift Delivery",
       description: "Manage sample and gift deliveries",
       icon: Gift,
       path: "/delivery/sample-gift",
-      color: "bg-pink-500 hover:bg-pink-600",
     },
     {
       title: "Export",
       description: "Manage export deliveries",
       icon: Globe,
       path: "/delivery/export",
-      color: "bg-violet-500 hover:bg-violet-600",
     },
     // Billing
     {
@@ -137,131 +131,52 @@ export default function DistributionCockpit() {
       description: "Manage collection deposits",
       icon: FileText,
       path: "/billing/deposits",
-      color: "bg-emerald-500 hover:bg-emerald-600",
     },
     {
       title: "Receive Remaining Cash",
       description: "Document remaining cash deposits from employees",
       icon: Coins,
       path: "/billing/deposits/remaining-cash",
-      color: "bg-amber-500 hover:bg-amber-600",
     },
     {
       title: "Collection Reports",
       description: "View collection reports and analytics",
       icon: BarChart3,
       path: "/billing/reports",
-      color: "bg-cyan-500 hover:bg-cyan-600",
     },
   ];
 
+  const renderTileSection = (title: string, tiles: typeof navigationTiles) => (
+    <div>
+      <h2 className="text-xl font-semibold text-brand-deep mb-4">{title}</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {tiles.map((tile) => (
+          <NavTileCard
+            key={tile.path}
+            title={tile.title}
+            description={tile.description}
+            icon={tile.icon}
+            onClick={() => navigate(tile.path)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Distribution Cockpit</h1>
-          <p className="text-muted-foreground mt-2">
-            Central hub for all distribution operations and management
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Distribution Cockpit"
+        subtitle="Central hub for all distribution operations and management"
+        icon={BarChart3}
+        variant="sky"
+      />
 
       <div className="space-y-6">
-        {/* Order Management Section */}
-        <div>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Order Management</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {navigationTiles.slice(0, 7).map((tile) => (
-              <Card
-                key={tile.path}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-                onClick={() => navigate(tile.path)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${tile.color} text-white`}>
-                      <tile.icon className="h-6 w-6" />
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-lg mb-2">{tile.title}</h3>
-                  <p className="text-sm text-muted-foreground">{tile.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Stock Management Section */}
-        <div>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Stock Management</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {navigationTiles.slice(7, 11).map((tile) => (
-              <Card
-                key={tile.path}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-                onClick={() => navigate(tile.path)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${tile.color} text-white`}>
-                      <tile.icon className="h-6 w-6" />
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-lg mb-2">{tile.title}</h3>
-                  <p className="text-sm text-muted-foreground">{tile.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Delivery Management Section */}
-        <div>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Delivery Management</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {navigationTiles.slice(11, 14).map((tile) => (
-              <Card
-                key={tile.path}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-                onClick={() => navigate(tile.path)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${tile.color} text-white`}>
-                      <tile.icon className="h-6 w-6" />
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-lg mb-2">{tile.title}</h3>
-                  <p className="text-sm text-muted-foreground">{tile.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Billing Section */}
-        <div>
-          <h2 className="text-xl font-semibold text-foreground mb-4">Billing & Collection</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {navigationTiles.slice(14, 17).map((tile) => (
-              <Card
-                key={tile.path}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
-                onClick={() => navigate(tile.path)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-lg ${tile.color} text-white`}>
-                      <tile.icon className="h-6 w-6" />
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-lg mb-2">{tile.title}</h3>
-                  <p className="text-sm text-muted-foreground">{tile.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        {renderTileSection("Order Management", navigationTiles.slice(0, 8))}
+        {renderTileSection("Stock Management", navigationTiles.slice(8, 12))}
+        {renderTileSection("Delivery Management", navigationTiles.slice(12, 15))}
+        {renderTileSection("Billing & Collection", navigationTiles.slice(15, 18))}
       </div>
     </div>
   );

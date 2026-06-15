@@ -6,7 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { Loader2, Printer, RefreshCw, CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  Printer,
+  RefreshCw,
+  Truck,
+} from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface PickingOrderDetailResponse {
   id: number;
@@ -109,15 +116,15 @@ export default function PickingOrderDetail() {
 
   return (
     <main className="p-6 space-y-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-foreground">Picking challan {order.order_number}</h1>
+      <PageHeader
+        title={`Picking challan ${order.order_number}`}
+        subtitle="Review details of the picking challan before printing the loading report."
+        icon={Truck}
+        variant="indigo"
+        actions={(
           <Badge variant={STATUS_VARIANT[order.status] || "outline"}>{order.status}</Badge>
-        </div>
-        <p className="text-muted-foreground">
-          Review details of the picking challan before printing the loading report.
-        </p>
-      </div>
+        )}
+      />
 
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" onClick={fetchOrder}>

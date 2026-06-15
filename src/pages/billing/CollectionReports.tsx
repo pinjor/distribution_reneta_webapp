@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface CollectionReport {
   collection_person_id: number;
@@ -120,18 +121,23 @@ export default function CollectionReports() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Collection Reports</h1>
-          <p className="text-muted-foreground mt-1">
-            View collection history and statistics by collection person
-          </p>
-        </div>
-        <Button onClick={() => refetch()} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Collection Reports"
+        subtitle="View collection history and statistics by collection person"
+        icon={Coins}
+        variant="amber"
+        actions={(
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            size="sm"
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        )}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -3,6 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Receipt, Plus, Edit, Trash2, Loader2, Calculator, Truck, User, MapPin, DollarSign, Filter, X } from "lucide-react";
+import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
+import { TransportStatCard } from "@/components/transport/TransportStatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -358,21 +361,47 @@ export default function ExpenseManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Expense Management</h1>
-          <p className="text-muted-foreground">
-            View and manage expenses by trip number
-          </p>
-        </div>
-        <Button onClick={() => handleAdd()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Expense
-        </Button>
+      <TransportPageHeader
+        title="Expense Management"
+        subtitle="Track and manage trip expenses — fuel, tolls, maintenance, and more by trip number."
+        icon={Receipt}
+        variant="amber"
+        actions={
+          <Button
+            onClick={() => handleAdd()}
+            className="bg-white text-amber-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Expense
+          </Button>
+        }
+      />
+
+      <TransportQuickNav />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <TransportStatCard
+          title="Trips with Expenses"
+          value={tripNumbersWithExpenses.length}
+          icon={Receipt}
+          accent="amber"
+        />
+        <TransportStatCard
+          title="Total Expense Items"
+          value={filteredTotals.totalExpenses}
+          icon={DollarSign}
+          accent="rose"
+        />
+        <TransportStatCard
+          title="Total Amount"
+          value={`৳${filteredTotals.totalAmount.toFixed(2)}`}
+          icon={Calculator}
+          accent="violet"
+        />
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="border-2 border-amber-100 dark:border-amber-900/40">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">

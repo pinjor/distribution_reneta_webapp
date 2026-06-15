@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Ruler, ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { apiEndpoints } from "@/lib/api";
@@ -181,27 +182,24 @@ export default function UOM() {
 
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit UOM" : "Add New UOM"}
+          subtitle={editMode ? "Update UOM information" : "Create a new UOM (Unit of Measure)"}
+          icon={Ruler}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Ruler className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit UOM" : "Add New UOM"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update UOM information" : "Create a new UOM (Unit of Measure)"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -253,19 +251,18 @@ export default function UOM() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Ruler className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">UOM Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage Units of Measure (UOM) for products</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="UOM Management"
+        subtitle="Manage Units of Measure (UOM) for products"
+        icon={Ruler}
+        variant="slate"
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -287,7 +284,7 @@ export default function UOM() {
           showCode={false}
         />
       )}
-    </main>
+    </div>
   );
 }
 

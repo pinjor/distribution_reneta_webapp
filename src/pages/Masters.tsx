@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const companies = [
   { code: "C001", name: "PharmaCorp India Ltd", address: "Mumbai, Maharashtra" },
@@ -35,10 +36,12 @@ export default function Masters() {
   
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Master Data Management</h1>
-        <p className="text-muted-foreground">Configure and manage system master data</p>
-      </div>
+      <PageHeader
+        title="Master Data Management"
+        subtitle="Configure and manage system master data"
+        icon={Building2}
+        variant="slate"
+      />
 
       <Card className="p-6">
         <Tabs defaultValue="company">

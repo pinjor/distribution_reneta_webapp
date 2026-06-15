@@ -10,29 +10,32 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Printer, 
-  Truck, 
-  Package, 
-  CheckCircle2,
-  Loader2,
-  FileText,
-  Search,
+import {
   ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
-  PlusCircle,
-  Wrench,
-  TruckIcon,
-  DollarSign,
-  Coins,
   Clock,
+  Coins,
+  DollarSign,
   FileBarChart,
+  FileText,
+  Loader2,
+  MapPinned,
+  Package,
+  PlusCircle,
+  Printer,
+  Search,
+  Truck,
+  TruckIcon,
+  Wrench,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { NavTileCard, StatTileCard } from "@/components/ui/tile-card";
 
 interface RouteWiseOrderItem {
   id: number;
@@ -667,196 +670,98 @@ export default function RouteWiseOrderList() {
   return (
     <main className="p-6 space-y-6">
       <OrderBreadcrumb />
-      <header className="space-y-2">
-        <div className="flex items-center gap-4">
+      <PageHeader
+        title="Route Wise Memo List"
+        subtitle="Manage orders by route, print invoices, and assign to employees and vehicles."
+        icon={MapPinned}
+        variant="indigo"
+        actions={(
           <Button
-            variant="ghost"
-            size="icon"
+            variant="headerAction"
+            size="sm"
             onClick={() => navigate("/orders")}
-            className="h-8 w-8"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-semibold text-foreground">Route Wise Memo List</h1>
-            <p className="text-muted-foreground">
-              Manage orders by route, print invoices, and assign to employees and vehicles.
-            </p>
-          </div>
-        </div>
-      </header>
+        )}
+      />
 
       {/* Navigation Tiles */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+        <NavTileCard
+          title="Delivery Order"
+          description="View all orders"
+          icon={ClipboardList}
           onClick={() => navigate("/orders")}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <ClipboardList className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Delivery Order</h3>
-                <p className="text-sm text-muted-foreground">View all orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+        />
+        <NavTileCard
+          title="Order Creation"
+          description="Create new order"
+          icon={PlusCircle}
           onClick={() => navigate("/orders/new")}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                <PlusCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Order Creation</h3>
-                <p className="text-sm text-muted-foreground">Create new order</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+        />
+        <NavTileCard
+          title="Stock Management"
+          description="Manage inventory"
+          icon={Wrench}
           onClick={() => navigate("/warehouse/maintenance")}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                <Wrench className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Stock Management</h3>
-                <p className="text-sm text-muted-foreground">Manage inventory</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+        />
+        <NavTileCard
+          title="Assigned Order List"
+          description="View assigned orders"
+          icon={TruckIcon}
           onClick={() => navigate("/orders/assigned")}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                <TruckIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Assigned Order List</h3>
-                <p className="text-sm text-muted-foreground">View assigned orders</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
+        />
+        <NavTileCard
+          title="Collection Deposits"
+          description="Manage deposits"
+          icon={Coins}
           onClick={() => navigate("/billing/deposits")}
-        >
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
-                <Coins className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Collection Deposits</h3>
-                <p className="text-sm text-muted-foreground">Manage deposits</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        />
       </div>
 
       {/* Overall Dashboard Counters */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Order</p>
-                <p className="text-2xl font-bold">{overallStats.total_order}</p>
-              </div>
-              <Package className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'all' ? 'ring-2 ring-green-500' : ''}`}
-          onClick={() => handleTileClick('validated')}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Validated</p>
-                <p className="text-2xl font-bold">{overallStats.validated}</p>
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'pending_print' ? 'border-2 border-yellow-500' : ''}`}
-          onClick={() => handleTileClick('pending_print')}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Pending Print</p>
-                <p className="text-2xl font-bold">{overallStats.pending_print}</p>
-              </div>
-              <FileText className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'printed' ? 'border-2 border-blue-500' : ''}`}
-          onClick={() => handleTileClick('printed')}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Printed</p>
-                <p className="text-2xl font-bold">{overallStats.printed}</p>
-              </div>
-              <Printer className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => handleTileClick('assigned')}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Assigned</p>
-                <p className="text-2xl font-bold">{overallStats.loaded}</p>
-              </div>
-              <Truck className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card 
-          className={`cursor-pointer hover:shadow-md transition-shadow ${statusFilter === 'postponed' ? 'border-2 border-red-500' : ''}`}
-          onClick={() => handleTileClick('postponed')}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Postponed</p>
-                <p className="text-2xl font-bold">{overallStats.postponed}</p>
-              </div>
-              <Clock className="h-8 w-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatTileCard
+          label="Total Order"
+          value={overallStats.total_order}
+          icon={Package}
+        />
+        <StatTileCard
+          label="Validated"
+          value={overallStats.validated}
+          icon={CheckCircle2}
+          onClick={() => handleTileClick("validated")}
+          active={statusFilter === "all"}
+        />
+        <StatTileCard
+          label="Pending Print"
+          value={overallStats.pending_print}
+          icon={FileText}
+          onClick={() => handleTileClick("pending_print")}
+          active={statusFilter === "pending_print"}
+        />
+        <StatTileCard
+          label="Printed"
+          value={overallStats.printed}
+          icon={Printer}
+          onClick={() => handleTileClick("printed")}
+          active={statusFilter === "printed"}
+        />
+        <StatTileCard
+          label="Assigned"
+          value={overallStats.loaded}
+          icon={Truck}
+          onClick={() => handleTileClick("assigned")}
+        />
+        <StatTileCard
+          label="Postponed"
+          value={overallStats.postponed}
+          icon={Clock}
+          onClick={() => handleTileClick("postponed")}
+          active={statusFilter === "postponed"}
+        />
       </div>
 
       {/* Assignment Panel */}

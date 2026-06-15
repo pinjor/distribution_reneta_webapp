@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { format } from "date-fns";
 import { Loader2, Save, Truck, ArrowLeft, Printer } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface OrderDeliveryItemForm {
   id?: number;
@@ -611,30 +612,27 @@ export default function OrderDeliveryDetail() {
   }
 
   const header = (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <Truck className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Delivery Order {data.delivery_number}</h1>
-            <p className="text-sm text-muted-foreground">Configure batch allocation, pricing, and logistics before dispatch.</p>
-          </div>
-        </div>
+    <PageHeader
+      title={`Delivery Order ${data.delivery_number}`}
+      subtitle="Configure batch allocation, pricing, and logistics before dispatch."
+      icon={Truck}
+      variant="indigo"
+      actions={(
         <div className="flex flex-wrap gap-2">
           {statusBadge}
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
             <Printer className="h-4 w-4 mr-1" /> Print
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save Delivery
           </Button>
         </div>
-      </div>
-    </div>
+      )}
+    />
   );
 
   return (

@@ -49,7 +49,13 @@ class ApiClient {
           localStorage.removeItem("token");
           sessionStorage.removeItem("token");
           localStorage.removeItem("user");
+          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+            window.location.href = "/login";
+          }
           throw new Error("Authentication required");
+        }
+        if (response.status === 403) {
+          throw new Error("You do not have permission to perform this action");
         }
 
         let message = `Request failed with status ${response.status}`;
@@ -118,6 +124,7 @@ export const apiEndpoints = {
     login: (data: any) => api.post('/auth/login', data),
     signup: (data: any) => api.post('/auth/signup', data),
     me: () => api.get('/auth/me'),
+    logout: () => api.post('/auth/logout', {}),
     refresh: () => api.post('/auth/refresh'),
   },
   
@@ -439,6 +446,64 @@ export const apiEndpoints = {
       },
     },
   },
+
+  auditLogs: {
+    list: (params?: Record<string, any>) => api.get(`/audit-logs${buildQuery(params)}`),
+    forEntity: (entityType: string, entityId: string) => api.get(`/audit-logs/${entityType}/${entityId}`),
+  },
+
+  validation: {
+    validateOrder: (orderId: number) => api.post(`/orders/${orderId}/validate`, {}),
+    batchValidate: (orderIds: number[]) => api.post('/orders/batch-validate', { order_ids: orderIds }),
+    getResult: (orderId: number) => api.get(`/orders/${orderId}/validation-result`),
+    approveException: (orderId: number, reason: string) => api.post(`/orders/${orderId}/approve-exception`, { reason }),
+    getRules: () => api.get('/orders/validation-rules'),
+  },
+
+  reconciliation: {
+    pending: () => api.get('/reconciliation/pending'),
+    get: (id: number) => api.get(`/reconciliation/${id}`),
+    createFromAssignment: (loadingNumber: string) => api.post(`/reconciliation/create-from-assignment/${loadingNumber}`, {}),
+    verify: (id: number) => api.post(`/reconciliation/${id}/verify`, {}),
+    approve: (id: number) => api.post(`/reconciliation/${id}/approve`, {}),
+    reject: (id: number, reason: string) => api.post(`/reconciliation/${id}/reject`, { reason }),
+    dayEndStatus: (depotId?: number) => api.get(`/reconciliation/day-end-closing/status${depotId ? `?depot_id=${depotId}` : ''}`),
+  },
+
+  promotions: {
+    list: () => api.get('/promotions'),
+    create: (data: any) => api.post('/promotions', data),
+    submit: (id: number) => api.post(`/promotions/${id}/submit`, {}),
+    approve: (id: number) => api.post(`/promotions/${id}/approve`, {}),
+    utilization: () => api.get('/promotions/utilization'),
+  },
+
+  integrations: {
+    jobs: () => api.get('/integrations/jobs'),
+    failures: () => api.get('/integrations/failures'),
+    retry: (jobId: number) => api.post(`/integrations/jobs/${jobId}/retry`, {}),
+  },
+
+  devices: {
+    list: () => api.get('/devices'),
+    loginAttempts: () => api.get('/devices/login-attempts'),
+    block: (id: number, reason: string) => api.post(`/devices/${id}/block`, { reason }),
+    unblock: (id: number) => api.post(`/devices/${id}/unblock`, {}),
+  },
+
+  sync: {
+    status: () => api.get('/sync/status'),
+    failures: () => api.get('/sync/failures'),
+    retry: (queueId: number) => api.post(`/sync/failures/${queueId}/retry`, {}),
+  },
+
+  platformReports: {
+    registry: () => api.get('/reports/registry'),
+    run: (reportId: string, params?: Record<string, any>) => api.get(`/reports/${reportId}${buildQuery(params)}`),
+    exportCsv: (reportId: string) => `${API_URL}/reports/${reportId}/export`,
+  },
+
+  authPermissions: () => api.get('/auth/permissions'),
   
 };
 

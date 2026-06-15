@@ -3,6 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Route, Plus, Loader2, MapPin, Calculator } from "lucide-react";
+import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
+import { TransportStatCard } from "@/components/transport/TransportStatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -158,41 +161,62 @@ export default function TripAssignment() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Trip Assignment</h1>
-          <p className="text-muted-foreground">Assign vehicles and drivers to delivery routes</p>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={async () => {
-              try {
-                const result = await apiEndpoints.transport.trips.backfillFromOrders();
-                toast({
-                  title: "Backfill Complete",
-                  description: result.message || "Trips backfilled successfully",
-                });
-                queryClient.invalidateQueries({ queryKey: ["transport", "trips"] });
-              } catch (error: any) {
-                toast({
-                  title: "Error",
-                  description: error.message || "Failed to backfill trips",
-                  variant: "destructive",
-                });
-              }
-            }}
-          >
-            Backfill from Orders
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Assign Trip
-          </Button>
-        </div>
+      <TransportPageHeader
+        title="Trip Assignment"
+        subtitle="Assign vehicles and drivers to delivery routes — track distance and fuel estimates."
+        icon={Route}
+        variant="violet"
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              className="bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm"
+              onClick={async () => {
+                try {
+                  const result = await apiEndpoints.transport.trips.backfillFromOrders();
+                  toast({
+                    title: "Backfill Complete",
+                    description: result.message || "Trips backfilled successfully",
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["transport", "trips"] });
+                } catch (error: unknown) {
+                  const message = error instanceof Error ? error.message : "Failed to backfill trips";
+                  toast({ title: "Error", description: message, variant: "destructive" });
+                }
+              }}
+            >
+              Backfill from Orders
+            </Button>
+            <Button
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-white text-violet-700 hover:bg-white/90 shadow-md font-semibold"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Assign Trip
+            </Button>
+          </>
+        }
+      />
+
+      <TransportQuickNav />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <TransportStatCard title="Total Trips" value={trips.length} icon={Route} accent="violet" />
+        <TransportStatCard
+          title="Active Vehicles"
+          value={vehicles.filter((v: { status?: string }) => v.status === "Active").length}
+          icon={MapPin}
+          accent="blue"
+        />
+        <TransportStatCard
+          title="Available Drivers"
+          value={drivers.filter((d: { status?: string }) => d.status === "Available").length}
+          icon={Calculator}
+          accent="emerald"
+        />
       </div>
 
-      <Card>
+      <Card className="border-2">
         <CardHeader>
           <CardTitle>Trips</CardTitle>
           <CardDescription>List of all trip assignments</CardDescription>

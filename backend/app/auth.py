@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 from app.models import Employee
 import os
 
-# Security settings
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+from app.core.config import get_settings
+
+_settings = get_settings()
+SECRET_KEY = _settings.secret_key
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days default
+ACCESS_TOKEN_EXPIRE_MINUTES = _settings.access_token_expire_minutes
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

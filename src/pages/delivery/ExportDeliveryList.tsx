@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface ExportDelivery {
   id: number;
@@ -94,12 +95,13 @@ export default function ExportDeliveryList() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Export Delivery List</h1>
-          <p className="text-muted-foreground">Manage international export deliveries and shipping documentation</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Export Delivery List"
+        subtitle="Manage international export deliveries and shipping documentation"
+        icon={Globe}
+        variant="teal"
+        actions={(
+          <div className="flex items-center gap-2">
           <Input
             placeholder="Search deliveries..."
             value={searchTerm}
@@ -110,12 +112,13 @@ export default function ExportDeliveryList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button onClick={() => navigate("/delivery/export/new")}>
+          <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/delivery/export/new")}>
             <Globe className="h-4 w-4 mr-2" />
             New Export
           </Button>
         </div>
-      </header>
+        )}
+      />
 
       {loading ? (
         <Card>

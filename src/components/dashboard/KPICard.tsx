@@ -1,5 +1,7 @@
 import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { brandIconBoxClasses, brandLabelClasses, brandMutedClasses } from "@/lib/brandTheme";
 
 interface KPICardProps {
   title: string;
@@ -10,38 +12,46 @@ interface KPICardProps {
     direction: "up" | "down";
   };
   description?: string;
+  accent?: "blue" | "emerald" | "indigo" | "violet" | "amber" | "rose" | "cyan";
 }
 
-export function KPICard({ title, value, icon: Icon, trend, description }: KPICardProps) {
+export function KPICard({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  description,
+}: KPICardProps) {
   return (
-    <Card className="p-6 card-elevated">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-          <h3 className="text-3xl font-semibold mb-2">{value}</h3>
+    <Card className="p-5 border-2 transition-shadow hover:shadow-md card-tile">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-sm font-medium mb-1", brandMutedClasses)}>{title}</p>
+          <h3 className={cn("text-3xl font-bold tracking-tight", brandLabelClasses)}>{value}</h3>
           {description && (
-            <p className="text-xs text-muted-foreground">{description}</p>
+            <p className={cn("text-xs mt-1.5", brandMutedClasses)}>{description}</p>
           )}
           {trend && (
             <div className="flex items-center gap-1 mt-2">
               {trend.direction === "up" ? (
-                <TrendingUp className="h-4 w-4 text-success" />
+                <TrendingUp className="h-4 w-4 text-brand-from" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-destructive" />
+                <TrendingDown className="h-4 w-4 text-brand-to" />
               )}
               <span
-                className={`text-sm font-medium ${
-                  trend.direction === "up" ? "text-success" : "text-destructive"
-                }`}
+                className={cn(
+                  "text-sm font-medium",
+                  trend.direction === "up" ? "text-brand-from" : "text-brand-to",
+                )}
               >
                 {Math.abs(trend.value)}%
               </span>
-              <span className="text-xs text-muted-foreground">vs yesterday</span>
+              <span className={cn("text-xs", brandMutedClasses)}>vs yesterday</span>
             </div>
           )}
         </div>
-        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Icon className="h-6 w-6 text-primary" />
+        <div className={cn("h-12 w-12 shrink-0 rounded-xl flex items-center justify-center", brandIconBoxClasses)}>
+          <Icon className="h-6 w-6" />
         </div>
       </div>
     </Card>

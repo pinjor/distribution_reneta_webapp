@@ -1,169 +1,231 @@
-import { useEffect } from "react";
-import { Package, Truck, CheckCircle, Clock, ClipboardList, FileCheck, TruckIcon, Coins, AlertCircle, XCircle } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import {
+  Package,
+  Truck,
+  FileCheck,
+  TruckIcon,
+  ClipboardList,
+  PlusCircle,
+  MapPinned,
+  CheckCircle2,
+  Coins,
+  FileBarChart,
+  LayoutGrid,
+  BarChart3,
+  Warehouse,
+} from "lucide-react";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { StockChart } from "@/components/dashboard/StockChart";
 import { DispatchChart } from "@/components/dashboard/DispatchChart";
 import { ExpiryAlerts } from "@/components/dashboard/ExpiryAlerts";
+import { OrderStatusCard } from "@/components/dashboard/OrderStatusCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { NavTileCard } from "@/components/ui/tile-card";
+import { brandLabelClasses } from "@/lib/brandTheme";
+import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
-import { TAG_COLORS } from "@/lib/tagColors";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+
+const QUICK_ACTIONS = [
+  { title: "New Order", icon: PlusCircle, path: "/orders/new" },
+  { title: "Delivery Orders", icon: ClipboardList, path: "/orders" },
+  { title: "Distribution Cockpit", icon: LayoutGrid, path: "/distribution/cockpit" },
+  { title: "Stock Maintenance", icon: Warehouse, path: "/warehouse/maintenance" },
+  { title: "Collection Reports", icon: BarChart3, path: "/billing/reports" },
+  { title: "MIS Report", icon: FileBarChart, path: "/orders/mis-report" },
+];
+
+const STATUS_ROUTES: Record<string, string> = {
+  "Pending Validation": "/orders",
+  Validated: "/orders/route-wise",
+  Assigned: "/orders/assigned",
+  "Fully Delivered": "/orders/remaining-cash-list?status_filter=Fully Collected",
+  "Partial Delivered": "/orders/remaining-cash-list?status_filter=Partially Collected",
+  Postponed: "/orders/remaining-cash-list?status_filter=Postponed",
+  "Pending Collection": "/orders/remaining-cash-list?status_filter=Pending",
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  
+  const { user } = useAuth();
+
   useEffect(() => {
     document.title = "Dashboard | Renata";
   }, []);
 
   const { data: kpis, isLoading } = useQuery({
-    queryKey: ['dashboard-kpis'],
+    queryKey: ["dashboard-kpis"],
     queryFn: apiEndpoints.dashboard.kpis,
   });
 
-  // Format numbers with commas
-  const formatNumber = (num: number | undefined) => {
-    if (num === undefined) return "0";
-    return num.toLocaleString();
-  };
+  const formatNumber = (num: number | undefined) =>
+    num === undefined ? "0" : num.toLocaleString();
 
-  const getStatusBadge = (status: string, count: number) => {
-    const colorConfig = TAG_COLORS[status as keyof typeof TAG_COLORS] || TAG_COLORS["Pending"];
-    
-    return (
-      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer" onClick={() => {
-        // Navigate to appropriate page based on status
-        if (status === "Pending Validation") navigate("/orders");
-        else if (status === "Validated") navigate("/orders/route-wise");
-        else if (status === "Assigned") navigate("/orders/assigned");
-        else if (status === "Fully Delivered") navigate("/orders/remaining-cash-list?status_filter=Fully Collected");
-        else if (status === "Partial Delivered") navigate("/orders/remaining-cash-list?status_filter=Partially Collected");
-        else if (status === "Postponed") navigate("/orders/remaining-cash-list?status_filter=Postponed");
-        else if (status === "Pending Collection") navigate("/orders/remaining-cash-list?status_filter=Pending");
-      }}>
-        <div className="flex items-center gap-3">
-          <span 
-            className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2"
-            style={{ backgroundColor: colorConfig.bg }}
-          >
-            {status}
-          </span>
-          <span className="text-sm font-medium">{count}</span>
-        </div>
-        <span className="text-xs text-muted-foreground">orders</span>
-      </div>
-    );
-  };
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  const displayName = user?.first_name
+    ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""}`
+    : "there";
+
+  const om = kpis?.order_management;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your warehouse operations</p>
-      </div>
+      <PageHeader
+        eyebrow={greeting}
+        title={displayName}
+        subtitle="Distribution operations overview - track orders from creation through billing and MIS."
+        icon={LayoutGrid}
+        variant="sky"
+        actions={(
+          <>
+            <Button
+              variant="headerAction"
+              size="sm"
+              onClick={() => navigate("/distribution/cockpit")}
+            >
+              <LayoutGrid className="h-4 w-4 mr-1.5" />
+              Open Cockpit
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm"
+              onClick={() => navigate("/orders/new")}
+            >
+              <PlusCircle className="h-4 w-4 mr-1.5" />
+              New Order
+            </Button>
+          </>
+        )}
+      />
 
       {/* KPI Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Total Stock"
           value={isLoading ? "..." : formatNumber(kpis?.total_stock)}
           icon={Package}
           description="Units across all depots"
-          trend={!isLoading && kpis?.total_stock > 0 ? { value: 0, direction: "up" } : undefined}
+          accent="blue"
         />
         <KPICard
           title="Orders Today"
           value={isLoading ? "..." : formatNumber(kpis?.orders_today)}
           icon={Truck}
-          description="New orders received"
-          trend={!isLoading && kpis?.orders_today > 0 ? { value: 0, direction: "up" } : undefined}
+          description="New orders received today"
+          accent="emerald"
         />
         <KPICard
           title="Validated"
           value={isLoading ? "..." : formatNumber(kpis?.validated_today)}
           icon={FileCheck}
-          description="Orders validated (not assigned)"
-          trend={!isLoading && kpis?.validated_today > 0 ? { value: 0, direction: "up" } : undefined}
+          description="Awaiting assignment"
+          accent="indigo"
         />
         <KPICard
           title="Assigned"
           value={isLoading ? "..." : formatNumber(kpis?.assigned_today)}
           icon={TruckIcon}
-          description="Orders assigned to vehicles"
-          trend={!isLoading && kpis?.assigned_today > 0 ? { value: 0, direction: "up" } : undefined}
+          description="Loaded & dispatched"
+          accent="violet"
         />
       </div>
 
-      {/* Order Management Section */}
-      <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" />
-            Order Management
+      {/* Order status grid */}
+      <Card className="card-elevated border border-emerald-200/60 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50/30 via-card to-card dark:from-emerald-950/15 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="block">Order Management Status</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                Live counts across each stage of the order pipeline
+              </span>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {getStatusBadge("Pending Validation", kpis?.order_management?.pending_validation || 0)}
-            {getStatusBadge("Validated", kpis?.order_management?.validated || 0)}
-            {getStatusBadge("Assigned", kpis?.order_management?.assigned || 0)}
-            {getStatusBadge("Fully Delivered", kpis?.order_management?.fully_delivered || 0)}
-            {getStatusBadge("Partial Delivered", kpis?.order_management?.partially_delivered || 0)}
-            {getStatusBadge("Postponed", kpis?.order_management?.postponed || 0)}
-            {getStatusBadge("Pending Collection", kpis?.order_management?.pending_collection || 0)}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-4">
+            <OrderStatusCard
+              status="Pending Validation"
+              count={om?.pending_validation ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Pending Validation"])}
+            />
+            <OrderStatusCard
+              status="Validated"
+              count={om?.validated ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Validated"])}
+            />
+            <OrderStatusCard
+              status="Assigned"
+              count={om?.assigned ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Assigned"])}
+            />
+            <OrderStatusCard
+              status="Fully Delivered"
+              count={om?.fully_delivered ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Fully Delivered"])}
+            />
+            <OrderStatusCard
+              status="Partial Delivered"
+              count={om?.partially_delivered ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Partial Delivered"])}
+            />
+            <OrderStatusCard
+              status="Postponed"
+              count={om?.postponed ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Postponed"])}
+            />
+            <OrderStatusCard
+              status="Pending Collection"
+              count={om?.pending_collection ?? 0}
+              onClick={() => navigate(STATUS_ROUTES["Pending Collection"])}
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <StockChart />
-        <DispatchChart />
+      {/* Quick actions */}
+      <div>
+        <h2 className={cn("text-lg font-semibold mb-3", brandLabelClasses)}>Quick Actions</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {QUICK_ACTIONS.map((action) => (
+            <NavTileCard
+              key={action.path}
+              title={action.title}
+              icon={action.icon}
+              onClick={() => navigate(action.path)}
+              className="[&_.flex]:flex-col [&_.flex]:items-center [&_.flex]:text-center [&_h3]:text-sm"
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Bottom Section */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Card className="p-6 card-elevated">
-            <h3 className="text-lg font-medium mb-4">Routes In Progress</h3>
-            <div className="space-y-3">
-              {[
-                { route: "Route-A Central", driver: "John Smith", stops: 12, completed: 8, status: "active" },
-                { route: "Route-B North", driver: "Sarah Johnson", stops: 10, completed: 10, status: "completed" },
-                { route: "Route-C South", driver: "Mike Wilson", stops: 15, completed: 6, status: "active" },
-                { route: "Route-D East", driver: "Emma Davis", stops: 8, completed: 3, status: "active" },
-              ].map((route, index) => (
-                <div key={index} className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium text-sm">{route.route}</p>
-                      <span className={`status-chip ${route.status === 'completed' ? 'status-success' : 'status-info'}`}>
-                        {route.status === 'completed' ? 'Completed' : 'In Progress'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Driver: {route.driver}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{route.completed}/{route.stops}</p>
-                    <p className="text-xs text-muted-foreground">stops</p>
-                  </div>
-                  <div className="w-24">
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${route.status === 'completed' ? 'bg-success' : 'bg-primary'}`}
-                        style={{ width: `${(route.completed / route.stops) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-        <ExpiryAlerts />
+      {/* Charts */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <StockChart />
+        <DispatchChart
+          pending={om?.pending_validation}
+          validated={om?.validated}
+          assigned={om?.assigned}
+          delivered={(om?.fully_delivered ?? 0) + (om?.partially_delivered ?? 0)}
+        />
       </div>
+
+      {/* Expiry alerts */}
+      <ExpiryAlerts />
     </div>
   );
 };

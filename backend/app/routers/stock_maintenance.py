@@ -5,18 +5,25 @@ from typing import List, Optional
 from datetime import date
 from decimal import Decimal
 from app.database import get_db
-from app.models import StockLedger, Product, ProductItemStock, ProductItemStockDetail, Depot
+from app.models import StockLedger, Product, ProductItemStock, ProductItemStockDetail, Depot, Employee
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
 
 router = APIRouter()
 
 @router.get("/", response_model=List[dict])
-def get_stock_ledger(skip: int = 0, limit: int = 10000, db: Session = Depends(get_db)):
+def get_stock_ledger(
+    skip: int = 0,
+    limit: int = 10000,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """
     Get stock ledger from new product_item_stock tables.
     Returns batch-wise stock details with product information.
     """
     # Query from new product_item_stock_details table
-    stock_details = db.query(
+    stock_query = db.query(
         ProductItemStockDetail,
         ProductItemStock,
         Product,
@@ -29,7 +36,9 @@ def get_stock_ledger(skip: int = 0, limit: int = 10000, db: Session = Depends(ge
         Depot, ProductItemStock.depot_id == Depot.id
     ).filter(
         Product.is_active == True  # Only show active products
-    ).offset(skip).limit(limit).all()
+    )
+    stock_query = apply_depot_id_filter(stock_query, user, ProductItemStock.depot_id)
+    stock_details = stock_query.offset(skip).limit(limit).all()
     
     result = []
     for detail, stock, product, depot in stock_details:

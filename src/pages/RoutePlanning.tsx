@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const routes = [
   { id: "RT-001", name: "Route A (North)", stops: 5, distance: "45 km", status: "in-progress" },
@@ -54,10 +55,12 @@ export default function RoutePlanning() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Route Planning & Dispatch</h1>
-        <p className="text-muted-foreground">Plan delivery routes and manage dispatches</p>
-      </div>
+      <PageHeader
+        title="Route Planning & Dispatch"
+        subtitle="Plan delivery routes and manage dispatches"
+        icon={Navigation}
+        variant="teal"
+      />
 
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Create Dispatch Plan</h2>

@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models import Route
+from app.models import Route, Employee
 from pydantic import BaseModel
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter
 
 router = APIRouter()
 
@@ -21,8 +23,14 @@ class RouteResponse(BaseModel):
         from_attributes = True
 
 @router.get("/", response_model=List[RouteResponse])
-def get_routes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    routes = db.query(Route).offset(skip).limit(limit).all()
+def get_routes(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    query = apply_depot_id_filter(db.query(Route), user, Route.depot_id)
+    routes = query.offset(skip).limit(limit).all()
     # Map route_id to code for frontend compatibility
     result = []
     for route in routes:

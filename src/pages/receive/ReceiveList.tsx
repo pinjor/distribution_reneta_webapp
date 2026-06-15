@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { format } from "date-fns";
 import { Download, Eye, Pencil, Trash2, CheckCircle2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface ReceiptItem {
   id: number;
@@ -103,17 +104,19 @@ export default function ReceiveList() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Product Receipts</h1>
-          <p className="text-muted-foreground">Manage factory, depot, and stock return receipts.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => navigate("/receive/factory")}>New Factory Receipt</Button>
-          <Button onClick={() => navigate("/receive/depot")}>New Depot Receipt</Button>
-          <Button onClick={() => navigate("/receive/return")}>New Return Receipt</Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Product Receipts"
+        subtitle="Manage factory, depot, and stock return receipts."
+        icon={Download}
+        variant="blue"
+        actions={(
+          <>
+            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/receive/factory")}>New Factory Receipt</Button>
+            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/receive/depot")}>New Depot Receipt</Button>
+            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/receive/return")}>New Return Receipt</Button>
+          </>
+        )}
+      />
 
       <Card>
         <CardContent className="p-4 space-y-4">

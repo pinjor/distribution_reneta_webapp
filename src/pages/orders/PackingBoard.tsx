@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { Loader2, RefreshCw, Search } from "lucide-react";
+import { Loader2, RefreshCw, Search, PackageSearch } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface PackingDelivery {
   id: number;
@@ -156,14 +157,13 @@ export default function PackingBoard() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Picking Queue</h1>
-          <p className="text-muted-foreground">
-            Select confirmed order deliveries to create picking challans and print picking slips.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title="Picking Queue"
+        subtitle="Select confirmed order deliveries to create picking challans and print picking slips."
+        icon={PackageSearch}
+        variant="indigo"
+        actions={(
+          <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={fetchDeliveries} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -175,7 +175,8 @@ export default function PackingBoard() {
             Generate Picking Challan
           </Button>
         </div>
-      </header>
+        )}
+      />
 
       <Card>
         <CardHeader className="space-y-3">

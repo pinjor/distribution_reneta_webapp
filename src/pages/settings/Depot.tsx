@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Warehouse, ArrowLeft, MapPin, Layers } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { getBadgeVariant } from "@/utils/badgeColors";
@@ -297,22 +298,24 @@ export default function Depot() {
 
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Button variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Depot" : "Add New Depot"}
+          subtitle={editMode ? "Update depot information" : "Create a new depot or warehouse"}
+          icon={Warehouse}
+          variant="indigo"
+          actions={(
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleCancel}
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
+            >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Warehouse className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Depot" : "Add New Depot"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update depot information" : "Create a new depot or warehouse"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -432,19 +435,18 @@ export default function Depot() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Warehouse className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Depot Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage warehouses, distribution centers, and storage facilities</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Depot Management"
+        subtitle="Manage warehouses, distribution centers, and storage facilities"
+        icon={Warehouse}
+        variant="indigo"
+      />
 
       <MasterDataTable
         title="All Depots"
@@ -461,6 +463,6 @@ export default function Depot() {
         showCode={true}
         codeKey="code"
       />
-    </main>
+    </div>
   );
 }

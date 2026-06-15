@@ -16,7 +16,19 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+      backgroundImage: {
+        "brand-gradient": "linear-gradient(to right, #0096D6, #0077C0)",
+        "brand-tile": "linear-gradient(135deg, #eef9fd 0%, #dff2fa 50%, #cce9f7 100%)",
+      },
       colors: {
+        brand: {
+          from: "#0096D6",
+          to: "#0077C0",
+          deep: "#005a8c",
+          "tile-from": "#eef9fd",
+          "tile-via": "#dff2fa",
+          "tile-to": "#cce9f7",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

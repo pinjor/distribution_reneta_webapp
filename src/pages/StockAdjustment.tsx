@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const adjustmentRequests = [
   { id: "ADJ-001", product: "Paracetamol 500mg", batch: "6000001", qty: -50, reason: "Damaged", status: "pending", date: "2025-01-15", submittedBy: "Mohammad Rahman" },
@@ -79,10 +80,12 @@ export default function StockAdjustment() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Stock Adjustment</h1>
-        <p className="text-muted-foreground">Request inventory adjustments with proper approval workflow</p>
-      </div>
+      <PageHeader
+        title="Stock Adjustment"
+        subtitle="Request inventory adjustments with proper approval workflow"
+        icon={FileText}
+        variant="cyan"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1 p-6">

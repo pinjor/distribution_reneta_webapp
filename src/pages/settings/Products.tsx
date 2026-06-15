@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, ArrowLeft, Barcode } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { generateCode } from "@/utils/codeGenerator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -325,27 +326,24 @@ export default function Products() {
   // Show form page if showAddForm is true
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Product" : "Add New Product"}
+          subtitle={editMode ? "Update product information" : "Create a new product in the catalog"}
+          icon={Package}
+          variant="indigo"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Package className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Product" : "Add New Product"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update product information" : "Create a new product in the catalog"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -694,20 +692,19 @@ export default function Products() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   // Show list view
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Package className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Product Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage product catalog, SKUs, and inventory items</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Product Management"
+        subtitle="Manage product catalog, SKUs, and inventory items"
+        icon={Package}
+        variant="indigo"
+      />
 
       <MasterDataTable
         title="Product Catalog"
@@ -723,6 +720,6 @@ export default function Products() {
         emptyMessage="No products found"
         showCode={false}
       />
-    </main>
+    </div>
   );
 }

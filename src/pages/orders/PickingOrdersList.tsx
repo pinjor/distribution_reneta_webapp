@@ -6,7 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { Loader2, PlusCircle, Printer, Eye, CheckCircle2, RefreshCw } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  Loader2,
+  PlusCircle,
+  Printer,
+  RefreshCw,
+  Truck,
+} from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface PickingOrderSummary {
   id: number;
@@ -62,24 +71,24 @@ export default function PickingOrdersList() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Loading Request</h1>
-          <p className="text-muted-foreground">
-            Track generated picking challans and continue to the loading list once approved.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title="Loading Request"
+        subtitle="Track generated picking challans and continue to the loading list once approved."
+        icon={Truck}
+        variant="indigo"
+        actions={(
+          <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={fetchOrders} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={() => navigate("/orders/picking")}>
+          <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/orders/picking")}>
             <PlusCircle className="h-4 w-4 mr-2" />
             Create picking challan
           </Button>
         </div>
-      </header>
+        )}
+      />
 
       {loading ? (
         <Card>

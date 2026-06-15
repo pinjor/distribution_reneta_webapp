@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Package, ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { apiEndpoints } from "@/lib/api";
@@ -181,27 +182,24 @@ export default function PrimaryPackaging() {
 
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Primary Packaging" : "Add New Primary Packaging"}
+          subtitle={editMode ? "Update Primary Packaging information" : "Create a new Primary Packaging type"}
+          icon={Package}
+          variant="indigo"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Package className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Primary Packaging" : "Add New Primary Packaging"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update Primary Packaging information" : "Create a new Primary Packaging type"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -253,19 +251,18 @@ export default function PrimaryPackaging() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Package className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Primary Packaging Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage Primary Packaging types for products</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Primary Packaging Management"
+        subtitle="Manage Primary Packaging types for products"
+        icon={Package}
+        variant="indigo"
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -287,7 +284,7 @@ export default function PrimaryPackaging() {
           showCode={false}
         />
       )}
-    </main>
+    </div>
   );
 }
 

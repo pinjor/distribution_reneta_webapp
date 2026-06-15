@@ -10,6 +10,12 @@ from sqlalchemy import or_
 
 from app.database import get_db
 from app import models, schemas
+from app.core.deps import require_auth, require_permission
+from app.core.depot_scope import apply_depot_code_filter, apply_depot_id_filter
+from app.models import Employee
+from app.services.audit_service import AuditService
+from app.services.order_validation_service import OrderValidationService
+from app.services.stock_reservation_service import StockReservationService
 
 router = APIRouter()
 
@@ -62,20 +68,22 @@ def map_item_to_model(item_data: schemas.OrderItemCreate, order: models.Order) -
 
 
 @router.get("", response_model=List[schemas.Order])
-def list_orders(db: Session = Depends(get_db)) -> List[schemas.Order]:
+def list_orders(
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> List[schemas.Order]:
     """Get all orders that are not yet validated, have items, and have a route assigned"""
     from sqlalchemy import exists
-    # Only show non-validated orders that have at least one item AND have a route
-    orders = (
+    query = (
         db.query(models.Order)
-        .filter(models.Order.validated == False)  # Only show non-validated orders
-        .filter(models.Order.route_code.isnot(None))  # Must have a route assigned
-        .filter(models.Order.route_code != "")  # Route code must not be empty
-        .filter(exists().where(models.OrderItem.order_id == models.Order.id))  # Must have at least one item
+        .filter(models.Order.validated == False)
+        .filter(models.Order.route_code.isnot(None))
+        .filter(models.Order.route_code != "")
+        .filter(exists().where(models.OrderItem.order_id == models.Order.id))
         .order_by(models.Order.created_at.desc())
-        .all()
     )
-    # Filter out orders with empty items list or missing route (additional safety check)
+    query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
+    orders = query.all()
     return [order for order in orders if order.items and len(order.items) > 0 and order.route_code]
 
 
@@ -85,7 +93,8 @@ def list_orders(db: Session = Depends(get_db)) -> List[schemas.Order]:
 @router.get("/remaining-cash-list")
 def get_remaining_cash_list(
     status_filter: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get list of orders after delivery approval (for Remaining Cash and Collection list).
@@ -103,6 +112,7 @@ def get_remaining_cash_list(
             ),
             models.Order.collection_source == "Web"  # Only orders approved from web (Assigned Order List)
         )
+        query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
         
         if status_filter and status_filter != "all":
             query = query.filter(models.Order.collection_status == status_filter)
@@ -269,7 +279,8 @@ def get_collection_approval_list(
 def get_assigned_orders(
     status_filter: Optional[str] = Query(None, alias="status_filter"),
     route_code: Optional[str] = Query(None, alias="route_code"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get assigned orders list"""
     from sqlalchemy import func
@@ -283,6 +294,7 @@ def get_assigned_orders(
                 models.Order.assigned_vehicle.isnot(None),
             )
         )
+        query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
         
         if status_filter and status_filter != "all":
             # Map status filter to order status or assignment status
@@ -599,7 +611,11 @@ def get_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
 
 
 @router.post("", response_model=schemas.Order, status_code=status.HTTP_201_CREATED)
-def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db)) -> schemas.Order:
+def create_order(
+    order_data: schemas.OrderCreate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> schemas.Order:
     try:
         # MANDATORY: Route validation - Route is required for all orders
         if not order_data.route_code or order_data.route_code.strip() == '':
@@ -756,6 +772,15 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
         
         db.commit()
         db.refresh(order)
+        AuditService.log_action(
+            db,
+            entity_type="order",
+            entity_id=str(order.id),
+            action="CREATE",
+            user=user,
+            new_value={"order_number": order.order_number, "customer_code": order.customer_code},
+        )
+        db.commit()
         return order
     except HTTPException:
         raise
@@ -772,7 +797,12 @@ def create_order(order_data: schemas.OrderCreate, db: Session = Depends(get_db))
 
 
 @router.put("/{order_id}", response_model=schemas.Order)
-def update_order(order_id: int, order_update: schemas.OrderUpdate, db: Session = Depends(get_db)) -> schemas.Order:
+def update_order(
+    order_id: int,
+    order_update: schemas.OrderUpdate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> schemas.Order:
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -1040,14 +1070,36 @@ def update_order(order_id: int, order_update: schemas.OrderUpdate, db: Session =
 
     db.commit()
     db.refresh(order)
+    AuditService.log_action(
+        db,
+        entity_type="order",
+        entity_id=str(order_id),
+        action="UPDATE",
+        user=user,
+        new_value={"status": order.status.value if order.status else None, "route_code": order.route_code},
+    )
+    db.commit()
     return order
 
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_order(order_id: int, db: Session = Depends(get_db)) -> None:
+def delete_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> None:
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    StockReservationService.release_for_order(db, order_id, user)
+    AuditService.log_action(
+        db,
+        entity_type="order",
+        entity_id=str(order_id),
+        action="DELETE",
+        user=user,
+        old_value={"order_number": order.order_number},
+    )
     db.delete(order)
     db.commit()
 
@@ -1067,11 +1119,14 @@ def submit_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
 
 
 @router.post("/validate", response_model=schemas.OrderValidationResponse)
-def validate_orders(payload: schemas.OrderValidationRequest, db: Session = Depends(get_db)) -> schemas.OrderValidationResponse:
+def validate_orders(
+    payload: schemas.OrderValidationRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("orders.validate")),
+) -> schemas.OrderValidationResponse:
     if not payload.order_ids:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No orders selected for validation")
 
-    # IMPORTANT: Load orders with items to ensure selected status is checked correctly
     from sqlalchemy.orm import joinedload
     orders = (
         db.query(models.Order)
@@ -1086,39 +1141,17 @@ def validate_orders(payload: schemas.OrderValidationRequest, db: Session = Depen
     generated_number = payload.order_number or generate_order_number()
 
     for order in orders:
-        # Allow validating Draft, Submitted, or Partially Approved orders
-        # Check if order is already fully validated (all items selected and status is APPROVED)
-        all_selected = all(item.selected for item in order.items)
-        if order.status == models.OrderStatusEnum.APPROVED and all_selected and order.validated:
-            continue
-
-        # Check if at least one item is selected
         selected_items = [item for item in order.items if item.selected]
         if not selected_items:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Order {order.id} has no selected items to validate",
             )
-
-        # Set order number if not already set
         if not order.order_number:
             order.order_number = generated_number
-        
-        # Generate memo number if not already set (8-digit numeric)
         if not order.memo_number:
             order.memo_number = generate_memo_number(db)
-        
-        # Update status based on selection and validate
-        if all_selected:
-            order.status = models.OrderStatusEnum.APPROVED
-            # Mark order as validated (fully validated - all items selected)
-            order.validated = True
-        else:
-            order.status = models.OrderStatusEnum.PARTIALLY_APPROVED
-            # Partially validated orders are not fully validated yet
-            order.validated = False
-
-    db.commit()
+        OrderValidationService.validate_order(db, order, user)
 
     refreshed = (
         db.query(models.Order)
@@ -1131,7 +1164,10 @@ def validate_orders(payload: schemas.OrderValidationRequest, db: Session = Depen
 
 
 @router.get("/route-wise/all", response_model=List[schemas.RouteWiseOrderResponse])
-def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.RouteWiseOrderResponse]:
+def get_all_route_wise_orders(
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> List[schemas.RouteWiseOrderResponse]:
     """Get all route-wise orders grouped by route"""
     from sqlalchemy import func
     from decimal import Decimal
@@ -1139,7 +1175,9 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
     from sqlalchemy.orm import joinedload
     
     # Get all active routes
-    routes = db.query(models.Route).filter(models.Route.status == "Active").order_by(models.Route.route_id).all()
+    routes_query = db.query(models.Route).filter(models.Route.status == "Active")
+    routes_query = apply_depot_id_filter(routes_query, user, models.Route.depot_id)
+    routes = routes_query.order_by(models.Route.route_id).all()
     
     result = []
     for route in routes:
@@ -1243,14 +1281,18 @@ def get_all_route_wise_orders(db: Session = Depends(get_db)) -> List[schemas.Rou
 
 
 @router.get("/route-wise/{route_code}", response_model=schemas.RouteWiseOrderResponse)
-def get_route_wise_orders(route_code: str, db: Session = Depends(get_db)) -> schemas.RouteWiseOrderResponse:
+def get_route_wise_orders(
+    route_code: str,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> schemas.RouteWiseOrderResponse:
     """Get route-wise orders with statistics"""
     from sqlalchemy import func, case
     from decimal import Decimal
     
     # Get approved orders for the route
     # Order by most recent first
-    orders = (
+    orders_query = (
         db.query(models.Order)
         .filter(
             models.Order.route_code == route_code,
@@ -1258,8 +1300,8 @@ def get_route_wise_orders(route_code: str, db: Session = Depends(get_db)) -> sch
             models.Order.loaded == False  # Only unloaded orders
         )
         .order_by(models.Order.created_at.desc())
-        .all()
     )
+    orders = apply_depot_code_filter(orders_query, user, models.Order.depot_code, db).all()
     
     # Build route-wise items
     items = []
@@ -1324,7 +1366,11 @@ def get_route_wise_orders(route_code: str, db: Session = Depends(get_db)) -> sch
 
 
 @router.post("/route-wise/print", status_code=status.HTTP_200_OK)
-def print_route_wise_orders(payload: schemas.RouteWisePrintRequest, db: Session = Depends(get_db)):
+def print_route_wise_orders(
+    payload: schemas.RouteWisePrintRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Generate and return combined PDF: packing report + individual invoice reports for selected orders"""
     from datetime import datetime
     from fastapi.responses import Response
@@ -1523,6 +1569,16 @@ def print_route_wise_orders(payload: schemas.RouteWisePrintRequest, db: Session 
             order.printed_at = datetime.utcnow()
         
         db.commit()
+
+        AuditService.log_action(
+            db,
+            entity_type="order",
+            entity_id=",".join(str(o.id) for o in orders),
+            action="PRINT",
+            user=user,
+            new_value={"order_ids": [o.id for o in orders], "count": len(orders)},
+        )
+        db.commit()
         
         # Return merged PDF as response
         return Response(
@@ -1543,7 +1599,11 @@ def print_route_wise_orders(payload: schemas.RouteWisePrintRequest, db: Session 
 
 
 @router.post("/route-wise/assign", status_code=status.HTTP_200_OK)
-def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Session = Depends(get_db)):
+def assign_route_wise_orders(
+    payload: schemas.RouteWiseAssignRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Assign orders to employee and vehicle"""
     from datetime import datetime, date
     from sqlalchemy import func, count
@@ -1616,6 +1676,10 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
         else:
             order.area = route_name or route_code or "N/A"
     
+    db.commit()
+
+    for order in orders:
+        StockReservationService.commit_for_order(db, order.id, user)
     db.commit()
     
     # Create trip assignment automatically
@@ -1738,6 +1802,21 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
         # Don't rollback - keep the order assignment
         pass
     
+    AuditService.log_action(
+        db,
+        entity_type="order",
+        entity_id=loading_number,
+        action="ASSIGN",
+        user=user,
+        new_value={
+            "order_ids": payload.order_ids,
+            "employee_id": payload.employee_id,
+            "vehicle_id": payload.vehicle_id,
+            "loading_number": loading_number,
+        },
+    )
+    db.commit()
+
     return {
         "message": f"Assigned {len(orders)} order(s) to {employee.first_name} {employee.last_name} and vehicle {vehicle.registration_number}",
         "order_ids": payload.order_ids,
@@ -1749,7 +1828,11 @@ def assign_route_wise_orders(payload: schemas.RouteWiseAssignRequest, db: Sessio
 
 
 @router.post("/assigned/from-barcodes", status_code=status.HTTP_200_OK)
-def create_assigned_order_list_from_barcodes(payload: schemas.BarcodeAssignRequest, db: Session = Depends(get_db)):
+def create_assigned_order_list_from_barcodes(
+    payload: schemas.BarcodeAssignRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Create assigned order list by scanning memo barcodes"""
     from datetime import datetime, date
     from sqlalchemy import func
@@ -1831,6 +1914,10 @@ def create_assigned_order_list_from_barcodes(payload: schemas.BarcodeAssignReque
         order.area = route_name or route_code or "N/A"
         assigned_order_ids.append(order.id)
     
+    db.commit()
+
+    for order in orders:
+        StockReservationService.commit_for_order(db, order.id, user)
     db.commit()
     
     # Create trip assignment automatically
@@ -2473,7 +2560,8 @@ def get_money_receipt_report(loading_number: str, db: Session = Depends(get_db))
 def update_assigned_order_status(
     order_id: int,
     status_update: schemas.AssignedOrderStatusUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Update assigned order status"""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
@@ -2493,6 +2581,7 @@ def update_assigned_order_status(
         if not order.loaded_at:
             from datetime import datetime
             order.loaded_at = datetime.utcnow()
+        StockReservationService.commit_for_order(db, order.id, user)
     
     db.commit()
     

@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { MapPin, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,18 +159,21 @@ export default function RouteShippingPoints() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Route Shipping Points</h1>
-          <p className="text-muted-foreground">
-            Manage shipping points for routes with distance tracking
-          </p>
-        </div>
-        <Button onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Shipping Point to Route
-        </Button>
-      </div>
+      <PageHeader
+        title="Route Shipping Points"
+        subtitle="Manage shipping points for routes with distance tracking"
+        icon={MapPin}
+        variant="indigo"
+        actions={(
+          <Button
+            onClick={handleAdd}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Shipping Point to Route
+          </Button>
+        )}
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center h-64">

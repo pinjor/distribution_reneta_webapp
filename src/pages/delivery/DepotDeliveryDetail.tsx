@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface DepotTransferItem {
   id: number;
@@ -190,18 +191,24 @@ export default function DepotDeliveryDetail() {
 
   return (
     <main className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/delivery/depot")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{transfer.transfer_number}</h1>
-          <p className="text-muted-foreground">Depot Transfer Details</p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader
+        title={transfer.transfer_number}
+        subtitle="Depot Transfer Details"
+        icon={PackageCheck}
+        variant="emerald"
+        actions={(
+          <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate("/delivery/depot")}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
           {canApprove && (
-            <Button onClick={handleApprove} disabled={approving || !user || !user.id}>
+            <Button onClick={handleApprove} disabled={approving || !user || !user.id} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
               {approving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -216,7 +223,12 @@ export default function DepotDeliveryDetail() {
             </Button>
           )}
           {canReceive && (
-            <Button onClick={handleReceive} disabled={receiving || !user || !user.id} variant="default">
+            <Button
+              onClick={handleReceive}
+              disabled={receiving || !user || !user.id}
+              variant="default"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+            >
               {receiving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -231,7 +243,8 @@ export default function DepotDeliveryDetail() {
             </Button>
           )}
         </div>
-      </div>
+        )}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

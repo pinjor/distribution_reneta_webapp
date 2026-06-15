@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserSquare2, ArrowLeft, Mail, Phone } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
@@ -263,27 +264,24 @@ export default function Employees() {
   // Show form page if showAddForm is true
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Employee" : "Add New Employee"}
+          subtitle={editMode ? "Update employee information" : "Register a new staff member"}
+          icon={UserSquare2}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <UserSquare2 className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Employee" : "Add New Employee"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update employee information" : "Register a new staff member"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -420,20 +418,19 @@ export default function Employees() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   // Show list view
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <UserSquare2 className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Employee Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage staff, roles, and access permissions</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Employee Management"
+        subtitle="Manage staff, roles, and access permissions"
+        icon={UserSquare2}
+        variant="slate"
+      />
 
       <MasterDataTable
         title="All Employees"
@@ -450,6 +447,6 @@ export default function Employees() {
         showCode={true}
         codeKey="code"
       />
-    </main>
+    </div>
   );
 }

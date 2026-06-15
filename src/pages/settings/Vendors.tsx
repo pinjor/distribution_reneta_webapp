@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Users, ArrowLeft, Star, Mail, Phone } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
@@ -189,27 +190,24 @@ export default function Vendors() {
   // Show form page if showAddForm is true
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Vendor" : "Add New Vendor"}
+          subtitle={editMode ? "Update vendor information" : "Onboard a new supplier or service provider"}
+          icon={Users}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Users className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Vendor" : "Add New Vendor"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update vendor information" : "Onboard a new supplier or service provider"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -301,20 +299,19 @@ export default function Vendors() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   // Show list view
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Users className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Vendor Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage suppliers, contractors, and service providers</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Vendor Management"
+        subtitle="Manage suppliers, contractors, and service providers"
+        icon={Users}
+        variant="slate"
+      />
 
       <MasterDataTable
         title="All Vendors"
@@ -331,6 +328,6 @@ export default function Vendors() {
         showCode={true}
         codeKey="code"
       />
-    </main>
+    </div>
   );
 }

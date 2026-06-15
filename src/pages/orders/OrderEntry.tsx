@@ -12,10 +12,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { masterData, type CustomerOption, type EmployeeOption, type ProductOption } from "@/lib/masterData";
 import { apiEndpoints } from "@/lib/api";
-import { CalendarIcon, Loader2, Trash2, ChevronsUpDown, Pencil } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, ChevronsUpDown, Pencil, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface ComboboxOption {
@@ -972,12 +973,12 @@ export default function OrderEntry() {
   return (
     <main className="p-6 space-y-6">
       <OrderBreadcrumb />
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">Order Management</h1>
-        <p className="text-muted-foreground">
-          Create a customer order without reference, add multiple items, and review the draft before saving.
-        </p>
-      </header>
+      <PageHeader
+        title="Order Management"
+        subtitle="Create a customer order without reference, add multiple items, and review the draft before saving."
+        icon={ClipboardList}
+        variant="indigo"
+      />
 
       <Card>
         <CardHeader className="pb-4">

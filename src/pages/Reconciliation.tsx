@@ -1,154 +1,96 @@
-import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-
-const reconciliationData = [
-  { routeId: "RT-001", deliveries: 5, planned: 5, delivered: 5, cashExpected: 25000, cashCollected: 25000, variance: 0, status: "complete" },
-  { routeId: "RT-002", deliveries: 7, planned: 7, delivered: 6, cashExpected: 35000, cashCollected: 30000, variance: -5000, status: "partial" },
-  { routeId: "RT-003", deliveries: 4, planned: 4, delivered: 3, cashExpected: 20000, cashCollected: 15000, variance: -5000, status: "failed" },
-];
+import { useState } from "react";
+import { apiEndpoints } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { Scale } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function Reconciliation() {
+  const [loadingNumber, setLoadingNumber] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: pending, isLoading } = useQuery({
+    queryKey: ["reconciliation-pending"],
+    queryFn: apiEndpoints.reconciliation.pending,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (ln: string) => apiEndpoints.reconciliation.createFromAssignment(ln),
+    onSuccess: () => {
+      toast({ title: "Reconciliation created" });
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-pending"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => apiEndpoints.reconciliation.approve(id),
+    onSuccess: () => {
+      toast({ title: "Reconciliation approved" });
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-pending"] });
+    },
+  });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Post-Delivery Reconciliation</h1>
-        <p className="text-muted-foreground">Verify deliveries and cash collections</p>
-      </div>
+      <PageHeader
+        title="Post-Delivery Reconciliation"
+        subtitle="Finance reconciliation from assignment loading numbers"
+        icon={Scale}
+        variant="sky"
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total Routes</p>
-          <p className="text-2xl font-semibold">{reconciliationData.length}</p>
-        </Card>
-
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Completed</p>
-          <p className="text-2xl font-semibold text-success">
-            {reconciliationData.filter(r => r.status === "complete").length}
-          </p>
-        </Card>
-
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Cash Expected</p>
-          <p className="text-2xl font-semibold">
-            {(reconciliationData.reduce((sum, r) => sum + r.cashExpected, 0) / 1000).toFixed(0)}K
-          </p>
-        </Card>
-
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Cash Collected</p>
-          <p className="text-2xl font-semibold text-success">
-            {(reconciliationData.reduce((sum, r) => sum + r.cashCollected, 0) / 1000).toFixed(0)}K
-          </p>
-        </Card>
-      </div>
-
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Reconciliation Summary</h2>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Route ID</TableHead>
-              <TableHead>Total Deliveries</TableHead>
-              <TableHead>Planned</TableHead>
-              <TableHead>Delivered</TableHead>
-              <TableHead>Cash Expected</TableHead>
-              <TableHead>Cash Collected</TableHead>
-              <TableHead>Variance</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {reconciliationData.map((route) => (
-              <TableRow key={route.routeId}>
-                <TableCell className="font-medium">{route.routeId}</TableCell>
-                <TableCell>{route.deliveries}</TableCell>
-                <TableCell>{route.planned}</TableCell>
-                <TableCell>{route.delivered}</TableCell>
-                <TableCell>{route.cashExpected.toLocaleString()}</TableCell>
-                <TableCell>{route.cashCollected.toLocaleString()}</TableCell>
-                <TableCell className={route.variance < 0 ? "text-destructive font-semibold" : "text-success"}>
-                  {route.variance === 0 ? "✓" : `${route.variance.toLocaleString()}`}
-                </TableCell>
-                <TableCell>
-                  {route.status === "complete" && (
-                    <Badge className="bg-success/10 text-success border-success/20">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Complete
-                    </Badge>
-                  )}
-                  {route.status === "partial" && (
-                    <Badge className="bg-warning/10 text-warning border-warning/20">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      Partial
-                    </Badge>
-                  )}
-                  {route.status === "failed" && (
-                    <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-                      <XCircle className="h-3 w-3 mr-1" />
-                      Issues
-                    </Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <Card>
+        <CardHeader><CardTitle>Create Reconciliation</CardTitle></CardHeader>
+        <CardContent className="flex gap-2">
+          <Input placeholder="Loading number e.g. 20250615-0001" value={loadingNumber} onChange={(e) => setLoadingNumber(e.target.value)} />
+          <Button onClick={() => createMutation.mutate(loadingNumber)} disabled={!loadingNumber}>Create</Button>
+        </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Delivery Success Rate</h2>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">RT-001</span>
-                <span className="text-sm font-semibold text-success">100%</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-success" style={{ width: "100%" }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">RT-002</span>
-                <span className="text-sm font-semibold text-warning">86%</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-warning" style={{ width: "86%" }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">RT-003</span>
-                <span className="text-sm font-semibold text-destructive">75%</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-destructive" style={{ width: "75%" }} />
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Cash Collection Variance</h2>
-          <div className="space-y-3">
-            <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-1">Collected as Expected</p>
-              <p className="text-xl font-semibold text-success">25,000</p>
-              <p className="text-xs text-muted-foreground mt-1">1 route</p>
-            </div>
-            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-1">Shortfall</p>
-              <p className="text-xl font-semibold text-destructive">10,000</p>
-              <p className="text-xs text-muted-foreground mt-1">2 routes with variance</p>
-            </div>
-          </div>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader><CardTitle>Pending Reconciliations</CardTitle></CardHeader>
+        <CardContent>
+          {isLoading ? <p>Loading...</p> : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reconciliation No</TableHead>
+                  <TableHead>Loading #</TableHead>
+                  <TableHead>Delivered</TableHead>
+                  <TableHead>Collected</TableHead>
+                  <TableHead>Variance</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(pending || []).map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{r.reconciliation_no}</TableCell>
+                    <TableCell>{r.loading_number}</TableCell>
+                    <TableCell>{Number(r.total_delivered_value).toLocaleString()}</TableCell>
+                    <TableCell>{Number(r.total_collection_value).toLocaleString()}</TableCell>
+                    <TableCell className={Number(r.variance_amount) !== 0 ? "text-destructive font-semibold" : "text-success"}>
+                      {Number(r.variance_amount).toLocaleString()}
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
+                    <TableCell>
+                      <Button size="sm" onClick={() => approveMutation.mutate(r.id)}>Approve</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

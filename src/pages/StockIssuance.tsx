@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function StockIssuance() {
   const [selectedVehicle, setSelectedVehicle] = useState("");
@@ -53,10 +54,12 @@ export default function StockIssuance() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold mb-2">Stock Issuance & Dispatch Planning</h1>
-        <p className="text-muted-foreground">Manage order fulfillment with FEFO logic</p>
-      </div>
+      <PageHeader
+        title="Stock Issuance & Dispatch Planning"
+        subtitle="Manage order fulfillment with FEFO logic"
+        icon={Package}
+        variant="blue"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6">

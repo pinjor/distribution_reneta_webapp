@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface ExportItem {
   key: string;
@@ -192,15 +193,23 @@ export default function ExportDeliveryForm() {
 
   return (
     <main className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/delivery/export")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Create Export Delivery</h1>
-          <p className="text-muted-foreground">Create a new international export delivery with shipping documentation</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Create Export Delivery"
+        subtitle="Create a new international export delivery with shipping documentation"
+        icon={Globe}
+        variant="teal"
+        actions={(
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate("/delivery/export")}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        )}
+      />
 
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">

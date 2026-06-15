@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tag, ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { apiEndpoints } from "@/lib/api";
@@ -297,27 +298,24 @@ export default function PriceSetup() {
 
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Price Setup" : "Add New Price Setup"}
+          subtitle={editMode ? "Update Price Setup information" : "Create a new Price Setup for products"}
+          icon={Tag}
+          variant="indigo"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Tag className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Price Setup" : "Add New Price Setup"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update Price Setup information" : "Create a new Price Setup for products"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -442,19 +440,18 @@ export default function PriceSetup() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Tag className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Price Setup Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage price setups for products</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Price Setup Management"
+        subtitle="Manage price setups for products"
+        icon={Tag}
+        variant="indigo"
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -476,7 +473,7 @@ export default function PriceSetup() {
           showCode={false}
         />
       )}
-    </main>
+    </div>
   );
 }
 

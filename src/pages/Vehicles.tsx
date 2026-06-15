@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function Vehicles() {
   const queryClient = useQueryClient();
@@ -268,16 +269,18 @@ export default function Vehicles() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Vehicle Management</h1>
-          <p className="text-muted-foreground">Manage fleet vehicles and assignments</p>
-        </div>
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Vehicle
-        </Button>
-      </div>
+      <PageHeader
+        title="Vehicle Management"
+        subtitle="Manage fleet vehicles and assignments"
+        icon={Truck}
+        variant="emerald"
+        actions={(
+          <Button onClick={handleAdd} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Vehicle
+          </Button>
+        )}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">

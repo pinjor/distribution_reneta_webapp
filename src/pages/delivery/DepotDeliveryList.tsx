@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface DepotTransfer {
   id: number;
@@ -183,12 +184,13 @@ export default function DepotDeliveryList() {
 
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Depot Transfer List</h1>
-          <p className="text-muted-foreground">Manage transfers to depots and distribution centers</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Depot Transfer List"
+        subtitle="Manage transfers to depots and distribution centers"
+        icon={Package}
+        variant="emerald"
+        actions={(
+          <div className="flex items-center gap-2">
           <Input
             placeholder="Search transfers..."
             value={searchTerm}
@@ -197,7 +199,7 @@ export default function DepotDeliveryList() {
           />
           <div className="w-48">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+            <SelectTrigger className="bg-white text-foreground border-white/50">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -210,16 +212,22 @@ export default function DepotDeliveryList() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+          <Button
+            variant="outline"
+            className="bg-white border-white/50 text-brand-deep hover:bg-white/90"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button onClick={() => navigate("/delivery/depot/new")}>
+          <Button variant="headerAction" onClick={() => navigate("/delivery/depot/new")}>
             <PlusCircle className="h-4 w-4 mr-2" />
             New Transfer Request
           </Button>
         </div>
-      </header>
+        )}
+      />
 
       {loading ? (
         <Card>

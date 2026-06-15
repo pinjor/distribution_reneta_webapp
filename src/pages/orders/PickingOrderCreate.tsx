@@ -8,8 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  Truck,
+} from "lucide-react";
 import SearchableCombobox, { SearchableOption } from "@/components/SearchableCombobox";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface DeliveryItem {
   trade_amount?: number;
@@ -314,12 +318,12 @@ export default function PickingOrderCreate() {
   return (
     <main className="p-6 space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold text-foreground">Create picking challan</h1>
-          <p className="text-muted-foreground">
-            Confirm loading details for the selected deliveries. Totals will update automatically as you edit each row.
-          </p>
-        </div>
+        <PageHeader
+          title="Create Picking Challan"
+          subtitle="Confirm loading details for the selected deliveries. Totals will update automatically as you edit each row."
+          icon={Truck}
+          variant="indigo"
+        />
 
         <Card>
           <CardHeader>

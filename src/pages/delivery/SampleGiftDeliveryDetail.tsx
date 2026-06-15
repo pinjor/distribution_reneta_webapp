@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface SampleGiftDelivery {
   id: number;
@@ -96,16 +97,23 @@ export default function SampleGiftDeliveryDetail() {
 
   return (
     <main className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/delivery/sample-gift")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{delivery.delivery_number}</h1>
-          <p className="text-muted-foreground">Sample Gift Delivery Details</p>
-        </div>
-      </div>
+      <PageHeader
+        title={delivery.delivery_number}
+        subtitle="Sample Gift Delivery Details"
+        icon={Printer}
+        variant="teal"
+        actions={(
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate("/delivery/sample-gift")}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        )}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>

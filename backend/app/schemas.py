@@ -40,10 +40,27 @@ class UserResponse(BaseModel):
     last_name: Optional[str]
     role: str
     department: Optional[str]
-    depot_id: Optional[int]
+    designation: Optional[str] = None
+    phone: Optional[str] = None
+    depot_id: Optional[int] = None
     
     class Config:
         from_attributes = True
+
+
+class DepotSummary(BaseModel):
+    id: int
+    name: str
+    code: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+class UserProfileResponse(UserResponse):
+    depot: Optional[DepotSummary] = None
 
 # Base schemas
 class CompanyBase(BaseModel):
@@ -1037,8 +1054,12 @@ class DeliveryProgressNode(BaseModel):
 class DeliveryTrackingResponse(BaseModel):
     order_id: int
     order_number: Optional[str]
+    memo_number: Optional[str] = None
+    route_code: Optional[str] = None
     delivery_number: Optional[str]
-    current_status: DeliveryStatusEnum
+    current_status: Optional[str] = None
+    current_stage: Optional[str] = None
+    current_stage_label: Optional[str] = None
     steps: List[DeliveryProgressNode]
 
 

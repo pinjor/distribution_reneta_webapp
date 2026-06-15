@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Users, ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { apiEndpoints } from "@/lib/api";
@@ -405,27 +406,24 @@ export default function RoleMaster() {
     const showParent = formData.role_type !== "NSH" && formData.role_type !== "";
 
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Role Master" : "Add New Role Master"}
+          subtitle={editMode ? "Update Role Master information" : "Create a new Role Master with hierarchical structure"}
+          icon={Users}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <Users className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Role Master" : "Add New Role Master"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update Role Master information" : "Create a new Role Master with hierarchical structure"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -635,19 +633,18 @@ export default function RoleMaster() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Users className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Role Master Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage hierarchical role structure (NSH → TSM → RSM → DSM → SM → SO)</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Role Master Management"
+        subtitle="Manage hierarchical role structure (NSH -> TSM -> RSM -> DSM -> SM -> SO)"
+        icon={Users}
+        variant="slate"
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -669,7 +666,7 @@ export default function RoleMaster() {
           showCode={false}
         />
       )}
-    </main>
+    </div>
   );
 }
 

@@ -2,14 +2,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models import Depot
+from app.models import Depot, Employee
 from app.schemas import DepotCreate, Depot as DepotSchema
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_self_filter
 
 router = APIRouter()
 
 @router.get("/", response_model=List[DepotSchema])
-def get_depots(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    depots = db.query(Depot).offset(skip).limit(limit).all()
+def get_depots(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    query = apply_depot_self_filter(db.query(Depot), user)
+    depots = query.offset(skip).limit(limit).all()
     return depots
 
 @router.get("/{depot_id}", response_model=DepotSchema)

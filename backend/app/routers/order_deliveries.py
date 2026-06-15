@@ -8,6 +8,9 @@ from sqlalchemy import asc
 
 from app.database import get_db
 from app import models, schemas
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_code_filter
+from app.services.order_lifecycle_service import build_order_lifecycle_steps
 
 router = APIRouter()
 
@@ -165,9 +168,12 @@ def get_delivery(db: Session, delivery_id: int) -> models.OrderDelivery:
 def list_order_deliveries(
     status_filter: Optional[models.DeliveryStatusEnum] = Query(None),
     db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
 ) -> schemas.OrderDeliveryListResponse:
     from sqlalchemy.orm import joinedload
     query = db.query(models.OrderDelivery).options(joinedload(models.OrderDelivery.order))
+    query = query.join(models.Order, models.OrderDelivery.order_id == models.Order.id)
+    query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
     if status_filter:
         query = query.filter(models.OrderDelivery.status == status_filter)
     deliveries = query.order_by(models.OrderDelivery.created_at.desc()).all()
@@ -390,6 +396,8 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
     if not order:
         order = db.query(models.Order).filter(models.Order.order_number == identifier).first()
     if not order:
+        order = db.query(models.Order).filter(models.Order.memo_number == identifier).first()
+    if not order:
         delivery = db.query(models.OrderDelivery).filter(models.OrderDelivery.delivery_number == identifier).first()
         if delivery:
             order = delivery.order
@@ -404,105 +412,16 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
             .first()
         )
 
-    steps: List[schemas.DeliveryProgressNode] = []
-    # Sales Order
-    steps.append(
-        schemas.DeliveryProgressNode(
-            key="sales_order",
-            label="Sales Order",
-            status="completed" if order.status != models.OrderStatusEnum.DRAFT else "pending",
-            timestamp=order.created_at,
-        )
-    )
-    # Delivery Order
-    if delivery:
-        steps.append(
-            schemas.DeliveryProgressNode(
-                key="order_delivery",
-                label="Delivery Order",
-                status="completed",
-                timestamp=delivery.created_at,
-            )
-        )
-    else:
-        steps.append(
-            schemas.DeliveryProgressNode(
-                key="order_delivery",
-                label="Delivery Order",
-                status="pending",
-            )
-        )
-    # Picking
-    if delivery:
-        picking_status = "pending"
-        if delivery.status in [models.DeliveryStatusEnum.PACKING, models.DeliveryStatusEnum.LOADING, models.DeliveryStatusEnum.SHIPPED, models.DeliveryStatusEnum.DELIVERED]:
-            picking_status = "completed"
-        if delivery.status == models.DeliveryStatusEnum.PACKING:
-            picking_status = "current"
-        steps.append(
-            schemas.DeliveryProgressNode(
-                key="picking",
-                label="Picking",
-                status=picking_status,
-                timestamp=delivery.updated_at if picking_status != "pending" else None,
-            )
-        )
-    else:
-        steps.append(
-            schemas.DeliveryProgressNode(key="picking", label="Picking", status="pending")
-        )
-    # Loading
-    if delivery:
-        loading_status = "pending"
-        if delivery.status in [models.DeliveryStatusEnum.LOADING, models.DeliveryStatusEnum.SHIPPED, models.DeliveryStatusEnum.DELIVERED]:
-            loading_status = "completed" if delivery.status != models.DeliveryStatusEnum.LOADING else "current"
-        steps.append(
-            schemas.DeliveryProgressNode(
-                key="loading",
-                label="Loading",
-                status=loading_status,
-                timestamp=delivery.updated_at if loading_status != "pending" else None,
-            )
-        )
-    else:
-        steps.append(
-            schemas.DeliveryProgressNode(key="loading", label="Loading", status="pending")
-        )
-    # Delivered
-    if delivery:
-        delivered_status = "pending"
-        if delivery.status == models.DeliveryStatusEnum.DELIVERED:
-            delivered_status = "completed"
-        steps.append(
-            schemas.DeliveryProgressNode(
-                key="delivered",
-                label="Delivered",
-                status=delivered_status,
-                timestamp=delivery.updated_at if delivered_status == "completed" else None,
-            )
-        )
-    else:
-        steps.append(
-            schemas.DeliveryProgressNode(key="delivered", label="Delivered", status="pending")
-        )
-    # Collected
-    if delivery and delivery.status == models.DeliveryStatusEnum.DELIVERED:
-        steps.append(
-            schemas.DeliveryProgressNode(
-                key="collected",
-                label="Collected",
-                status="pending",
-            )
-        )
-    else:
-        steps.append(
-            schemas.DeliveryProgressNode(key="collected", label="Collected", status="pending")
-        )
+    steps, current_stage, current_stage_label = build_order_lifecycle_steps(order, db)
 
     return schemas.DeliveryTrackingResponse(
         order_id=order.id,
         order_number=order.order_number,
+        memo_number=order.memo_number,
+        route_code=order.route_code,
         delivery_number=delivery.delivery_number if delivery else None,
-        current_status=delivery.status if delivery else models.DeliveryStatusEnum.DRAFT,
+        current_status=order.delivery_status or order.status.value,
+        current_stage=current_stage,
+        current_stage_label=current_stage_label,
         steps=steps,
     )

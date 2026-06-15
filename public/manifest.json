@@ -1,13 +1,13 @@
 {
-  "name": "Renata - Warehouse Distribution Management System",
-  "short_name": "Renata",
+  "name": "RENATA DMS",
+  "short_name": "RENATA DMS",
   "description": "Enterprise-grade warehouse and distribution management platform",
   "version": "2.0.0",
   "icons": [
     {
-      "src": "/favicon.svg?v=8",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/renata-logo.png?v=1",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],

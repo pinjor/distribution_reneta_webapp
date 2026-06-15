@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface AdjustmentRequest {
   id: string;
@@ -130,10 +131,12 @@ export default function AdjustmentRequest() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="bg-gray-800 text-white px-6 py-4 rounded-t-lg">
-        <h1 className="text-xl font-semibold">Stock Adjustment Work List</h1>
-      </div>
+      <PageHeader
+        title="Stock Adjustment Work List"
+        subtitle="Review, search, and submit stock adjustment requests."
+        icon={CheckCircle}
+        variant="blue"
+      />
 
       {/* Filter Section */}
       <Card className="border-t-0 rounded-t-none bg-gray-50">

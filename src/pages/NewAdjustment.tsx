@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import SearchableCombobox, { SearchableOption } from "@/components/SearchableCombobox";
 import { useNavigate } from "react-router-dom";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface AdjustmentItem {
   id: number;
@@ -335,10 +336,12 @@ export default function NewAdjustment() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="bg-gray-800 text-white px-6 py-4 rounded-t-lg">
-        <h1 className="text-xl font-semibold">Adjust Stock Entry</h1>
-      </div>
+      <PageHeader
+        title="Adjust Stock Entry"
+        subtitle="Create and submit stock adjustment entries."
+        icon={PlusCircle}
+        variant="blue"
+      />
 
       {/* Form Section */}
       <Card className="border-t-0 rounded-t-none">

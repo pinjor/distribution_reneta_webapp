@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { UserCheck, ArrowLeft, Building2, Phone } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
@@ -344,27 +345,24 @@ export default function Customers() {
   // Show form page if showAddForm is true
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Customer" : "Add New Customer"}
+          subtitle={editMode ? "Update customer information" : "Create a new customer account"}
+          icon={UserCheck}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <UserCheck className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Customer" : "Add New Customer"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update customer information" : "Create a new customer account"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -655,20 +653,19 @@ export default function Customers() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   // Show list view
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <UserCheck className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Customer Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage customer accounts, contracts, and relationships</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Customer Management"
+        subtitle="Manage customer accounts, contracts, and relationships"
+        icon={UserCheck}
+        variant="slate"
+      />
 
       <MasterDataTable
         title="All Customers"
@@ -685,6 +682,6 @@ export default function Customers() {
         showCode={true}
         codeKey="code"
       />
-    </main>
+    </div>
   );
 }

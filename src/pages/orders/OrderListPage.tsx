@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, Filter, X, PlusCircle, Package, MapPinned, TruckIcon, Loader2, Trash2, FileBarChart } from "lucide-react";
 import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { NavTileCard } from "@/components/ui/tile-card";
 
 interface ApiOrderItem {
   id: number;
@@ -487,50 +489,38 @@ export default function OrderListPage() {
       <OrderBreadcrumb />
       {/* Navigation Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/new")}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Order Creation</p>
-              <p className="text-xl font-bold">New Order</p>
-            </div>
-            <PlusCircle className="h-7 w-7 text-primary" />
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/route-wise")}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Route Wise Memo List</p>
-              <p className="text-xl font-bold">Route View</p>
-            </div>
-            <MapPinned className="h-7 w-7 text-primary" />
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/warehouse/maintenance")}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Stock Management</p>
-              <p className="text-xl font-bold">Manage Stock</p>
-            </div>
-            <Package className="h-7 w-7 text-primary" />
-          </CardContent>
-        </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/orders/assigned")}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Assigned Order List</p>
-              <p className="text-xl font-bold">View Assignments</p>
-            </div>
-            <TruckIcon className="h-7 w-7 text-primary" />
-          </CardContent>
-        </Card>
+        <NavTileCard
+          title="Order Creation"
+          description="New Order"
+          icon={PlusCircle}
+          onClick={() => navigate("/orders/new")}
+        />
+        <NavTileCard
+          title="Route Wise Memo List"
+          description="Route View"
+          icon={MapPinned}
+          onClick={() => navigate("/orders/route-wise")}
+        />
+        <NavTileCard
+          title="Stock Management"
+          description="Manage Stock"
+          icon={Package}
+          onClick={() => navigate("/warehouse/maintenance")}
+        />
+        <NavTileCard
+          title="Assigned Order List"
+          description="View Assignments"
+          icon={TruckIcon}
+          onClick={() => navigate("/orders/assigned")}
+        />
       </div>
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-foreground">Delivery Order</h1>
-        <p className="text-muted-foreground">
-          Review orders and manage delivery assignments.
-        </p>
-      </header>
+      <PageHeader
+        title="Delivery Order"
+        subtitle="Review orders and manage delivery assignments."
+        icon={ClipboardList}
+        variant="indigo"
+      />
 
       <Card>
         <CardContent className="p-6 space-y-4">

@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -5,6 +6,8 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const devPort = Number(process.env.VITE_DEV_PORT || 5173);
+// When behind nginx on :80, set VITE_HMR_CLIENT_PORT=80 so the browser WebSocket uses the proxy
+const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT || devPort);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -19,7 +22,7 @@ export default defineConfig(({ mode }) => ({
       process.env.VITE_DISABLE_HMR === "1"
         ? false
         : {
-            clientPort: process.env.NODE_ENV === "production" ? 80 : devPort,
+            clientPort: hmrClientPort,
             host: process.env.VITE_HMR_HOST || "localhost",
           },
   },
@@ -28,6 +31,12 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   // Optimize for Docker development
   optimizeDeps: {

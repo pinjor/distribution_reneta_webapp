@@ -4,13 +4,21 @@ from sqlalchemy import func
 from typing import List
 from datetime import date
 from app.database import get_db
-from app.models import Invoice, PickingOrder, PickingOrderDelivery, OrderDelivery, Customer, StockIssuance
+from app.models import Invoice, PickingOrder, PickingOrderDelivery, OrderDelivery, Customer, StockIssuance, Employee
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter
 
 router = APIRouter()
 
 @router.get("/")
-def get_invoices(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    invoices = db.query(Invoice).offset(skip).limit(limit).all()
+def get_invoices(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    query = apply_depot_id_filter(db.query(Invoice), user, Invoice.depot_id)
+    invoices = query.offset(skip).limit(limit).all()
     return invoices
 
 @router.get("/{invoice_id}")

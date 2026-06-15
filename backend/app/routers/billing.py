@@ -8,6 +8,8 @@ from sqlalchemy import func, and_
 
 from app.database import get_db
 from app import models, schemas
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter, apply_depot_code_filter
 
 router = APIRouter()
 
@@ -89,10 +91,16 @@ def list_collection_deposits(
     approved: Optional[bool] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
 ):
     """List all collection deposits with filters"""
     query = db.query(models.CollectionDeposit)
+    query = query.join(
+        models.Employee,
+        models.CollectionDeposit.collection_person_id == models.Employee.id,
+    )
+    query = apply_depot_id_filter(query, user, models.Employee.depot_id)
     
     if collection_person_id:
         query = query.filter(models.CollectionDeposit.collection_person_id == collection_person_id)
@@ -333,10 +341,13 @@ def list_collection_transactions(
     order_id: Optional[int] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
 ):
     """List all collection transactions with filters"""
     query = db.query(models.CollectionTransaction)
+    query = query.join(models.Order, models.CollectionTransaction.order_id == models.Order.id)
+    query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
     
     if collection_person_id:
         query = query.filter(models.CollectionTransaction.collection_person_id == collection_person_id)

@@ -41,6 +41,8 @@ import {
   Route,
   Receipt,
   TrendingUp,
+  Shield,
+  PackageSearch,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -48,7 +50,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -59,6 +61,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState, useEffect } from "react";
+import { AppBrand } from "@/components/layout/AppBrand";
 
 const menuItems = [
   { title: "Dashboard", icon: Home, path: "/" },
@@ -99,12 +102,8 @@ const menuItems = [
       { title: "Assigned Order List", icon: TruckIcon, path: "/orders/assigned" },
       { title: "Remaining Cash and Collection", icon: Coins, path: "/orders/remaining-cash-list" },
       { title: "Approval for Collection", icon: CheckCircle2, path: "/orders/collection-approval" },
+      { title: "Order Lifecycle Tracker", icon: PackageSearch, path: "/orders/tracking" },
       { title: "MIS Report", icon: FileBarChart, path: "/orders/mis-report" },
-      // { title: "Order Deliveries", icon: TruckIcon, path: "/orders/delivery" },
-      // { title: "Picking", icon: PackageCheck, path: "/orders/picking" },
-      // { title: "Loading Request", icon: ClipboardCheck, path: "/orders/loading-request" },
-      // { title: "Loading List", icon: TruckIcon, path: "/orders/loading-list" },
-      // { title: "Order Tracking", icon: MapPinned, path: "/orders/tracking" },
     ],
   },
   {
@@ -134,6 +133,15 @@ const menuItems = [
       { title: "Collection Deposits", icon: FileText, path: "/billing/deposits" },
       { title: "Receive Remaining Cash", icon: Coins, path: "/billing/deposits/remaining-cash" },
       { title: "Collection Reports", icon: BarChart3, path: "/billing/reports" },
+      { title: "Reconciliation", icon: GitCompare, path: "/distribution/reconciliation" },
+    ],
+  },
+  {
+    title: "Platform",
+    icon: Shield,
+    subItems: [
+      { title: "Audit Logs", icon: FileText, path: "/platform/audit-logs" },
+      { title: "Report Center", icon: BarChart3, path: "/platform/reports" },
     ],
   },
   {
@@ -200,12 +208,12 @@ export function AppSidebar() {
     });
 
   return (
-    <Sidebar className={open ? "w-72" : "w-16"} collapsible="icon">
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="border-b border-sidebar-border px-3 py-3">
+        <AppBrand collapsed={!open} variant="sidebar" />
+      </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/70 px-4 py-3">
-            {open && "Main Menu"}
-          </SidebarGroupLabel>
+        <SidebarGroup className="py-2">
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) =>

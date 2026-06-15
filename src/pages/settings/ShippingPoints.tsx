@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPinned, ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 
@@ -233,22 +234,24 @@ export default function ShippingPoints() {
     const depotPreview = depotOptions.find((option) => option.code === formData.depotCode);
 
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Button variant="ghost" size="sm" onClick={resetForm} className="gap-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Shipping Route" : "Add Shipping Route"}
+          subtitle={editMode ? "Update depot aligned shipping route information" : "Create a new route for the selected depot"}
+          icon={MapPinned}
+          variant="indigo"
+          actions={(
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={resetForm}
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
+            >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <MapPinned className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Shipping Route" : "Add Shipping Route"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update depot aligned shipping route information" : "Create a new route for the selected depot"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -313,19 +316,18 @@ export default function ShippingPoints() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <MapPinned className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Shipping Routes</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage depot specific shipping routes and alignment</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Shipping Routes"
+        subtitle="Manage depot specific shipping routes and alignment"
+        icon={MapPinned}
+        variant="indigo"
+      />
 
       <MasterDataTable
         title="Depot Shipping Routes"
@@ -342,6 +344,6 @@ export default function ShippingPoints() {
         showCode={true}
         codeKey="routeCode"
       />
-    </main>
+    </div>
   );
 }

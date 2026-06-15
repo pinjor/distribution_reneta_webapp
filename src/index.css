@@ -20,11 +20,16 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 225 50% 12%;
     
-    /* Primary - Vibrant Electric Blue */
-    --primary: 215 95% 58%;
-    --primary-hover: 215 95% 52%;
-    --primary-pressed: 215 95% 46%;
+    /* Primary — Renata sky blue (#0096D6) */
+    --primary: 199 100% 42%;
+    --primary-hover: 202 100% 38%;
+    --primary-pressed: 202 100% 32%;
     --primary-foreground: 0 0% 100%;
+
+    /* Brand gradient tokens */
+    --brand-from: #0096D6;
+    --brand-to: #0077C0;
+    --brand-deep: #005a8c;
     
     /* Secondary - Rich Slate */
     --secondary: 215 25% 40%;
@@ -190,6 +195,15 @@ All colors MUST be HSL.
   /* Card Elevation */
   .card-elevated {
     @apply shadow-md hover:shadow-lg transition-shadow duration-200;
+  }
+
+  /* Mild sky-blue tile cards (navigation & stat counters) */
+  .card-tile {
+    @apply rounded-xl border border-brand-from/25 bg-gradient-to-br from-brand-tile-from via-brand-tile-via to-brand-tile-to shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-brand-from/40;
+  }
+
+  .card-tile-active {
+    @apply ring-2 ring-brand-from border-brand-from/50 shadow-md;
   }
   
   /* Interactive States */

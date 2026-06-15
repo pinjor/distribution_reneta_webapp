@@ -30,6 +30,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface AssignedOrder {
   id: number;
@@ -589,28 +590,29 @@ export default function AssignedOrderList() {
   return (
     <main className="p-6 space-y-6">
       <OrderBreadcrumb />
-      <header className="space-y-2">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/orders/route-wise")}
-            className="h-8 w-8"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-semibold text-foreground">Assigned Order List</h1>
-            <p className="text-muted-foreground">
-              View and manage orders that have been assigned to employees and vehicles.
-            </p>
-          </div>
-          <Button onClick={() => setShowCreateForm(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create New Assigned Order List
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Assigned Order List"
+        subtitle="View and manage orders that have been assigned to employees and vehicles."
+        icon={Truck}
+        variant="indigo"
+        actions={(
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/orders/route-wise")}
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <Button onClick={() => setShowCreateForm(true)} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create New Assigned Order List
+            </Button>
+          </>
+        )}
+      />
 
       {/* Filters */}
       <Card>

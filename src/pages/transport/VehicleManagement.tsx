@@ -3,6 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Car, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
+import { TransportStatCard } from "@/components/transport/TransportStatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,19 +190,47 @@ export default function VehicleManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Vehicle Management</h1>
-          <p className="text-muted-foreground">Manage your fleet of vehicles</p>
-        </div>
-        <Button onClick={() => {
-          setEditingVehicle(null);
-          form.reset();
-          setIsDialogOpen(true);
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Vehicle
-        </Button>
+      <TransportPageHeader
+        title="Vehicle Management"
+        subtitle="Manage your fleet — registration, capacity, fuel rates, and maintenance schedules."
+        icon={Car}
+        variant="blue"
+        actions={
+          <Button
+            onClick={() => {
+              setEditingVehicle(null);
+              form.reset();
+              setIsDialogOpen(true);
+            }}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Vehicle
+          </Button>
+        }
+      />
+
+      <TransportQuickNav />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <TransportStatCard
+          title="Total Vehicles"
+          value={vehicles.length}
+          icon={Car}
+          accent="blue"
+        />
+        <TransportStatCard
+          title="Active"
+          value={vehicles.filter((v: { status?: string }) => v.status === "Active").length}
+          icon={Car}
+          accent="emerald"
+        />
+        <TransportStatCard
+          title="Depots Covered"
+          value={new Set(vehicles.map((v: { depot_id?: number }) => v.depot_id).filter(Boolean)).size}
+          icon={Car}
+          accent="violet"
+        />
       </div>
 
       <Card>

@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FileText, Download, RefreshCw, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Truck,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface LoadingChallan {
   id: number;
@@ -191,16 +201,23 @@ export default function VehicleLoading() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold mb-2">Loading List</h1>
-          <p className="text-muted-foreground">Manage loading challans and generate bulk invoices for chemist shops</p>
-        </div>
-        <Button variant="outline" onClick={fetchChallans} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Loading List"
+        subtitle="Manage loading challans and generate bulk invoices for chemist shops"
+        icon={Truck}
+        variant="teal"
+        actions={(
+          <Button
+            variant="outline"
+            onClick={fetchChallans}
+            disabled={loading}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        )}
+      />
 
       {loading ? (
         <Card className="p-12 text-center">

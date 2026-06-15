@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { apiEndpoints } from "@/lib/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, Truck } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface OrderDeliveryItem {
   product_name: string;
@@ -142,19 +143,32 @@ export default function PackingReport() {
 
   return (
     <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 print:hidden">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Packing Report</h1>
-          <p className="text-muted-foreground">Snapshot of products included in the selected order deliveries.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.print()} disabled={loading || !!error}>
-            Print
-          </Button>
-          <Button variant="secondary" onClick={() => navigate(-1)}>
-            Back
-          </Button>
-        </div>
+      <div className="print:hidden">
+        <PageHeader
+          title="Packing Report"
+          subtitle="Snapshot of products included in the selected order deliveries."
+          icon={Truck}
+          variant="indigo"
+          actions={(
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => window.print()}
+                disabled={loading || !!error}
+                className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+              >
+                Print
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate(-1)}
+                className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+              >
+                Back
+              </Button>
+            </div>
+          )}
+        />
       </div>
 
       {loading ? (

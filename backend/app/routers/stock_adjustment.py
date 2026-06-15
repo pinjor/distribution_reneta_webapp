@@ -3,8 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models import StockAdjustment, StockAdjustmentItem
+from app.models import StockAdjustment, StockAdjustmentItem, Employee
 from app.schemas import StockAdjustmentCreate, StockAdjustment as StockAdjustmentSchema
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter
 
 router = APIRouter()
 
@@ -35,9 +37,15 @@ def generate_adjustment_number(db: Session) -> str:
     return f"{prefix}-{next_seq:04d}"
 
 @router.get("/", response_model=List[StockAdjustmentSchema])
-def get_stock_adjustments(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_stock_adjustments(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Get all stock adjustments"""
-    adjustments = db.query(StockAdjustment).offset(skip).limit(limit).all()
+    query = apply_depot_id_filter(db.query(StockAdjustment), user, StockAdjustment.depot_id)
+    adjustments = query.offset(skip).limit(limit).all()
     return adjustments
 
 @router.post("/", response_model=StockAdjustmentSchema, status_code=status.HTTP_201_CREATED)

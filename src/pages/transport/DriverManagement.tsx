@@ -3,6 +3,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Users, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
+import { TransportStatCard } from "@/components/transport/TransportStatCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,19 +156,47 @@ export default function DriverManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Driver Management</h1>
-          <p className="text-muted-foreground">Manage your fleet drivers</p>
-        </div>
-        <Button onClick={() => {
-          setEditingDriver(null);
-          form.reset();
-          setIsDialogOpen(true);
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Driver
-        </Button>
+      <TransportPageHeader
+        title="Driver Management"
+        subtitle="Manage fleet drivers — licenses, contact details, and availability status."
+        icon={Users}
+        variant="emerald"
+        actions={
+          <Button
+            onClick={() => {
+              setEditingDriver(null);
+              form.reset();
+              setIsDialogOpen(true);
+            }}
+            className="bg-white text-emerald-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Driver
+          </Button>
+        }
+      />
+
+      <TransportQuickNav />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <TransportStatCard
+          title="Total Drivers"
+          value={drivers.length}
+          icon={Users}
+          accent="emerald"
+        />
+        <TransportStatCard
+          title="Available"
+          value={drivers.filter((d: { status?: string }) => d.status === "Available").length}
+          icon={Users}
+          accent="blue"
+        />
+        <TransportStatCard
+          title="On Trip"
+          value={drivers.filter((d: { status?: string }) => d.status === "On Trip").length}
+          icon={Users}
+          accent="amber"
+        />
       </div>
 
       <Card>

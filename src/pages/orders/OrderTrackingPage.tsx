@@ -1,76 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect, KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2, Search, PackageSearch, MapPinned, FileText } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
-  Loader2,
-  Search,
-  CheckCircle2,
-  Clock4,
-  MinusCircle,
-  MoveRight,
-  PackageSearch,
-  MapPinned,
-  ArrowRight,
-} from "lucide-react";
-
-interface TrackingNode {
-  key: string;
-  label: string;
-  status: string;
-  timestamp?: string;
-}
+  OrderLifecyclePipeline3D,
+  getCurrentLifecycleDef,
+  type LifecycleTrackingStep,
+} from "@/components/orders/OrderLifecyclePipeline3D";
+import { ORDER_LIFECYCLE_STEPS } from "@/lib/orderLifecycle";
+import { brandLabelClasses, brandMutedClasses } from "@/lib/brandTheme";
+import { cn } from "@/lib/utils";
 
 interface TrackingResponse {
   order_id: number;
   order_number?: string;
+  memo_number?: string;
+  route_code?: string;
   delivery_number?: string;
-  current_status: string;
-  steps: TrackingNode[];
+  current_status?: string;
+  current_stage?: string;
+  current_stage_label?: string;
+  steps: LifecycleTrackingStep[];
 }
-
-const statusStyles: Record<
-  string,
-  {
-    ring: string;
-    iconBg: string;
-    iconColor: string;
-    label: string;
-  }
-> = {
-  completed: {
-    ring: "border-emerald-500 bg-emerald-50",
-    iconBg: "bg-emerald-500",
-    iconColor: "text-white",
-    label: "Completed",
-  },
-  current: {
-    ring: "border-sky-500 bg-sky-50 shadow-sky-200",
-    iconBg: "bg-sky-500",
-    iconColor: "text-white",
-    label: "In Progress",
-  },
-  blocked: {
-    ring: "border-red-500 bg-red-50",
-    iconBg: "bg-red-500",
-    iconColor: "text-white",
-    label: "Blocked",
-  },
-  pending: {
-    ring: "border-muted-foreground/40 bg-muted",
-    iconBg: "bg-muted-foreground/30",
-    iconColor: "text-muted-foreground",
-    label: "Pending",
-  },
-};
-
-const infoPills = [
-  { title: "Fulfillment", caption: "Order processing + logistics", Icon: PackageSearch },
-  { title: "Delivery flow", caption: "Sales Order → Delivery Order → Picking → Loading → Delivered → Collected", Icon: MapPinned },
-];
 
 export default function OrderTrackingPage() {
   const { toast } = useToast();
@@ -78,172 +35,156 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingResponse | null>(null);
 
+  useEffect(() => {
+    document.title = "Order Lifecycle Tracker | Renata";
+  }, []);
+
   const handleFetch = async () => {
-    if (!orderInput) {
+    if (!orderInput.trim()) {
       toast({ title: "Enter an order ID or number", variant: "destructive" });
       return;
     }
     try {
       setLoading(true);
       const response = await apiEndpoints.orderDeliveries.track(orderInput.trim());
-      setTracking(response);
+      setTracking(response as TrackingResponse);
     } catch (error) {
       console.error("Tracking lookup failed", error);
-      toast({ title: "Order not found", description: "Check the ID or order number.", variant: "destructive" });
+      toast({
+        title: "Order not found",
+        description: "Check the order ID, ORD number, or 8-digit memo number.",
+        variant: "destructive",
+      });
       setTracking(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleFetch();
+  };
+
+  const currentDef = tracking ? getCurrentLifecycleDef(tracking.steps) : null;
+  const completedSteps = tracking?.steps.filter((s) => s.status === "completed").length ?? 0;
+
   return (
     <main className="p-6 space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Order Fulfillment Tracker</h1>
-          <p className="text-muted-foreground">
-            Follow an order across packing, loading, shipment, and delivery with live status updates.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Enter order ID / number / delivery"
-            value={orderInput}
-            onChange={(e) => setOrderInput(e.target.value)}
-            className="w-60"
-          />
-          <Button onClick={handleFetch} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-            Track
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="Order Lifecycle Tracker"
+        subtitle="Enter an order number to see where it sits in the 8-step distribution pipeline."
+        icon={PackageSearch}
+        variant="sky"
+        actions={(
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Input
+              placeholder="Order ID / ORD number / memo number"
+              value={orderInput}
+              onChange={(e) => setOrderInput(e.target.value)}
+              onKeyDown={onSearchKeyDown}
+              className="w-full sm:w-72"
+            />
+            <Button onClick={handleFetch} disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Search className="h-4 w-4 mr-2" />
+              )}
+              Track
+            </Button>
+          </div>
+        )}
+      />
 
-      {tracking ? (
-        <Card>
-          <CardHeader className="flex flex-col gap-3 border-b bg-gradient-to-r from-muted/70 via-muted/40 to-background sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-xl font-semibold text-foreground">
-                {tracking.order_number || `order-${tracking.order_id}`}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Delivery reference: {tracking.delivery_number || "Pending"}
-              </p>
-            </div>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
-              Current status: {tracking.current_status}
-            </Badge>
+      {/* Reference pipeline legend */}
+      {!tracking && (
+        <Card className="card-tile border-2 border-brand-from/20 overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className={cn("text-base", brandLabelClasses)}>
+              8-Step Distribution Lifecycle
+            </CardTitle>
+            <p className={cn("text-sm", brandMutedClasses)}>
+              Same flow as Dashboard &amp; MIS — search an order above to highlight its current stage.
+            </p>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-[260px_1fr]">
-              <div className="space-y-3">
-                <div className="rounded-xl border bg-background p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-foreground">Snapshot</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Updated {new Date().toLocaleString()} — statuses refresh as warehouse teams advance the delivery.
-                  </p>
-                  <div className="mt-4 space-y-2 text-sm">
-                    {infoPills.map(({ title, caption, Icon }) => (
-                      <div key={title} className="flex items-start gap-3 rounded-lg border border-dashed border-muted-foreground/30 p-3">
-                        <div className="rounded-full bg-muted px-2 py-1">
-                          <Icon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{title}</p>
-                          <p className="text-xs text-muted-foreground">{caption}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border bg-background p-6">
-                <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Process flow
-                </p>
-                <div className="mt-4">
-                  <div className="grid gap-4 md:grid-cols-6">
-                    {tracking.steps.map((step, index) => {
-                      const style = statusStyles[step.status] ?? statusStyles.pending;
-                      const timestamp = step.timestamp
-                        ? new Date(step.timestamp).toLocaleString()
-                        : "Awaiting update";
-                      const Icon = step.status === "completed" ? CheckCircle2 : step.status === "current" ? MoveRight : step.status === "blocked" ? MinusCircle : Clock4;
-
-                      return (
-                        <div key={step.key} className="flex flex-col items-center text-center">
-                          <div className="relative flex items-center justify-center">
-                            <div
-                              className={`flex h-20 w-20 items-center justify-center rounded-full border-4 ${style.ring} shadow-sm transition-all duration-300`}
-                            >
-                              <span className={`flex h-10 w-10 items-center justify-center rounded-full ${style.iconBg}`}>
-                                <Icon className={`h-5 w-5 ${style.iconColor}`} />
-                              </span>
-                            </div>
-                            {index < tracking.steps.length - 1 && (
-                              <span className="absolute left-[110%] top-1/2 hidden h-0.5 w-10 -translate-y-1/2 rounded-full bg-border md:block" />
-                            )}
-                          </div>
-                          <div className="mt-3 space-y-1">
-                            <p className="text-sm font-semibold text-foreground">{step.label}</p>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{style.label}</p>
-                            <p className="text-xs text-muted-foreground/80">{timestamp}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-6 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-semibold text-foreground">Completed</p>
-                        <p>Milestones finished successfully.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-white">
-                        <MoveRight className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-semibold text-foreground">In Progress</p>
-                        <p>Current warehouse activity.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted-foreground/30 text-muted-foreground">
-                        <Clock4 className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-semibold text-foreground">Pending</p>
-                        <p>Awaiting previous step completion.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white">
-                        <MinusCircle className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-semibold text-foreground">Blocked</p>
-                        <p>Requires intervention before continuing.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <CardContent className="pb-8 pt-2">
+            <OrderLifecyclePipeline3D
+              steps={ORDER_LIFECYCLE_STEPS.map((s) => ({
+                key: s.key,
+                label: s.title,
+                status: "pending",
+              }))}
+            />
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardContent className="grid place-items-center gap-3 py-16 text-center text-muted-foreground">
-            <PackageSearch className="h-12 w-12 text-muted-foreground/60" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Track an order to view the process flow</p>
-              <p className="text-xs">Use an internal ID, an `ORD-` number, or the delivery `DLV-` reference.</p>
+      )}
+
+      <AnimatePresence mode="wait">
+        {tracking && (
+          <motion.div
+            key={tracking.order_id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.45 }}
+            className="space-y-6"
+          >
+            <Card className="overflow-hidden border-2 border-brand-from/25 shadow-lg">
+              <CardHeader className="border-b bg-gradient-to-r from-brand-tile-from via-white to-brand-tile-to">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl font-bold text-brand-deep">
+                      {tracking.order_number || `Order #${tracking.order_id}`}
+                    </CardTitle>
+                    <div className="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
+                      {tracking.memo_number && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-0.5 border">
+                          <FileText className="h-3.5 w-3.5" />
+                          Memo: {tracking.memo_number}
+                        </span>
+                      )}
+                      {tracking.route_code && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-0.5 border">
+                          <MapPinned className="h-3.5 w-3.5" />
+                          Route: {tracking.route_code}
+                        </span>
+                      )}
+                      {tracking.delivery_number && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-0.5 border">
+                          DLV: {tracking.delivery_number}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className="bg-gradient-to-r from-brand-from to-brand-to text-white border-0 px-3 py-1 text-sm shadow-md">
+                      Stage: {tracking.current_stage_label || currentDef?.title}
+                    </Badge>
+                    <Badge variant="outline" className="border-brand-from/40 text-brand-deep">
+                      {completedSteps} / 8 complete
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 sm:p-8 bg-gradient-to-b from-white to-brand-tile-from/30">
+                <OrderLifecyclePipeline3D steps={tracking.steps} />
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!tracking && !loading && (
+        <Card className="card-tile">
+          <CardContent className="grid place-items-center gap-3 py-14 text-center">
+            <PackageSearch className="h-14 w-14 text-brand-from/50" />
+            <div className="space-y-1 max-w-md">
+              <p className={cn("text-sm font-semibold", brandLabelClasses)}>
+                Track an order to view its lifecycle stage
+              </p>
+              <p className={cn("text-xs", brandMutedClasses)}>
+                Use internal ID, order number, 8-digit memo number, or delivery reference.
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 import { TAG_COLORS } from "@/lib/tagColors";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface CollectionOrder {
   id: number;
@@ -250,26 +251,29 @@ export default function ApprovalForCollection() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <OrderBreadcrumb />
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/orders/distribution-cockpit")}
-          className="h-8 w-8"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-foreground">Approval for Collection</h1>
-          <p className="text-muted-foreground mt-1">
-            Approve orders with partial or cancelled collection status from mobile app. Orders are grouped by loading number.
-          </p>
-        </div>
-        <Button onClick={() => refetch()} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Approval for Collection"
+        subtitle="Approve orders with partial or cancelled collection status from mobile app. Orders are grouped by loading number."
+        icon={CheckCircle2}
+        variant="amber"
+        actions={(
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/orders/distribution-cockpit")}
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <Button onClick={() => refetch()} variant="outline" size="sm" className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </>
+        )}
+      />
 
       {/* Filters */}
       <Card>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { User, ArrowLeft, Mail, Phone, MapPin, GraduationCap } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
@@ -255,27 +256,24 @@ export default function Doctor() {
   // Show form page if showAddForm is true
   if (showAddForm) {
     return (
-      <main className="p-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+      <div className="space-y-6">
+        <PageHeader
+          title={editMode ? "Edit Doctor" : "Add New Doctor"}
+          subtitle={editMode ? "Update doctor information" : "Create a new doctor profile"}
+          icon={User}
+          variant="slate"
+          actions={(
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="gap-2"
+              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <User className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-semibold text-foreground">
-              {editMode ? "Edit Doctor" : "Add New Doctor"}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {editMode ? "Update doctor information" : "Create a new doctor profile"}
-          </p>
-        </header>
+          )}
+        />
 
         <Card className="card-elevated">
           <CardContent className="p-6">
@@ -394,20 +392,19 @@ export default function Doctor() {
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
     );
   }
 
   // Show list view
   return (
-    <main className="p-6">
-      <header className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <User className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold text-foreground">Doctor Management</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage doctor profiles and registrations</p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        title="Doctor Management"
+        subtitle="Manage doctor profiles and registrations"
+        icon={User}
+        variant="slate"
+      />
 
       <MasterDataTable
         title="All Doctors"
@@ -424,7 +421,7 @@ export default function Doctor() {
         showCode={true}
         codeKey="code"
       />
-    </main>
+    </div>
   );
 }
 

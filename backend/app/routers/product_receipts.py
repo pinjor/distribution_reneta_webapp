@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models, schemas
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter
 
 router = APIRouter()
 
@@ -38,8 +40,10 @@ def list_receipts(
     source_type: Optional[models.ReceiptSourceEnum] = Query(None),
     status_filter: Optional[models.ProductReceiptStatus] = Query(None),
     db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
 ) -> schemas.ProductReceiptListResponse:
     query = db.query(models.ProductReceipt)
+    query = apply_depot_id_filter(query, user, models.ProductReceipt.target_depot_id)
     if source_type:
         query = query.filter(models.ProductReceipt.source_type == source_type)
     if status_filter:

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface CollectionDeposit {
   id: number;
@@ -267,18 +268,23 @@ export default function RemainingCashDeposit() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/billing/deposits")}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Deposits
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Receive Remaining Cash</h1>
-          <p className="text-muted-foreground mt-1">
-            Document remaining cash deposit from collection employee at depot
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Receive Remaining Cash"
+        subtitle="Document remaining cash deposit from collection employee at depot"
+        icon={Coins}
+        variant="amber"
+        actions={(
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate("/billing/deposits")}
+            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Deposits
+          </Button>
+        )}
+      />
 
       <Card>
         <CardHeader>

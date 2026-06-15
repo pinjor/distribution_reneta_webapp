@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from decimal import Decimal
 from app.database import get_db
-from app.models import ProductItemStock, ProductItemStockDetail, Product, Depot
+from app.models import ProductItemStock, ProductItemStockDetail, Product, Depot, Employee
 from app.schemas import (
     ProductItemStock as ProductItemStockSchema,
     ProductItemStockCreate,
@@ -12,6 +12,8 @@ from app.schemas import (
     ProductItemStockDetail as ProductItemStockDetailSchema,
     ProductItemStockDetailCreate
 )
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
 
 router = APIRouter()
 
@@ -21,15 +23,19 @@ def get_product_item_stock(
     limit: int = 100,
     product_id: Optional[int] = Query(None),
     depot_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get all product item stock records"""
     query = db.query(ProductItemStock)
     
     if product_id:
         query = query.filter(ProductItemStock.product_id == product_id)
-    if depot_id:
-        query = query.filter(ProductItemStock.depot_id == depot_id)
+    effective_depot = coerce_depot_id_param(user, depot_id)
+    if effective_depot:
+        query = query.filter(ProductItemStock.depot_id == effective_depot)
+    else:
+        query = apply_depot_id_filter(query, user, ProductItemStock.depot_id)
     
     stock_records = query.offset(skip).limit(limit).all()
     return stock_records

@@ -2,15 +2,22 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models import Vehicle
+from app.models import Vehicle, Employee
 from app.schemas import VehicleCreate, VehicleUpdate, Vehicle as VehicleSchema
+from app.core.deps import require_auth
+from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
 
 router = APIRouter()
 
 @router.get("/", response_model=List[VehicleSchema])
-def get_vehicles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    # Get all vehicles (active and inactive) - frontend can filter if needed
-    vehicles = db.query(Vehicle).offset(skip).limit(limit).all()
+def get_vehicles(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    query = apply_depot_id_filter(db.query(Vehicle), user, Vehicle.depot_id)
+    vehicles = query.offset(skip).limit(limit).all()
     return vehicles
 
 @router.post("/", response_model=VehicleSchema)
