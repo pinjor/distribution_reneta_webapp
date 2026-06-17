@@ -356,7 +356,7 @@ export default function Customers() {
               variant="secondary"
               size="sm"
               onClick={handleCancel}
-              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold gap-2"
+             
             >
               <ArrowLeft className="h-4 w-4" />
               Back

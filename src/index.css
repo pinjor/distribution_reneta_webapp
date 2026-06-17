@@ -20,16 +20,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 225 50% 12%;
     
-    /* Primary — Renata sky blue (#0096D6) */
-    --primary: 199 100% 42%;
-    --primary-hover: 202 100% 38%;
-    --primary-pressed: 202 100% 32%;
+    /* Primary — brand cyan (#6ac6df) */
+    --primary: 193 65% 65%;
+    --primary-hover: 193 65% 58%;
+    --primary-pressed: 193 65% 50%;
     --primary-foreground: 0 0% 100%;
 
     /* Brand gradient tokens */
-    --brand-from: #0096D6;
-    --brand-to: #0077C0;
-    --brand-deep: #005a8c;
+    --brand-from: #6ac6df;
+    --brand-to: #4ab8d4;
+    --brand-deep: #2a8aa0;
+    --brand-hover-from: #58bdd6;
+    --brand-hover-to: #3aadc9;
     
     /* Secondary - Rich Slate */
     --secondary: 215 25% 40%;
@@ -39,8 +41,8 @@ All colors MUST be HSL.
     --muted: 220 15% 94%;
     --muted-foreground: 215 15% 45%;
     
-    /* Accent - Vibrant Cyan */
-    --accent: 195 92% 48%;
+    /* Accent — brand cyan */
+    --accent: 193 65% 58%;
     --accent-foreground: 0 0% 100%;
     
     /* Semantic Colors - Enhanced Vibrancy */
@@ -56,14 +58,14 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
     --destructive-bg: 356 85% 96%;
     
-    --info: 200 95% 48%;
+    --info: 193 65% 58%;
     --info-foreground: 0 0% 100%;
-    --info-bg: 200 95% 96%;
+    --info-bg: 193 65% 95%;
     
     /* Border & Input - Subtle with Definition */
     --border: 220 15% 88%;
     --input: 220 15% 88%;
-    --ring: 215 95% 58%;
+    --ring: 193 65% 65%;
     
     /* Border Radius */
     --radius: 1rem;
@@ -73,12 +75,12 @@ All colors MUST be HSL.
     /* Sidebar - Deep Professional Navy */
     --sidebar-background: 220 45% 14%;
     --sidebar-foreground: 220 20% 97%;
-    --sidebar-primary: 215 95% 62%;
+    --sidebar-primary: 193 65% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 38% 20%;
     --sidebar-accent-foreground: 220 20% 97%;
     --sidebar-border: 220 38% 22%;
-    --sidebar-ring: 215 95% 62%;
+    --sidebar-ring: 193 65% 65%;
     
     /* Text Hierarchy */
     --text-primary: 225 50% 12%;
@@ -91,7 +93,7 @@ All colors MUST be HSL.
     --shadow-lg: 0 8px 24px hsl(215 50% 12% / 0.12), 0 4px 8px hsl(215 50% 12% / 0.08);
     
     /* Chart Colors - Vibrant Professional Palette */
-    --chart-1: 215 95% 58%;
+    --chart-1: 193 65% 65%;
     --chart-2: 145 75% 42%;
     --chart-3: 195 92% 48%;
     --chart-4: 270 75% 60%;
@@ -109,9 +111,9 @@ All colors MUST be HSL.
     --popover: 220 38% 15%;
     --popover-foreground: 220 20% 97%;
     
-    --primary: 215 95% 65%;
-    --primary-hover: 215 95% 58%;
-    --primary-pressed: 215 95% 52%;
+    --primary: 193 65% 70%;
+    --primary-hover: 193 65% 63%;
+    --primary-pressed: 193 65% 55%;
     --primary-foreground: 220 45% 10%;
     
     --secondary: 215 20% 60%;
@@ -120,26 +122,26 @@ All colors MUST be HSL.
     --muted: 220 38% 18%;
     --muted-foreground: 215 15% 65%;
     
-    --accent: 195 92% 55%;
+    --accent: 193 65% 63%;
     --accent-foreground: 220 45% 10%;
     
     --success: 145 75% 48%;
     --warning: 35 100% 58%;
     --destructive: 356 85% 62%;
-    --info: 200 95% 55%;
+    --info: 193 65% 63%;
     
     --border: 220 38% 20%;
     --input: 220 38% 20%;
-    --ring: 215 95% 65%;
+    --ring: 193 65% 70%;
     
     --sidebar-background: 220 50% 8%;
     --sidebar-foreground: 220 20% 97%;
-    --sidebar-primary: 215 95% 65%;
+    --sidebar-primary: 193 65% 70%;
     --sidebar-primary-foreground: 220 45% 10%;
     --sidebar-accent: 220 45% 12%;
     --sidebar-accent-foreground: 220 20% 97%;
     --sidebar-border: 220 45% 14%;
-    --sidebar-ring: 215 95% 65%;
+    --sidebar-ring: 193 65% 70%;
   }
 }
 
@@ -164,6 +166,12 @@ All colors MUST be HSL.
   h3 {
     @apply text-lg leading-7 font-medium;
   }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(12px, -16px) scale(1.03); }
+  66% { transform: translate(-8px, 8px) scale(0.97); }
 }
 
 @layer utilities {
@@ -197,13 +205,26 @@ All colors MUST be HSL.
     @apply shadow-md hover:shadow-lg transition-shadow duration-200;
   }
 
-  /* Mild sky-blue tile cards (navigation & stat counters) */
+  /* Navigation tile cards — animated hub cards */
+  .nav-tile-card {
+    @apply rounded-2xl border-2 border-brand-from/20 bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via shadow-[0_4px_20px_-4px_rgba(106,198,223,0.25)] transition-all duration-300 ease-out hover:border-brand-from/45 hover:shadow-[0_12px_32px_-8px_rgba(106,198,223,0.45)];
+  }
+
+  /* Mild sky-blue tile cards (legacy alias) */
   .card-tile {
-    @apply rounded-xl border border-brand-from/25 bg-gradient-to-br from-brand-tile-from via-brand-tile-via to-brand-tile-to shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-brand-from/40;
+    @apply nav-tile-card hover:-translate-y-1;
   }
 
   .card-tile-active {
     @apply ring-2 ring-brand-from border-brand-from/50 shadow-md;
+  }
+
+  .animate-float-slow {
+    animation: float-slow 8s ease-in-out infinite;
+  }
+
+  .animate-float-slower {
+    animation: float-slow 12s ease-in-out infinite reverse;
   }
   
   /* Interactive States */

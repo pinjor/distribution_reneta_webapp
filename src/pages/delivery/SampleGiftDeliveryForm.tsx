@@ -169,7 +169,7 @@ export default function SampleGiftDeliveryForm() {
             variant="secondary"
             size="sm"
             onClick={() => navigate("/delivery/sample-gift")}
-            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+           
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back

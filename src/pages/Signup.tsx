@@ -71,11 +71,11 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-tile-from via-brand-tile-via to-brand-from p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="h-16 w-16 bg-primary rounded-full flex items-center justify-center">
+            <div className="h-16 w-16 bg-gradient-to-br from-brand-from to-brand-to rounded-full flex items-center justify-center shadow-lg shadow-brand-from/30">
               <Package className="h-8 w-8 text-white" />
             </div>
           </div>

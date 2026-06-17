@@ -601,12 +601,12 @@ export default function AssignedOrderList() {
               variant="secondary"
               size="sm"
               onClick={() => navigate("/orders/route-wise")}
-              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+             
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
-            <Button onClick={() => setShowCreateForm(true)} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+            <Button onClick={() => setShowCreateForm(true)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Create New Assigned Order List
             </Button>

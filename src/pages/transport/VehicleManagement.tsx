@@ -202,7 +202,7 @@ export default function VehicleManagement() {
               form.reset();
               setIsDialogOpen(true);
             }}
-            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+           
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Vehicle

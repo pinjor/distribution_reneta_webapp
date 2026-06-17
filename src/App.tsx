@@ -103,6 +103,7 @@ const App = () => (
               <Route path="/orders/collection-approval" element={<MainLayout><ApprovalForCollection /></MainLayout>} />
               <Route path="/orders/mis-report" element={<MainLayout><MISReport /></MainLayout>} />
               <Route path="/distribution/cockpit" element={<MainLayout><DistributionCockpit /></MainLayout>} />
+              <Route path="/orders/distribution-cockpit" element={<MainLayout><DistributionCockpit /></MainLayout>} />
               <Route path="/orders/delivery" element={<MainLayout><OrderDeliveryList /></MainLayout>} />
               <Route path="/orders/delivery/:id" element={<MainLayout><OrderDeliveryDetail /></MainLayout>} />
               <Route path="/orders/tracking" element={<MainLayout><OrderTrackingPage /></MainLayout>} />

@@ -275,7 +275,7 @@ export default function Vehicles() {
         icon={Truck}
         variant="emerald"
         actions={(
-          <Button onClick={handleAdd} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+          <Button onClick={handleAdd}>
             <Plus className="h-4 w-4 mr-2" />
             Add Vehicle
           </Button>

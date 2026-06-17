@@ -189,14 +189,14 @@ export default function CollectionDeposits() {
           <Button
             variant="outline"
             onClick={() => navigate("/billing/deposits/remaining-cash")}
-            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+           
           >
             <Coins className="h-4 w-4 mr-2" />
             Receive Remaining Cash
           </Button>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 New Deposit
               </Button>

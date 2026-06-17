@@ -22,7 +22,7 @@ import { OrderStatusCard } from "@/components/dashboard/OrderStatusCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { NavTileCard } from "@/components/ui/tile-card";
+import { QuickActionsGrid, QuickActionsHeading } from "@/components/navigation/QuickActionsGrid";
 import { brandLabelClasses } from "@/lib/brandTheme";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -116,41 +116,41 @@ const Dashboard = () => {
           value={isLoading ? "..." : formatNumber(kpis?.total_stock)}
           icon={Package}
           description="Units across all depots"
-          accent="blue"
+          index={0}
         />
         <KPICard
           title="Orders Today"
           value={isLoading ? "..." : formatNumber(kpis?.orders_today)}
           icon={Truck}
           description="New orders received today"
-          accent="emerald"
+          index={1}
         />
         <KPICard
           title="Validated"
           value={isLoading ? "..." : formatNumber(kpis?.validated_today)}
           icon={FileCheck}
           description="Awaiting assignment"
-          accent="indigo"
+          index={2}
         />
         <KPICard
           title="Assigned"
           value={isLoading ? "..." : formatNumber(kpis?.assigned_today)}
           icon={TruckIcon}
           description="Loaded & dispatched"
-          accent="violet"
+          index={3}
         />
       </div>
 
       {/* Order status grid */}
-      <Card className="card-elevated border border-emerald-200/60 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50/30 via-card to-card dark:from-emerald-950/15 shadow-sm">
+      <Card className="card-elevated border-2 border-brand-from/15 bg-gradient-to-br from-brand-tile-from/40 via-card to-card shadow-sm overflow-hidden">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-lg font-semibold">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-from to-brand-to text-white shadow-md shadow-brand-from/25">
               <BarChart3 className="h-4 w-4" />
             </div>
             <div>
-              <span className="block">Order Management Status</span>
-              <span className="text-sm font-normal text-muted-foreground">
+              <span className={cn("block", brandLabelClasses)}>Order Management Status</span>
+              <span className="text-sm font-normal text-brand-to/80">
                 Live counts across each stage of the order pipeline
               </span>
             </div>
@@ -199,18 +199,8 @@ const Dashboard = () => {
 
       {/* Quick actions */}
       <div>
-        <h2 className={cn("text-lg font-semibold mb-3", brandLabelClasses)}>Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {QUICK_ACTIONS.map((action) => (
-            <NavTileCard
-              key={action.path}
-              title={action.title}
-              icon={action.icon}
-              onClick={() => navigate(action.path)}
-              className="[&_.flex]:flex-col [&_.flex]:items-center [&_.flex]:text-center [&_h3]:text-sm"
-            />
-          ))}
-        </div>
+        <QuickActionsHeading />
+        <QuickActionsGrid actions={QUICK_ACTIONS} onNavigate={navigate} />
       </div>
 
       {/* Charts */}

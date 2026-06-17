@@ -103,7 +103,7 @@ export default function SampleGiftDeliveryList() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/delivery/sample-gift/new")}>
+            <Button onClick={() => navigate("/delivery/sample-gift/new")}>
               <Gift className="h-4 w-4 mr-2" />
               New Sample Gift
             </Button>

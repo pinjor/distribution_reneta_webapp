@@ -278,7 +278,7 @@ export default function RemainingCashDeposit() {
             variant="secondary"
             size="sm"
             onClick={() => navigate("/billing/deposits")}
-            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+           
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Deposits

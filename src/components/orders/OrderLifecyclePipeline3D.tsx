@@ -77,7 +77,7 @@ export function OrderLifecyclePipeline3D({ steps, className }: OrderLifecyclePip
           aria-hidden
         >
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-brand-from via-[#0088c4] to-emerald-500"
+            className="h-full rounded-full bg-gradient-to-r from-brand-from via-brand-to to-brand-deep"
             initial={{ width: 0 }}
             animate={{ width: `${progressPct}%` }}
             transition={{ duration: 1.2, ease: "easeOut" }}

@@ -112,7 +112,7 @@ export default function ExportDeliveryList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/delivery/export/new")}>
+          <Button onClick={() => navigate("/delivery/export/new")}>
             <Globe className="h-4 w-4 mr-2" />
             New Export
           </Button>

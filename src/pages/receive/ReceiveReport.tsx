@@ -84,7 +84,7 @@ export default function ReceiveReport() {
         icon={FileText}
         variant="blue"
         actions={(
-          <Button onClick={handlePrint} className="hidden print:hidden md:inline-flex bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+          <Button onClick={handlePrint} className="hidden print:hidden md:inline-flex">
             Print
           </Button>
         )}

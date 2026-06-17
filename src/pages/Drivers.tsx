@@ -177,7 +177,7 @@ export default function Drivers() {
         icon={User}
         variant="emerald"
         actions={(
-          <Button onClick={() => setShowCreateDialog(true)} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+          <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" /> Add Driver
           </Button>
         )}

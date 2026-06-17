@@ -349,12 +349,12 @@ export default function RemainingCashList() {
               variant="secondary"
               size="sm"
               onClick={() => navigate("/orders/distribution-cockpit")}
-              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+             
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
-            <Button onClick={() => refetch()} variant="outline" size="sm" className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+            <Button onClick={() => refetch()} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>

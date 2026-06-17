@@ -202,13 +202,13 @@ export default function DepotDeliveryDetail() {
             variant="secondary"
             size="sm"
             onClick={() => navigate("/delivery/depot")}
-            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+           
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           {canApprove && (
-            <Button onClick={handleApprove} disabled={approving || !user || !user.id} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+            <Button onClick={handleApprove} disabled={approving || !user || !user.id}>
               {approving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -227,7 +227,7 @@ export default function DepotDeliveryDetail() {
               onClick={handleReceive}
               disabled={receiving || !user || !user.id}
               variant="default"
-              className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+             
             >
               {receiving ? (
                 <>

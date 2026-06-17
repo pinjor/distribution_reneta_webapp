@@ -82,7 +82,7 @@ export default function PickingOrdersList() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/orders/picking")}>
+          <Button onClick={() => navigate("/orders/picking")}>
             <PlusCircle className="h-4 w-4 mr-2" />
             Create picking challan
           </Button>

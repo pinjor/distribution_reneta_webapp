@@ -620,13 +620,13 @@ export default function OrderDeliveryDetail() {
       actions={(
         <div className="flex flex-wrap gap-2">
           {statusBadge}
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+          <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="h-4 w-4 mr-1" /> Print
           </Button>
-          <Button onClick={handleSave} disabled={saving} className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold">
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save Delivery
           </Button>

@@ -132,7 +132,7 @@ export default function OrderDeliveryList() {
             <Button variant="outline" onClick={() => navigate("/orders/picking")}>
               Packing Queue
             </Button>
-            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => setShowCreateDialog(true)}>
+            <Button onClick={() => setShowCreateDialog(true)}>
               <PlusCircle className="h-4 w-4 mr-2" /> Create from Order
             </Button>
           </div>

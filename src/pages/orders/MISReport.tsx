@@ -240,7 +240,7 @@ export default function MISReport() {
             onClick={() => refetch()}
             variant="outline"
             size="sm"
-            className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+           
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh

@@ -15,83 +15,12 @@ export type PageHeaderVariant =
   | "slate"
   | "fuchsia";
 
-/** Balanced header themes — visible sky/teal gradients, not washed out */
-const THEMES: Record<
-  PageHeaderVariant,
-  { shell: string; icon: string; eyebrow: string; subtitle: string }
-> = {
-  sky: {
-    shell: "from-brand-from via-[#0088c4] to-brand-to border-brand-from/40 shadow-md shadow-brand-from/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-white/90",
-    subtitle: "text-white/90",
-  },
-  blue: {
-    shell: "from-blue-500 via-blue-600 to-indigo-600 border-blue-400/40 shadow-md shadow-blue-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-blue-100/90",
-    subtitle: "text-blue-50/90",
-  },
-  indigo: {
-    shell: "from-indigo-500 via-indigo-600 to-violet-600 border-indigo-400/40 shadow-md shadow-indigo-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-indigo-100/90",
-    subtitle: "text-indigo-50/90",
-  },
-  violet: {
-    shell: "from-violet-500 via-purple-600 to-indigo-600 border-violet-400/40 shadow-md shadow-violet-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-violet-100/90",
-    subtitle: "text-violet-50/90",
-  },
-  emerald: {
-    shell: "from-emerald-500 via-emerald-600 to-teal-600 border-emerald-400/40 shadow-md shadow-emerald-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-emerald-100/90",
-    subtitle: "text-emerald-50/90",
-  },
-  teal: {
-    shell: "from-teal-500 via-teal-600 to-cyan-600 border-teal-400/40 shadow-md shadow-teal-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-teal-100/90",
-    subtitle: "text-teal-50/90",
-  },
-  cyan: {
-    shell: "from-cyan-500 via-cyan-600 to-blue-600 border-cyan-400/40 shadow-md shadow-cyan-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-cyan-100/90",
-    subtitle: "text-cyan-50/90",
-  },
-  orange: {
-    shell: "from-orange-500 via-orange-600 to-amber-600 border-orange-400/40 shadow-md shadow-orange-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-orange-100/90",
-    subtitle: "text-orange-50/90",
-  },
-  amber: {
-    shell: "from-amber-500 via-amber-600 to-orange-600 border-amber-400/40 shadow-md shadow-amber-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-amber-100/90",
-    subtitle: "text-amber-50/90",
-  },
-  rose: {
-    shell: "from-rose-500 via-rose-600 to-pink-600 border-rose-400/40 shadow-md shadow-rose-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-rose-100/90",
-    subtitle: "text-rose-50/90",
-  },
-  slate: {
-    shell: "from-slate-500 via-slate-600 to-gray-700 border-slate-400/40 shadow-md shadow-slate-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-slate-100/90",
-    subtitle: "text-slate-50/90",
-  },
-  fuchsia: {
-    shell: "from-fuchsia-500 via-fuchsia-600 to-purple-600 border-fuchsia-400/40 shadow-md shadow-fuchsia-500/20",
-    icon: "bg-white/20 text-white ring-white/30",
-    eyebrow: "text-fuchsia-100/90",
-    subtitle: "text-fuchsia-50/90",
-  },
+/** Single brand theme — all page titles use the same cyan palette */
+const BRAND_THEME = {
+  shell: "from-brand-from via-brand-to to-brand-deep border-brand-from/40 shadow-md shadow-brand-from/20",
+  icon: "bg-white/20 text-white ring-white/30",
+  eyebrow: "text-white/90",
+  subtitle: "text-white/90",
 };
 
 export interface PageHeaderProps {
@@ -109,13 +38,12 @@ export function PageHeader({
   title,
   subtitle,
   icon: Icon,
-  variant = "sky",
   actions,
   footer,
   eyebrow,
   className,
 }: PageHeaderProps) {
-  const theme = THEMES[variant];
+  const theme = BRAND_THEME;
 
   return (
     <div

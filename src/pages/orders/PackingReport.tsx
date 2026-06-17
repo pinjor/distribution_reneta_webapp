@@ -155,14 +155,14 @@ export default function PackingReport() {
                 variant="outline"
                 onClick={() => window.print()}
                 disabled={loading || !!error}
-                className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+               
               >
                 Print
               </Button>
               <Button
                 variant="secondary"
                 onClick={() => navigate(-1)}
-                className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold"
+               
               >
                 Back
               </Button>

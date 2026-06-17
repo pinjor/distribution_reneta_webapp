@@ -111,9 +111,9 @@ export default function ReceiveList() {
         variant="blue"
         actions={(
           <>
-            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/receive/factory")}>New Factory Receipt</Button>
-            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/receive/depot")}>New Depot Receipt</Button>
-            <Button className="bg-white text-blue-700 hover:bg-white/90 shadow-md font-semibold" onClick={() => navigate("/receive/return")}>New Return Receipt</Button>
+            <Button onClick={() => navigate("/receive/factory")}>New Factory Receipt</Button>
+            <Button onClick={() => navigate("/receive/depot")}>New Depot Receipt</Button>
+            <Button onClick={() => navigate("/receive/return")}>New Return Receipt</Button>
           </>
         )}
       />
