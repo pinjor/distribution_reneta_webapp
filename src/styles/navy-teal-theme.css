@@ -1,0 +1,467 @@
+/**
+ * Corporate Blue theme foundation (official brand #0C4DA1).
+ * Tokens are defined globally; brand remapping applies only inside `.theme-scope-navy-teal`.
+ * Unmigrated pages keep the legacy cyan brand variables from index.css.
+ *
+ * Navy & Teal (Option A) is superseded. Class name `.theme-scope-navy-teal` is retained
+ * for isolation compatibility with ThemeScope.
+ */
+
+:root {
+  --nt-primary: #0c4da1;
+  --nt-primary-hover: #093d82;
+  --nt-accent: #2874c7;
+  --nt-accent-hover: #0c4da1;
+  --nt-bg: #f5f7fb;
+  --nt-surface: #ffffff;
+  --nt-elevated: #ffffff;
+  --nt-text: #1e293b;
+  --nt-text-secondary: #64748b;
+  --nt-border: #e2e8f0;
+  --nt-muted: #f1f5f9;
+  --nt-soft: #eaf2fc;
+  --nt-focus: #0c4da1;
+  --nt-disabled: #94a3b8;
+  --nt-success: #15803d;
+  --nt-success-bg: #ecfdf5;
+  --nt-warning: #b45309;
+  --nt-warning-bg: #fffbeb;
+  --nt-danger: #be123c;
+  --nt-danger-bg: #fff1f2;
+  --nt-info: #2874c7;
+  --nt-info-bg: #eaf2fc;
+
+  --nt-bg-hsl: 220 43% 97%;
+  --nt-surface-hsl: 0 0% 100%;
+  --nt-text-hsl: 215 25% 17%;
+  --nt-text-secondary-hsl: 215 16% 47%;
+  --nt-border-hsl: 214 32% 91%;
+  --nt-muted-hsl: 210 40% 96%;
+  --nt-primary-hsl: 216 86% 34%;
+  --nt-accent-hsl: 211 67% 47%;
+  --nt-ring-hsl: 216 86% 34%;
+}
+
+.dark {
+  --nt-primary: #70adff;
+  --nt-primary-hover: #9ac6ff;
+  --nt-accent: #4594e8;
+  --nt-accent-hover: #70adff;
+  --nt-bg: #0b1220;
+  --nt-surface: #151f30;
+  --nt-elevated: #1b2a40;
+  --nt-text: #f1f5f9;
+  --nt-text-secondary: #a9b8cc;
+  --nt-border: #2c3b50;
+  --nt-muted: #1b304d;
+  --nt-soft: #1b304d;
+  --nt-focus: #70adff;
+  --nt-disabled: #64748b;
+  --nt-success: #4ade80;
+  --nt-success-bg: #052e1c;
+  --nt-warning: #fbbf24;
+  --nt-warning-bg: #3b2a0a;
+  --nt-danger: #fb7185;
+  --nt-danger-bg: #3f1219;
+  --nt-info: #70adff;
+  --nt-info-bg: #1b304d;
+
+  --nt-bg-hsl: 220 48% 8%;
+  --nt-surface-hsl: 216 39% 14%;
+  --nt-text-hsl: 210 40% 96%;
+  --nt-text-secondary-hsl: 214 24% 73%;
+  --nt-border-hsl: 214 29% 24%;
+  --nt-muted-hsl: 215 48% 20%;
+  --nt-primary-hsl: 214 100% 72%;
+  --nt-accent-hsl: 211 78% 59%;
+  --nt-ring-hsl: 214 100% 72%;
+}
+
+/**
+ * Page-scoped remapping: brand utilities + shadcn surfaces become Corporate Blue
+ * only inside migrated pages wrapped by ThemeScope.
+ */
+.theme-scope-navy-teal {
+  --brand-from: var(--nt-primary);
+  --brand-to: var(--nt-accent);
+  --brand-deep: var(--nt-primary);
+  --brand-hover-from: var(--nt-primary-hover);
+  --brand-hover-to: var(--nt-accent);
+  --brand-tile-from: var(--nt-muted);
+  --brand-tile-via: var(--nt-bg);
+  --brand-tile-to: var(--nt-border);
+  --brand-muted: var(--nt-text-secondary);
+  --brand-glow: 12, 77, 161;
+
+  --background: var(--nt-bg-hsl);
+  --foreground: var(--nt-text-hsl);
+  --card: var(--nt-surface-hsl);
+  --card-foreground: var(--nt-text-hsl);
+  --popover: var(--nt-surface-hsl);
+  --popover-foreground: var(--nt-text-hsl);
+  --primary: var(--nt-primary-hsl);
+  --primary-foreground: 0 0% 100%;
+  --muted: var(--nt-muted-hsl);
+  --muted-foreground: var(--nt-text-secondary-hsl);
+  --accent: var(--nt-accent-hsl);
+  --accent-foreground: 0 0% 100%;
+  --border: var(--nt-border-hsl);
+  --input: var(--nt-border-hsl);
+  --ring: var(--nt-ring-hsl);
+
+  color: var(--nt-text);
+  background-color: var(--nt-bg);
+}
+
+.dark .theme-scope-navy-teal {
+  --primary-foreground: 220 48% 8%;
+  --accent-foreground: 220 48% 8%;
+  --brand-glow: 112, 173, 255;
+}
+
+.theme-scope-navy-teal .nt-surface {
+  background-color: var(--nt-surface);
+  border-color: var(--nt-border);
+  color: var(--nt-text);
+}
+
+.theme-scope-navy-teal .nt-elevated {
+  background-color: var(--nt-elevated);
+  border-color: var(--nt-border);
+}
+
+.theme-scope-navy-teal .nt-banner {
+  background-color: #0c4da1 !important;
+  background-image: linear-gradient(90deg, #0c4da1 0%, #093d82 52%, #2874c7 100%) !important;
+  border-color: rgba(12, 77, 161, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(12, 77, 161, 0.16) !important;
+}
+
+.dark .theme-scope-navy-teal .nt-banner {
+  background-color: #151f30 !important;
+  background-image: linear-gradient(90deg, #151f30 0%, #1b2a40 52%, #1b304d 100%) !important;
+  border-color: #2c3b50 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.dark .theme-scope-navy-teal .nav-tile-card,
+.dark .theme-scope-navy-teal .nt-tile-card {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--nt-surface),
+    var(--nt-muted),
+    var(--nt-elevated)
+  ) !important;
+  border-color: color-mix(in srgb, var(--nt-primary) 30%, transparent);
+}
+
+.theme-scope-navy-teal .nt-form-card {
+  container-type: inline-size;
+  container-name: stock-receipt;
+  background-color: var(--nt-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--nt-text) 4%, transparent);
+}
+
+.theme-scope-navy-teal .nt-form-block + .nt-form-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--nt-border);
+}
+
+.theme-scope-navy-teal .nt-form-block + .nt-form-block.nt-form-block--no-divider {
+  margin-top: 16px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.theme-scope-navy-teal .nt-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 16px;
+  row-gap: 12px;
+}
+
+.theme-scope-navy-teal .nt-form-grid--product {
+  align-items: start;
+}
+
+@container stock-receipt (min-width: 720px) {
+  .theme-scope-navy-teal .nt-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@container stock-receipt (min-width: 1100px) {
+  .theme-scope-navy-teal .nt-form-grid--product {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 0.8fr);
+  }
+
+  .theme-scope-navy-teal .nt-form-grid--dates {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Portaled Radix select menus render outside ThemeScope — keep them opaque */
+.nt-select-panel {
+  z-index: 200 !important;
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+  opacity: 1 !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14) !important;
+  backdrop-filter: none !important;
+}
+
+.nt-select-panel [data-radix-select-viewport] {
+  background-color: #ffffff;
+}
+
+.nt-select-panel [role="option"] {
+  color: #1e293b;
+  align-items: center;
+}
+
+.nt-select-panel [role="option"] > span:last-child {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.nt-select-panel [cmdk-input-wrapper] {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 4px 8px;
+}
+
+.nt-select-panel [cmdk-input] {
+  height: 36px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+}
+
+.nt-select-panel [cmdk-list] {
+  max-height: 260px;
+  padding: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #c5d0dc transparent;
+}
+
+.nt-select-panel [cmdk-list]::-webkit-scrollbar {
+  width: 5px;
+}
+
+.nt-select-panel [cmdk-list]::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.nt-select-panel [cmdk-list]::-webkit-scrollbar-thumb {
+  background-color: #c5d0dc;
+  border-radius: 999px;
+}
+
+.nt-select-panel [cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+.nt-select-panel [cmdk-item] {
+  min-height: 36px;
+}
+
+.nt-select-panel [cmdk-item][data-selected="true"] {
+  background-color: #eaf2fc !important;
+  color: #0c4da1 !important;
+}
+
+.nt-select-panel [role="option"][data-highlighted],
+.nt-select-panel [role="option"]:focus {
+  background-color: #eaf2fc !important;
+  color: #0c4da1 !important;
+}
+
+.nt-select-panel [role="option"][data-state="checked"] svg {
+  color: #0c4da1;
+}
+
+.dark .nt-select-panel {
+  background-color: #151f30 !important;
+  color: #f1f5f9 !important;
+  border-color: #2c3b50 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+.dark .nt-select-panel [data-radix-select-viewport] {
+  background-color: #151f30;
+}
+
+.dark .nt-select-panel [cmdk-input-wrapper] {
+  border-bottom-color: #2c3b50;
+}
+
+.dark .nt-select-panel [cmdk-list] {
+  scrollbar-color: #3d4f66 transparent;
+}
+
+.dark .nt-select-panel [cmdk-list]::-webkit-scrollbar-thumb {
+  background-color: #3d4f66;
+}
+
+.dark .nt-select-panel [cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
+.dark .nt-select-panel [role="option"] {
+  color: #f1f5f9;
+}
+
+.dark .nt-select-panel [cmdk-item][data-selected="true"] {
+  background-color: #1b304d !important;
+  color: #70adff !important;
+}
+
+.dark .nt-select-panel [role="option"][data-highlighted],
+.dark .nt-select-panel [role="option"]:focus {
+  background-color: #1b304d !important;
+  color: #70adff !important;
+}
+
+.dark .nt-select-panel [role="option"][data-state="checked"] svg {
+  color: #70adff;
+}
+
+/* Premium form controls — scoped to migrated pages using .nt-form */
+.theme-scope-navy-teal .nt-form input:not([type="checkbox"]):not([type="radio"]),
+.theme-scope-navy-teal .nt-form button[role="combobox"] {
+  height: 36px;
+  border-radius: 8px;
+  border-color: #cbd5e1;
+  background-color: var(--nt-surface);
+  color: var(--nt-text);
+  font-size: 14px;
+  line-height: 1.25;
+  padding-left: 13px;
+  padding-right: 13px;
+  box-shadow: none;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-shadow: 0 0 #0000;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.theme-scope-navy-teal .nt-form input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+.theme-scope-navy-teal .nt-form input:hover:not(:disabled):not(:focus):not(:focus-visible),
+.theme-scope-navy-teal .nt-form button[role="combobox"]:hover:not(:disabled):not(:focus) {
+  border-color: #94a3b8;
+}
+
+.theme-scope-navy-teal .nt-form input:focus,
+.theme-scope-navy-teal .nt-form input:focus-visible,
+.theme-scope-navy-teal .nt-form button[role="combobox"]:focus,
+.theme-scope-navy-teal .nt-form button[role="combobox"]:focus-visible {
+  outline: none;
+  border-color: var(--nt-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nt-focus) 18%, transparent);
+}
+
+.theme-scope-navy-teal .nt-form input[aria-invalid="true"] {
+  border-color: var(--nt-danger);
+}
+
+.theme-scope-navy-teal .nt-form input:disabled,
+.theme-scope-navy-teal .nt-form button[role="combobox"]:disabled {
+  background-color: var(--nt-muted);
+  color: var(--nt-disabled);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.theme-scope-navy-teal .nt-form label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--nt-text);
+}
+
+.theme-scope-navy-teal .nt-form button[role="combobox"] {
+  text-align: left;
+}
+
+.theme-scope-navy-teal .nt-form button[role="combobox"] > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-scope-navy-teal .nt-form button[role="combobox"] svg {
+  color: var(--nt-primary);
+  opacity: 0.85;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.theme-scope-navy-teal .nt-form .nt-date-field {
+  position: relative;
+}
+
+.theme-scope-navy-teal .nt-form input[type="date"] {
+  color-scheme: light;
+}
+
+.theme-scope-navy-teal .nt-form input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.theme-scope-navy-teal .nt-form button:not([role="combobox"])::before {
+  display: none;
+}
+
+.theme-scope-navy-teal .nt-form button:not([role="combobox"]):active {
+  transform: none;
+}
+
+.dark .theme-scope-navy-teal .nt-form input:not([type="checkbox"]):not([type="radio"]),
+.dark .theme-scope-navy-teal .nt-form button[role="combobox"] {
+  border-color: var(--nt-border);
+  background-color: var(--nt-surface);
+  color: var(--nt-text);
+}
+
+.dark .theme-scope-navy-teal .nt-form input:focus,
+.dark .theme-scope-navy-teal .nt-form input:focus-visible,
+.dark .theme-scope-navy-teal .nt-form button[role="combobox"]:focus,
+.dark .theme-scope-navy-teal .nt-form button[role="combobox"]:focus-visible {
+  border-color: var(--nt-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nt-focus) 22%, transparent);
+}
+
+.dark .theme-scope-navy-teal .nt-form input:disabled,
+.dark .theme-scope-navy-teal .nt-form button[role="combobox"]:disabled {
+  background-color: #1b283b;
+}
+
+.dark .theme-scope-navy-teal .nt-form input[type="date"] {
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-scope-navy-teal .nt-form input:not([type="checkbox"]):not([type="radio"]),
+  .theme-scope-navy-teal .nt-form button[role="combobox"],
+  .theme-scope-navy-teal .nt-form button {
+    transition: none;
+  }
+}

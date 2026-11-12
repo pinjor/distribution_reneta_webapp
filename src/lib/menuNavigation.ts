@@ -183,3 +183,101 @@ export function getCockpitSections(): MenuNavSection[] {
     }),
   );
 }
+
+export interface PageTitleMeta {
+  title: string;
+  description?: string;
+}
+
+/** Flatten SIDEBAR_MENU leaf routes (exact existing menu titles). */
+export function getNavigableMenuItems(): MenuNavItem[] {
+  const items: MenuNavItem[] = [];
+  for (const entry of SIDEBAR_MENU) {
+    if ("path" in entry && entry.path) {
+      items.push({
+        title: entry.title,
+        icon: entry.icon,
+        path: entry.path,
+      });
+    }
+    if ("subItems" in entry && entry.subItems) {
+      items.push(...flattenSubItems(entry.subItems));
+    }
+  }
+  return items;
+}
+
+/**
+ * Routes that exist in the app but are not leaf entries in SIDEBAR_MENU.
+ * Titles mirror existing PageHeader / document.title wording where available.
+ */
+const EXTRA_ROUTE_TITLES: PageTitleMeta & { path: string }[] = [
+  { path: "/profile", title: "My Profile" },
+  { path: "/masters", title: "Master Data" },
+  { path: "/warehouse/issuance", title: "Stock Issuance" },
+  { path: "/warehouse/issuance/loading", title: "Vehicle Loading" },
+  { path: "/warehouse/adjustment", title: "Stock Adjustment" },
+  { path: "/orders/distribution-cockpit", title: "Distribution Cockpit" },
+  { path: "/orders/delivery", title: "Delivery Orders" },
+  { path: "/orders/picking", title: "Packing Board" },
+  { path: "/orders/picking/report", title: "Packing Report" },
+  { path: "/orders/loading-request", title: "Loading Requests" },
+  { path: "/orders/loading-request/new", title: "New Loading Request" },
+  { path: "/orders/loading-list", title: "Vehicle Loading" },
+  { path: "/distribution/routes", title: "Route Planning" },
+  { path: "/delivery/depot/new", title: "New Depot Transfer" },
+  { path: "/delivery/sample-gift/new", title: "New Sample Gift Delivery" },
+  { path: "/delivery/export/new", title: "New Export Delivery" },
+  { path: "/receive/report", title: "Receipt Report" },
+];
+
+function normalizePathname(pathname: string): string {
+  if (!pathname) return "/";
+  const bare = pathname.split("?")[0].split("#")[0];
+  if (bare.length > 1 && bare.endsWith("/")) return bare.slice(0, -1);
+  return bare || "/";
+}
+
+function matchLongestPrefix(
+  pathname: string,
+  candidates: Array<{ path: string; title: string; description?: string }>,
+): PageTitleMeta | null {
+  let best: { path: string; title: string; description?: string } | null = null;
+  for (const candidate of candidates) {
+    if (pathname === candidate.path) {
+      return { title: candidate.title, description: candidate.description };
+    }
+    if (pathname.startsWith(`${candidate.path}/`)) {
+      if (!best || candidate.path.length > best.path.length) {
+        best = candidate;
+      }
+    }
+  }
+  return best ? { title: best.title, description: best.description } : null;
+}
+
+/**
+ * Resolve the navbar page title from the current location.
+ * Prefers exact SIDEBAR_MENU labels; uses longest-prefix among menu + extras for detail routes.
+ */
+export function resolvePageTitle(pathname: string): PageTitleMeta {
+  const path = normalizePathname(pathname);
+  const candidates = [
+    ...getNavigableMenuItems().map((item) => ({
+      path: item.path,
+      title: item.title,
+      description: item.description,
+    })),
+    ...EXTRA_ROUTE_TITLES,
+  ];
+
+  const exact = candidates.find((item) => item.path === path);
+  if (exact) {
+    return { title: exact.title, description: exact.description };
+  }
+
+  const prefix = matchLongestPrefix(path, candidates);
+  if (prefix) return prefix;
+
+  return { title: "RENATA DMS" };
+}

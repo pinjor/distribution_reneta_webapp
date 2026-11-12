@@ -39,9 +39,9 @@ export function NavTileCard({
         className={cn(
           "nav-tile-card relative h-full cursor-pointer overflow-hidden rounded-2xl border-2 border-brand-from/20",
           "bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via",
-          "shadow-[0_4px_20px_-4px_rgba(106,198,223,0.25)]",
+          "shadow-[0_4px_20px_-4px_rgba(var(--brand-glow),0.25)]",
           "transition-all duration-300 ease-out",
-          "hover:border-brand-from/45 hover:shadow-[0_12px_32px_-8px_rgba(106,198,223,0.45)]",
+          "hover:border-brand-from/45 hover:shadow-[0_12px_32px_-8px_rgba(var(--brand-glow),0.45)]",
           "focus-within:ring-2 focus-within:ring-brand-from/30 focus-within:ring-offset-2",
         )}
         onClick={onClick}
@@ -156,8 +156,8 @@ export function StatTileCard({
         className={cn(
           "nav-tile-card relative h-full overflow-hidden rounded-2xl border-2 p-4",
           "bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via",
-          "border-brand-from/20 shadow-[0_4px_16px_-4px_rgba(106,198,223,0.2)]",
-          "transition-all duration-300 hover:border-brand-from/40 hover:shadow-[0_8px_24px_-6px_rgba(106,198,223,0.35)]",
+          "border-brand-from/20 shadow-[0_4px_16px_-4px_rgba(var(--brand-glow),0.2)]",
+          "transition-all duration-300 hover:border-brand-from/40 hover:shadow-[0_8px_24px_-6px_rgba(var(--brand-glow),0.35)]",
           onClick && "cursor-pointer",
           active && "ring-2 ring-brand-from border-brand-from/50 shadow-md",
         )}

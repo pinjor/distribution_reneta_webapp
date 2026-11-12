@@ -1,5 +1,13 @@
 import type { Config } from "tailwindcss";
 
+/** Resolve CSS custom-property colors with optional opacity (e.g. border-brand-from/20). */
+const withCssVar =
+  (cssVar: string) =>
+  ({ opacityValue }: { opacityValue?: string }) => {
+    if (opacityValue === undefined) return `var(${cssVar})`;
+    return `color-mix(in srgb, var(${cssVar}) ${Number(opacityValue) * 100}%, transparent)`;
+  };
+
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
@@ -17,19 +25,36 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
-        "brand-gradient": "linear-gradient(to right, #6ac6df, #4ab8d4)",
-        "brand-tile": "linear-gradient(135deg, #eef8fb 0%, #d9f0f6 50%, #c4e8f1 100%)",
+        "brand-gradient": "linear-gradient(to right, var(--brand-from), var(--brand-to))",
+        "brand-tile": "linear-gradient(135deg, var(--brand-tile-from) 0%, var(--brand-tile-via) 50%, var(--brand-tile-to) 100%)",
+        "nt-gradient": "linear-gradient(to right, var(--nt-primary), var(--nt-accent))",
+        "nt-tile": "linear-gradient(135deg, var(--nt-muted) 0%, var(--nt-bg) 50%, var(--nt-border) 100%)",
       },
       colors: {
         brand: {
-          from: "#6ac6df",
-          to: "#4ab8d4",
-          deep: "#2a8aa0",
-          "hover-from": "#58bdd6",
-          "hover-to": "#3aadc9",
-          "tile-from": "#eef8fb",
-          "tile-via": "#d9f0f6",
-          "tile-to": "#c4e8f1",
+          from: withCssVar("--brand-from"),
+          to: withCssVar("--brand-to"),
+          deep: withCssVar("--brand-deep"),
+          muted: withCssVar("--brand-muted"),
+          "hover-from": withCssVar("--brand-hover-from"),
+          "hover-to": withCssVar("--brand-hover-to"),
+          "tile-from": withCssVar("--brand-tile-from"),
+          "tile-via": withCssVar("--brand-tile-via"),
+          "tile-to": withCssVar("--brand-tile-to"),
+        },
+        nt: {
+          primary: withCssVar("--nt-primary"),
+          "primary-hover": withCssVar("--nt-primary-hover"),
+          accent: withCssVar("--nt-accent"),
+          "accent-hover": withCssVar("--nt-accent-hover"),
+          bg: withCssVar("--nt-bg"),
+          surface: withCssVar("--nt-surface"),
+          elevated: withCssVar("--nt-elevated"),
+          text: withCssVar("--nt-text"),
+          "text-secondary": withCssVar("--nt-text-secondary"),
+          border: withCssVar("--nt-border"),
+          muted: withCssVar("--nt-muted"),
+          soft: withCssVar("--nt-soft"),
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

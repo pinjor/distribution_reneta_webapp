@@ -15,6 +15,9 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [activeDemoId, setActiveDemoId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [emailError, setEmailError] = useState<string | undefined>();
+  const [passwordError, setPasswordError] = useState<string | undefined>();
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -27,6 +30,7 @@ export default function Login() {
       return apiEndpoints.auth.login(data);
     },
     onSuccess: (data) => {
+      setFormError(null);
       login(data.access_token, data.user, rememberMe);
       toast({
         title: "Login successful",
@@ -35,9 +39,11 @@ export default function Login() {
       navigate("/");
     },
     onError: (error: Error) => {
+      const message = error.message || "Invalid email or password";
+      setFormError(message);
       toast({
         title: "Login failed",
-        description: error.message || "Invalid email or password",
+        description: message,
         variant: "destructive",
       });
       setActiveDemoId(null);
@@ -45,24 +51,48 @@ export default function Login() {
   });
 
   const submitLogin = (email: string, password: string) => {
+    setFormError(null);
     loginMutation.mutate({ email, password, remember_me: rememberMe });
+  };
+
+  const validate = (email: string, password: string) => {
+    let ok = true;
+    const emailTrim = email.trim();
+
+    if (!emailTrim) {
+      setEmailError("Email is required");
+      ok = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      setEmailError("Enter a valid email address");
+      ok = false;
+    } else {
+      setEmailError(undefined);
+    }
+
+    if (!password) {
+      setPasswordError("Password is required");
+      ok = false;
+    } else {
+      setPasswordError(undefined);
+    }
+
+    return ok;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Validation error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
+    setFormError(null);
+    if (!validate(formData.email, formData.password)) {
       return;
     }
     setActiveDemoId(null);
-    submitLogin(formData.email, formData.password);
+    submitLogin(formData.email.trim(), formData.password);
   };
 
   const handleDemoLogin = (demo: DemoUser) => {
+    setEmailError(undefined);
+    setPasswordError(undefined);
+    setFormError(null);
     setFormData({ email: demo.email, password: demo.password });
     setActiveDemoId(demo.id);
     submitLogin(demo.email, demo.password);
@@ -72,14 +102,25 @@ export default function Login() {
     <SignInCard
       email={formData.email}
       password={formData.password}
-      onEmailChange={(email) => setFormData((prev) => ({ ...prev, email }))}
-      onPasswordChange={(password) => setFormData((prev) => ({ ...prev, password }))}
+      onEmailChange={(email) => {
+        setFormData((prev) => ({ ...prev, email }));
+        if (emailError) setEmailError(undefined);
+        if (formError) setFormError(null);
+      }}
+      onPasswordChange={(password) => {
+        setFormData((prev) => ({ ...prev, password }));
+        if (passwordError) setPasswordError(undefined);
+        if (formError) setFormError(null);
+      }}
       showPassword={showPassword}
       onTogglePassword={() => setShowPassword((v) => !v)}
       rememberMe={rememberMe}
       onRememberMeChange={setRememberMe}
       isLoading={loginMutation.isPending}
       onSubmit={handleSubmit}
+      emailError={emailError}
+      passwordError={passwordError}
+      formError={formError}
       demoUsers={DEMO_USERS}
       onDemoLogin={handleDemoLogin}
       activeDemoId={activeDemoId}

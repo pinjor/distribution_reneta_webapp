@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode, type WheelEvent } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,18 +11,206 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle, Search, Printer, Eye, Package } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import type { LucideIcon } from "lucide-react";
+import {
+  Check,
+  CheckCircle,
+  Search,
+  Printer,
+  Eye,
+  Calendar,
+  Pill,
+  Sun,
+  Thermometer,
+  Snowflake,
+  Warehouse,
+  ChevronsUpDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
 import { useTableSort } from "@/hooks/useTableSort";
 import { useTableFilter } from "@/hooks/useTableFilter";
 import { recentReceipts } from "@/lib/mockData";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Badge } from "@/components/ui/badge";
 import { masterData, type ProductOption } from "@/lib/masterData";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { brandLabelClasses } from "@/lib/brandTheme";
+import { cn } from "@/lib/utils";
+
+const fieldClass =
+  "h-9 rounded-lg shadow-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0";
+const labelClass = "text-[13px] font-medium text-nt-text";
+const primaryBtnClass =
+  "h-9 !rounded-sm border-0 bg-[#0C4DA1] px-4 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-[#093D82] focus-visible:ring-2 focus-visible:ring-[#0C4DA1]/40 dark:bg-[#70ADFF] dark:text-[#0B1220] dark:hover:bg-[#9AC6FF]";
+const secondaryBtnClass =
+  "h-9 !rounded-sm border border-nt-border bg-nt-surface px-4 text-sm font-semibold text-nt-text transition-colors duration-150 hover:bg-nt-muted";
+const selectPanelClass =
+  "nt-select-panel z-[200] rounded-xl border p-1 shadow-lg";
+const selectItemClass =
+  "cursor-pointer rounded-md py-2 pl-8 pr-3 text-[13px] leading-snug";
+const fieldWrapClass = "min-w-0 space-y-1.5";
+
+function SelectOptionIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span className="mr-2 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+    </span>
+  );
+}
+
+function preventNumberWheel(event: WheelEvent<HTMLInputElement>) {
+  event.currentTarget.blur();
+}
+
+function ProductSearchSelect({
+  products,
+  value,
+  onValueChange,
+  disabled,
+  loading,
+}: {
+  products: ProductOption[];
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = products.find((product) => product.id === value);
+
+  return (
+    <>
+      <input
+        tabIndex={-1}
+        required
+        value={value}
+        onChange={() => undefined}
+        className="pointer-events-none absolute h-0 w-0 opacity-0"
+        aria-hidden
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id="product"
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "w-full justify-between font-normal",
+              fieldClass,
+              !selected && "text-[#94A3B8]",
+            )}
+          >
+            <span className="flex min-w-0 items-center">
+              {selected ? (
+                <>
+                  <SelectOptionIcon icon={Pill} />
+                  <span className="truncate text-nt-text">
+                    {selected.oldCode} — {selected.name}
+                  </span>
+                </>
+              ) : (
+                loading ? "Loading products..." : "Select product"
+              )}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-nt-primary opacity-80" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="nt-select-panel z-[200] w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0"
+        >
+          <Command className="bg-transparent text-inherit">
+            <CommandInput placeholder="" className="h-9" />
+            <CommandList className="max-h-[260px] overscroll-contain py-1">
+              <CommandEmpty className="py-4 text-xs text-[#64748B]">
+                {loading ? "Loading..." : products.length === 0 ? "No products available" : "No products found."}
+              </CommandEmpty>
+              <CommandGroup className="p-0">
+                {products.map((product) => (
+                  <CommandItem
+                    key={product.id}
+                    value={`${product.oldCode} ${product.newCode} ${product.name} ${product.id}`}
+                    onSelect={() => {
+                      onValueChange(product.id);
+                      setOpen(false);
+                    }}
+                    className="cursor-pointer gap-2 rounded-md px-2 py-1.5"
+                  >
+                    <SelectOptionIcon icon={Pill} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium leading-tight">
+                        {product.name}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] leading-tight text-[#64748B] dark:text-[#A9B8CC]">
+                        {product.oldCode}
+                      </span>
+                    </span>
+                    {value === product.id ? <Check className="h-3.5 w-3.5 shrink-0 text-[#0C4DA1]" /> : null}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
+
+function DateField({
+  id,
+  required,
+}: {
+  id: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="nt-date-field">
+      <Input id={id} type="date" required={required} className={cn(fieldClass, "w-full pr-10")} />
+      <Calendar
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-nt-primary"
+        aria-hidden
+      />
+    </div>
+  );
+}
+
+function FormBlock({
+  title,
+  extra,
+  children,
+  className,
+}: {
+  title: string;
+  extra?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("nt-form-block overflow-visible", className)}>
+      <header className="mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-semibold leading-none text-nt-text">{title}</h3>
+        {extra}
+      </header>
+      {children}
+    </section>
+  );
+}
 
 const StockReceipt = () => {
+  const reduceMotion = useReducedMotion();
   const [challanVerified, setChallanVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -77,11 +266,11 @@ const StockReceipt = () => {
       align: "right" as const,
       render: () => (
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" className="hover-scale">
+          <Button variant="ghost" size="sm">
             <Eye className="h-4 w-4 mr-1" />
             View
           </Button>
-          <Button variant="ghost" size="sm" className="hover-scale">
+          <Button variant="ghost" size="sm">
             <Printer className="h-4 w-4" />
           </Button>
         </div>
@@ -90,205 +279,232 @@ const StockReceipt = () => {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Stock Receipt"
-        subtitle="Record incoming stock from suppliers"
-        icon={Package}
-        variant="blue"
-      />
-
-      <Card className="p-6 card-elevated">
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Challan Verification */}
-          <div className="p-4 bg-muted/50 rounded-lg space-y-4">
-            <h3 className="font-medium flex items-center gap-2">
-              EBS Challan Verification
-              {challanVerified && <CheckCircle className="h-5 w-5 text-success animate-scale-in" />}
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="challanNo">Challan Number *</Label>
-                <div className="flex gap-2">
+    <ThemeScope className="-mx-6 -my-6 min-h-full w-full px-6 py-6">
+      <div className="w-full space-y-5">
+        <motion.div
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.16 }}
+        >
+          <form className="nt-form nt-form-card overflow-visible p-5 sm:p-6" onSubmit={handleSubmit}>
+            <FormBlock
+              title="EBS Challan Verification"
+              extra={
+                challanVerified ? (
+                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                ) : null
+              }
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+                <div className="w-full max-w-[420px] space-y-1.5">
+                  <Label htmlFor="challanNo" className={labelClass}>Challan Number *</Label>
                   <Input
                     id="challanNo"
                     placeholder="Enter challan number"
-                    className="flex-1"
+                    className={cn("w-full", fieldClass)}
                     required
                   />
-                  <Button
-                    type="button"
-                    onClick={handleChallanVerify}
-                    variant="outline"
-                    disabled={verifying || challanVerified}
-                    className="hover-scale"
-                  >
-                    {verifying ? (
-                      <>
-                        <LoadingSpinner size="sm" className="mr-2" />
-                        Verifying...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="h-4 w-4 mr-2" />
-                        Verify
-                      </>
-                    )}
-                  </Button>
                 </div>
-              </div>
-              {challanVerified && (
-                <div className="flex items-end animate-fade-in">
-                  <div className="px-4 py-2 bg-success-bg text-success rounded-lg flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
+                <Button
+                  type="button"
+                  onClick={handleChallanVerify}
+                  disabled={verifying || challanVerified}
+                  className={cn("w-full shrink-0 sm:w-auto", primaryBtnClass)}
+                >
+                  {verifying ? (
+                    <>
+                      <LoadingSpinner size="sm" className="mr-2" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Verify
+                    </>
+                  )}
+                </Button>
+                {challanVerified && (
+                  <div className="flex h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
                     <span className="text-sm font-medium">Verified from Oracle EBS</span>
                   </div>
+                )}
+              </div>
+            </FormBlock>
+
+            <FormBlock title="Product & Batch Details">
+              <div className="nt-form-grid nt-form-grid--product">
+                <div className={cn(fieldWrapClass, "relative")}>
+                  <Label htmlFor="product" className={labelClass}>Product Name *</Label>
+                  <ProductSearchSelect
+                    products={products}
+                    value={selectedProduct}
+                    onValueChange={setSelectedProduct}
+                    disabled={loadingProducts}
+                    loading={loadingProducts}
+                  />
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Product Details */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="product">Product Name *</Label>
-              <Select 
-                required 
-                value={selectedProduct} 
-                onValueChange={setSelectedProduct}
-                disabled={loadingProducts}
-              >
-                <SelectTrigger id="product">
-                  <SelectValue placeholder={loadingProducts ? "Loading products..." : "Select product"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.length === 0 ? (
-                    <SelectItem value="no-products" disabled>
-                      {loadingProducts ? "Loading..." : "No products available"}
-                    </SelectItem>
-                  ) : (
-                    products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.oldCode} — {product.name}
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="batch" className={labelClass}>Batch Number * (Numeric Only)</Label>
+                  <Input
+                    id="batch"
+                    placeholder="Enter batch number (digits only)"
+                    required
+                    pattern="[0-9]+"
+                    title="Batch number must contain only digits"
+                    className={fieldClass}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value && !/^\d+$/.test(value)) {
+                        e.target.setCustomValidity("Batch number must be numeric only (digits only)");
+                      } else {
+                        e.target.setCustomValidity("");
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="qty" className={labelClass}>Quantity *</Label>
+                  <Input
+                    id="qty"
+                    type="number"
+                    placeholder="0"
+                    required
+                    min="1"
+                    className={fieldClass}
+                    onWheel={preventNumberWheel}
+                  />
+                </div>
+
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="unitPrice" className={labelClass}>Unit Price *</Label>
+                  <Input
+                    id="unitPrice"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                    min="0"
+                    className={fieldClass}
+                    onWheel={preventNumberWheel}
+                  />
+                </div>
+              </div>
+            </FormBlock>
+
+            <FormBlock title="Dates & Storage" className="nt-form-block--no-divider">
+              <div className="nt-form-grid nt-form-grid--dates">
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="mfgDate" className={labelClass}>Manufacturing Date *</Label>
+                  <DateField id="mfgDate" required />
+                </div>
+
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="expDate" className={labelClass}>Expiry Date *</Label>
+                  <DateField id="expDate" required />
+                </div>
+
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="storage" className={labelClass}>Storage Condition *</Label>
+                  <Select required>
+                    <SelectTrigger id="storage" className={fieldClass}>
+                      <SelectValue placeholder="Select storage type" />
+                    </SelectTrigger>
+                    <SelectContent className={selectPanelClass}>
+                      <SelectItem value="ambient" className={selectItemClass}>
+                        <SelectOptionIcon icon={Sun} />
+                        Ambient (15-25°C)
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+                      <SelectItem value="cool" className={selectItemClass}>
+                        <SelectOptionIcon icon={Thermometer} />
+                        Cool (8-15°C)
+                      </SelectItem>
+                      <SelectItem value="cold" className={selectItemClass}>
+                        <SelectOptionIcon icon={Thermometer} />
+                        Cold (2-8°C)
+                      </SelectItem>
+                      <SelectItem value="frozen" className={selectItemClass}>
+                        <SelectOptionIcon icon={Snowflake} />
+                        Frozen (-20°C)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="batch">Batch Number * (Numeric Only)</Label>
-              <Input 
-                id="batch" 
-                placeholder="Enter batch number (digits only)" 
-                required 
-                pattern="[0-9]+"
-                title="Batch number must contain only digits"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Only allow numeric input
-                  if (value && !/^\d+$/.test(value)) {
-                    e.target.setCustomValidity("Batch number must be numeric only (digits only)");
-                  } else {
-                    e.target.setCustomValidity("");
-                  }
-                }}
+                <div className={fieldWrapClass}>
+                  <Label htmlFor="source" className={labelClass}>Source Depot *</Label>
+                  <Select required>
+                    <SelectTrigger id="source" className={fieldClass}>
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent className={selectPanelClass}>
+                      <SelectItem value="mumbai" className={selectItemClass}>
+                        <SelectOptionIcon icon={Warehouse} />
+                        Mumbai Central
+                      </SelectItem>
+                      <SelectItem value="delhi" className={selectItemClass}>
+                        <SelectOptionIcon icon={Warehouse} />
+                        Delhi Main
+                      </SelectItem>
+                      <SelectItem value="bangalore" className={selectItemClass}>
+                        <SelectOptionIcon icon={Warehouse} />
+                        Bangalore Hub
+                      </SelectItem>
+                      <SelectItem value="chennai" className={selectItemClass}>
+                        <SelectOptionIcon icon={Warehouse} />
+                        Chennai Depot
+                      </SelectItem>
+                      <SelectItem value="hyderabad" className={selectItemClass}>
+                        <SelectOptionIcon icon={Warehouse} />
+                        Hyderabad Warehouse
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </FormBlock>
+
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+              <Button type="button" variant="outline" className={cn("w-full sm:w-auto", secondaryBtnClass)}>
+                Cancel
+              </Button>
+              <Button type="submit" className={cn("w-full sm:w-auto", primaryBtnClass)}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Confirm Receipt
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+
+        <Card className="w-full border border-nt-border bg-nt-surface p-4 shadow-none sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className={cn("text-base font-semibold", brandLabelClasses)}>Recent Receipts</h3>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <Input
+                placeholder="Search receipts..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={cn("w-full sm:w-64", fieldClass)}
               />
-              <p className="text-xs text-muted-foreground">Only numeric batch numbers are allowed (e.g., 12345)</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qty">Quantity *</Label>
-              <Input id="qty" type="number" placeholder="0" required min="1" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="unitPrice">Unit Price *</Label>
-              <Input id="unitPrice" type="number" step="0.01" placeholder="0.00" required min="0" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="mfgDate">Manufacturing Date *</Label>
-              <Input id="mfgDate" type="date" required />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="expDate">Expiry Date *</Label>
-              <Input id="expDate" type="date" required />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="storage">Storage Condition *</Label>
-              <Select required>
-                <SelectTrigger id="storage">
-                  <SelectValue placeholder="Select storage type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ambient">Ambient (15-25°C)</SelectItem>
-                  <SelectItem value="cool">Cool (8-15°C)</SelectItem>
-                  <SelectItem value="cold">Cold (2-8°C)</SelectItem>
-                  <SelectItem value="frozen">Frozen (-20°C)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="source">Source Depot *</Label>
-              <Select required>
-                <SelectTrigger id="source">
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mumbai">Mumbai Central</SelectItem>
-                  <SelectItem value="delhi">Delhi Main</SelectItem>
-                  <SelectItem value="bangalore">Bangalore Hub</SelectItem>
-                  <SelectItem value="chennai">Chennai Depot</SelectItem>
-                  <SelectItem value="hyderabad">Hyderabad Warehouse</SelectItem>
-                </SelectContent>
-              </Select>
+              <Button variant="outline" size="sm" className={secondaryBtnClass}>
+                <Printer className="h-4 w-4 mr-2" />
+                Print Report
+              </Button>
             </div>
           </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" className="hover-scale">
-              Cancel
-            </Button>
-            <Button type="submit" className="hover-scale">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Confirm Receipt
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      {/* Receipt History */}
-      <Card className="p-6 card-elevated">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium">Recent Receipts</h3>
-          <div className="flex items-center gap-4">
-            <Input
-              placeholder="Search receipts..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64"
-            />
-            <Button variant="outline" size="sm" className="hover-scale">
-              <Printer className="h-4 w-4 mr-2" />
-              Print Report
-            </Button>
-          </div>
-        </div>
-        <DataTable
-          data={filteredData}
-          columns={columns}
-          sortKey={sortKey}
-          sortOrder={sortOrder}
-          onSort={handleSort}
-          emptyMessage="No recent receipts found"
-        />
-      </Card>
-    </div>
+          <DataTable
+            data={filteredData}
+            columns={columns}
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            emptyMessage="No recent receipts found"
+          />
+        </Card>
+      </div>
+    </ThemeScope>
   );
 };
 

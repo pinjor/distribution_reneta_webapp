@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost/api';
+// Prefer same-origin /api (nginx). Absolute URLs still work when set via VITE_API_URL.
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const buildQuery = (params?: Record<string, any>): string => {
   if (!params || Object.keys(params).length === 0) return "";
@@ -46,13 +47,33 @@ class ApiClient {
       
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem("token");
-          sessionStorage.removeItem("token");
-          localStorage.removeItem("user");
-          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+          let authMessage = "Authentication required";
+          try {
+            const contentType = response.headers.get("Content-Type") || "";
+            if (contentType.includes("application/json")) {
+              const body = await response.json();
+              if (typeof body?.detail === "string" && body.detail.trim()) {
+                authMessage = body.detail;
+              }
+            }
+          } catch {
+            // keep default message
+          }
+
+          const onAuthPage =
+            typeof window !== "undefined" &&
+            (window.location.pathname.includes("/login") ||
+              window.location.pathname.includes("/signup"));
+
+          // Don't wipe / bounce mid-login; still clear stale session elsewhere
+          if (!onAuthPage) {
+            localStorage.removeItem("token");
+            sessionStorage.removeItem("token");
+            localStorage.removeItem("user");
             window.location.href = "/login";
           }
-          throw new Error("Authentication required");
+
+          throw new Error(authMessage);
         }
         if (response.status === 403) {
           throw new Error("You do not have permission to perform this action");

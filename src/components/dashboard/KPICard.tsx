@@ -1,4 +1,4 @@
-import { LucideIcon, TrendingUp, TrendingDown, ArrowUpRight } from "lucide-react";
+import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { brandIconBoxClasses, brandLabelClasses, brandMutedClasses } from "@/lib/brandTheme";
@@ -63,7 +63,6 @@ export function KPICard({
             <Icon className="h-6 w-6" />
           </div>
         </div>
-        <ArrowUpRight className="absolute top-4 right-4 h-3.5 w-3.5 text-brand-from/20 group-hover:text-brand-from/50 transition-colors" />
       </div>
     </motion.div>
   );

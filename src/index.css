@@ -20,18 +20,23 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 225 50% 12%;
     
-    /* Primary — brand cyan (#6ac6df) */
+    /* Primary — brand cyan (#6ac6df) — legacy global theme */
     --primary: 193 65% 65%;
     --primary-hover: 193 65% 58%;
     --primary-pressed: 193 65% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Brand gradient tokens */
+    /* Brand gradient tokens (legacy cyan — unmigrated pages) */
     --brand-from: #6ac6df;
     --brand-to: #4ab8d4;
     --brand-deep: #2a8aa0;
     --brand-hover-from: #58bdd6;
     --brand-hover-to: #3aadc9;
+    --brand-tile-from: #eef8fb;
+    --brand-tile-via: #d9f0f6;
+    --brand-tile-to: #c4e8f1;
+    --brand-muted: #4ab8d4;
+    --brand-glow: 106, 198, 223;
     
     /* Secondary - Rich Slate */
     --secondary: 215 25% 40%;
@@ -207,7 +212,23 @@ All colors MUST be HSL.
 
   /* Navigation tile cards — animated hub cards */
   .nav-tile-card {
-    @apply rounded-2xl border-2 border-brand-from/20 bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via shadow-[0_4px_20px_-4px_rgba(106,198,223,0.25)] transition-all duration-300 ease-out hover:border-brand-from/45 hover:shadow-[0_12px_32px_-8px_rgba(106,198,223,0.45)];
+    @apply rounded-2xl border-2 border-brand-from/20 bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via shadow-md transition-all duration-300 ease-out hover:border-brand-from/45 hover:shadow-lg;
+  }
+
+  /* Migrated-page tile variant — only used inside ThemeScope / Dashboard */
+  .nt-tile-card {
+    @apply rounded-2xl border-2 shadow-md transition-all duration-300 ease-out hover:shadow-lg;
+    border-color: color-mix(in srgb, var(--nt-accent) 25%, transparent);
+    background-image: linear-gradient(
+      to bottom right,
+      var(--nt-surface),
+      var(--nt-muted),
+      var(--nt-bg)
+    );
+  }
+
+  .nt-tile-card:hover {
+    border-color: color-mix(in srgb, var(--nt-accent) 50%, transparent);
   }
 
   /* Mild sky-blue tile cards (legacy alias) */
@@ -230,5 +251,42 @@ All colors MUST be HSL.
   /* Interactive States */
   .interactive {
     @apply transition-all duration-200 hover:scale-[1.02] active:scale-[0.98];
+  }
+
+  /* Sidebar navigation scrollbar — thin, muted, no bright track */
+  .sidebar-nav-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(220 20% 45% / 0.45) transparent;
+  }
+
+  .sidebar-nav-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-nav-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-nav-scroll::-webkit-scrollbar-thumb {
+    background-color: hsl(220 20% 45% / 0.4);
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .sidebar-nav-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: hsl(220 20% 55% / 0.65);
+  }
+
+  .sidebar-nav-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-nav-scroll {
+      scroll-behavior: auto;
+    }
   }
 }

@@ -81,7 +81,7 @@ export function OrderStatusCard({ status, count, onClick }: OrderStatusCardProps
         "group relative flex flex-col rounded-2xl border p-4 text-left",
         brandTileClasses,
         "transition-all duration-300 ease-out",
-        "hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-from/40 focus-visible:ring-offset-2",
+        "hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-from/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         shineHoverSoftClasses,
       )}
     >
@@ -99,7 +99,7 @@ export function OrderStatusCard({ status, count, onClick }: OrderStatusCardProps
         <p className={cn("mt-0.5 text-[10px] leading-tight", brandMutedClasses)}>{meta.hint}</p>
       </div>
 
-      <div className="relative z-[1] mt-3 pt-3 border-t border-brand-from/15">
+      <div className="relative z-[1] mt-3 pt-3 border-t border-brand-from/20">
         <p className={cn("text-3xl font-semibold tabular-nums tracking-tight leading-none", brandLabelClasses)}>
           {count.toLocaleString()}
         </p>

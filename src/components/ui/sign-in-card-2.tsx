@@ -1,32 +1,92 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Package, LogIn } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import {
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Loader2,
+  ShieldCheck,
+  Boxes,
+  Truck,
+  ClipboardCheck,
+  LogIn,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CheckBox } from "@/components/ui/checkbox";
 import { BRAND } from "@/lib/brandTheme";
+import { LOGO_SRC } from "@/components/layout/AppBrand";
+import { WarehouseLoginVisual } from "@/components/ui/warehouse-login-visual";
 import type { DemoUser } from "@/lib/demoUsers";
 
-function GlassInput({ className, type, ...props }: React.ComponentProps<"input">) {
+function LoginField({
+  id,
+  label,
+  type,
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  disabled,
+  error,
+  trailing,
+}: {
+  id: string;
+  label: string;
+  type: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  autoComplete: string;
+  disabled?: boolean;
+  error?: string;
+  trailing?: React.ReactNode;
+}) {
   return (
-    <input
-      type={type}
-      className={cn(
-        "flex h-11 w-full min-w-0 rounded-lg border-2 px-3 py-1 text-sm font-medium shadow-md transition-[color,box-shadow,border-color,background-color] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-        "bg-brand-tile-from border-brand-deep/55 text-brand-deep placeholder:text-brand-deep/70 placeholder:font-normal",
-        "focus-visible:bg-white focus-visible:border-brand-deep focus-visible:ring-2 focus-visible:ring-brand-deep/20",
-        className,
-      )}
-      {...props}
-    />
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium text-[#172033]">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          disabled={disabled}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className={cn(
+            "flex h-11 w-full rounded-[10px] border bg-white px-3.5 text-sm text-[#172033]",
+            "placeholder:text-slate-400 shadow-sm transition-[border-color,box-shadow,background-color] duration-200",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/25 focus-visible:border-[#0D9488]",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+            error ? "border-red-400 focus-visible:ring-red-200" : "border-[#E2E8F0]",
+            trailing && "pr-11",
+          )}
+        />
+        {trailing}
+      </div>
+      <AnimatePresence>
+        {error ? (
+          <motion.p
+            id={`${id}-error`}
+            role="alert"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2 }}
+            className="text-xs text-red-600"
+          >
+            {error}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
-
-const inputIconClass = (focused: boolean) =>
-  cn(
-    "absolute left-3 w-4 h-4 transition-all duration-300 z-10",
-    focused ? "text-brand-deep" : "text-brand-deep/80",
-  );
 
 export interface SignInCardProps {
   email: string;
@@ -39,12 +99,21 @@ export interface SignInCardProps {
   onRememberMeChange: (value: boolean) => void;
   isLoading: boolean;
   onSubmit: (e: React.FormEvent) => void;
+  emailError?: string;
+  passwordError?: string;
+  formError?: string | null;
   demoUsers?: DemoUser[];
   onDemoLogin?: (demo: DemoUser) => void;
   activeDemoId?: string | null;
   brandName?: string;
   brandSubtitle?: string;
 }
+
+const highlights = [
+  { icon: Boxes, text: "Batch-aware pharmaceutical inventory" },
+  { icon: Truck, text: "Warehouse to depot distribution" },
+  { icon: ClipboardCheck, text: "Controlled stock movements & audits" },
+];
 
 export function SignInCard({
   email,
@@ -57,326 +126,324 @@ export function SignInCard({
   onRememberMeChange,
   isLoading,
   onSubmit,
+  emailError,
+  passwordError,
+  formError,
   demoUsers = [],
   onDemoLogin,
   activeDemoId,
-  brandName = "Swift Distribution Hub",
-  brandSubtitle = "Sign in to Renata Distribution Management",
+  brandName = "RENATA DMS",
+  brandSubtitle = "Distribution Management System",
 }: SignInCardProps) {
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const reduceMotion = useReducedMotion();
+  const [showDemos, setShowDemos] = useState(false);
 
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const rotateX = useTransform(mouseY, [-300, 300], [10, -10]);
-  const rotateY = useTransform(mouseX, [-300, 300], [-10, 10]);
+  const fadeUp = (delay = 0) =>
+    reduceMotion
+      ? { initial: false as const, animate: { opacity: 1, y: 0 } }
+      : {
+          initial: { opacity: 0, y: 12 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] as const },
+        };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    mouseX.set(e.clientX - rect.left - rect.width / 2);
-    mouseY.set(e.clientY - rect.top - rect.height / 2);
-  };
-
-  const handleMouseLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
-  };
+  const formItem = (delay: number) =>
+    reduceMotion
+      ? {}
+      : {
+          initial: { opacity: 0, y: 10 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.35, delay, ease: [0.22, 1, 0.36, 1] as const },
+        };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-brand-tile-from via-brand-tile-via to-brand-from relative overflow-hidden flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-from/30 via-brand-to/20 to-brand-deep/40" />
+    <div className="min-h-screen w-full grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.95fr)] bg-[#F7F9FC]">
+      {/* Left — branding */}
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-[#14263D] text-white px-10 xl:px-14 py-10">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.35]"
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse 80% 60% at 20% 10%, rgba(106,198,223,0.28), transparent 55%), radial-gradient(ellipse 70% 50% at 90% 90%, rgba(13,148,136,0.18), transparent 50%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.9) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.9) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+        />
 
-      <div
-        className="absolute inset-0 opacity-[0.04] mix-blend-soft-light"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          backgroundSize: "200px 200px",
-        }}
-      />
-
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-brand-from/25 blur-[80px]" />
-      <motion.div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-brand-tile-to/40 blur-[60px]"
-        animate={{ opacity: [0.3, 0.5, 0.3], scale: [0.98, 1.02, 0.98] }}
-        transition={{ duration: 8, repeat: Infinity, repeatType: "mirror" }}
-      />
-      <motion.div
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-brand-to/25 blur-[60px]"
-        animate={{ opacity: [0.25, 0.45, 0.25], scale: [1, 1.1, 1] }}
-        transition={{ duration: 6, repeat: Infinity, repeatType: "mirror", delay: 1 }}
-      />
-
-      <div className="absolute left-1/4 top-1/4 w-96 h-96 bg-brand-from/15 rounded-full blur-[100px] animate-pulse opacity-60" />
-      <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-brand-tile-to/30 rounded-full blur-[100px] animate-pulse opacity-60" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-sm relative z-10"
-        style={{ perspective: 1500 }}
-      >
-        <motion.div
-          className="relative"
-          style={{ rotateX, rotateY }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          whileHover={{ z: 10 }}
-        >
-          <div className="relative group">
-            <motion.div
-              className="absolute -inset-[1px] rounded-2xl opacity-0 group-hover:opacity-70 transition-opacity duration-700"
-              animate={{
-                boxShadow: [
-                  `0 0 10px 2px ${BRAND.from}20`,
-                  `0 0 20px 8px ${BRAND.from}30`,
-                  `0 0 10px 2px ${BRAND.from}20`,
-                ],
-                opacity: [0.3, 0.5, 0.3],
-              }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
+        <motion.div {...fadeUp(0)} className="relative z-10">
+          <div className="flex items-center gap-3">
+            <img
+              src={LOGO_SRC}
+              alt=""
+              className="h-12 w-12 rounded-xl object-cover bg-white/95 shadow-md"
             />
-
-            <div className="absolute -inset-[0.5px] rounded-2xl bg-gradient-to-r from-brand-from/20 via-brand-to/30 to-brand-from/20 opacity-60 group-hover:opacity-90 transition-opacity duration-500 pointer-events-none" />
-
-            <div className="relative bg-white rounded-2xl p-6 border-2 border-brand-deep/25 shadow-2xl shadow-brand-deep/15 overflow-hidden">
-              <div
-                className="absolute inset-0 opacity-[0.04] pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(135deg, #6ac6df 0.5px, transparent 0.5px), linear-gradient(45deg, #6ac6df 0.5px, transparent 0.5px)",
-                  backgroundSize: "30px 30px",
-                }}
-              />
-
-              <div className="text-center space-y-1 mb-5 relative z-10">
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", duration: 0.8 }}
-                  className="mx-auto w-12 h-12 rounded-full border border-brand-from/30 flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-brand-from to-brand-to shadow-lg shadow-brand-from/30"
-                >
-                  <Package className="h-6 w-6 text-white" />
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-50" />
-                </motion.div>
-
-                <motion.h1
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-deep via-brand-to to-brand-from"
-                >
-                  Welcome Back
-                </motion.h1>
-
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-brand-deep/70 text-xs"
-                >
-                  {brandSubtitle}
-                </motion.p>
-                <p className="text-brand-to/80 text-[10px] font-medium tracking-wide uppercase">{brandName}</p>
-              </div>
-
-              <form onSubmit={onSubmit} className="space-y-4 relative z-10">
-                <motion.div className="space-y-4">
-                  <motion.div
-                    className={cn("relative space-y-1.5", focusedInput === "email" && "z-10")}
-                    whileHover={{ scale: 1.01 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  >
-                    <label htmlFor="login-email" className="text-xs font-semibold text-brand-deep">
-                      Email address
-                    </label>
-                    <div className="relative flex items-center overflow-hidden rounded-lg">
-                      <Mail className={inputIconClass(focusedInput === "email")} />
-                      <GlassInput
-                        id="login-email"
-                        type="email"
-                        placeholder="you@company.com"
-                        value={email}
-                        onChange={(e) => onEmailChange(e.target.value)}
-                        onFocus={() => setFocusedInput("email")}
-                        onBlur={() => setFocusedInput(null)}
-                        disabled={isLoading}
-                        required
-                        className="pl-10 pr-3"
-                      />
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    className={cn("relative space-y-1.5", focusedInput === "password" && "z-10")}
-                    whileHover={{ scale: 1.01 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  >
-                    <label htmlFor="login-password" className="text-xs font-semibold text-brand-deep">
-                      Password
-                    </label>
-                    <div className="relative flex items-center overflow-hidden rounded-lg">
-                      <Lock className={inputIconClass(focusedInput === "password")} />
-                      <GlassInput
-                        id="login-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => onPasswordChange(e.target.value)}
-                        onFocus={() => setFocusedInput("password")}
-                        onBlur={() => setFocusedInput(null)}
-                        disabled={isLoading}
-                        required
-                        className="pl-10 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={onTogglePassword}
-                        className="absolute right-3 z-10 text-brand-deep/80 hover:text-brand-deep transition-colors"
-                        disabled={isLoading}
-                        tabIndex={-1}
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center space-x-2">
-                    <CheckBox
-                      checked={rememberMe}
-                      onClick={() => !isLoading && onRememberMeChange(!rememberMe)}
-                      size={18}
-                      color={BRAND.from}
-                      className="border-2 border-brand-deep/55 bg-brand-tile-from hover:bg-white"
-                    />
-                    <label
-                      htmlFor="remember-me"
-                      onClick={() => !isLoading && onRememberMeChange(!rememberMe)}
-                      className="text-xs text-brand-deep font-medium hover:text-brand-deep transition-colors cursor-pointer"
-                    >
-                      Remember me
-                    </label>
-                  </div>
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full relative group/button mt-2"
-                >
-                  <div className="absolute inset-0 bg-brand-from/20 rounded-lg blur-lg opacity-0 group-hover/button:opacity-70 transition-opacity duration-300" />
-                  <div className="relative overflow-hidden rounded-full bg-white text-brand-deep font-semibold h-10 border border-brand-from/35 shadow-md transition-all duration-300 flex items-center justify-center hover:bg-brand-tile-from hover:border-brand-from/50 hover:shadow-lg">
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 -z-10"
-                      animate={{ x: ["-100%", "100%"] }}
-                      transition={{ duration: 1.5, ease: "easeInOut", repeat: Infinity, repeatDelay: 1 }}
-                      style={{ opacity: isLoading ? 1 : 0 }}
-                    />
-                    <AnimatePresence mode="wait">
-                      {isLoading ? (
-                        <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                          <div className="w-4 h-4 border-2 border-brand-deep/40 border-t-transparent rounded-full animate-spin" />
-                        </motion.div>
-                      ) : (
-                        <motion.span
-                          key="button-text"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="flex items-center justify-center gap-1 text-sm font-medium"
-                        >
-                          Sign In
-                          <ArrowRight className="w-3 h-3 group-hover/button:translate-x-1 transition-transform duration-300" />
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.button>
-
-                {demoUsers.length > 0 && onDemoLogin && (
-                  <>
-                    <div className="relative mt-2 mb-3 flex items-center">
-                      <div className="flex-grow border-t border-brand-from/15" />
-                      <motion.span
-                        className="mx-3 text-xs text-brand-to/60"
-                        animate={{ opacity: [0.7, 0.9, 0.7] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                      >
-                        demo accounts
-                      </motion.span>
-                      <div className="flex-grow border-t border-brand-from/15" />
-                    </div>
-
-                    <div className="space-y-2">
-                      {demoUsers.map((demo, index) => {
-                        const loading = isLoading && activeDemoId === demo.id;
-                        return (
-                          <motion.button
-                            key={demo.id}
-                            type="button"
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.4 + index * 0.08 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => onDemoLogin(demo)}
-                            disabled={isLoading}
-                            className="w-full relative group/demo disabled:opacity-60"
-                          >
-                            <div className="absolute inset-0 bg-brand-from/10 rounded-lg blur opacity-0 group-hover/demo:opacity-70 transition-opacity duration-300" />
-                            <div className="relative overflow-hidden bg-brand-tile-from text-brand-deep h-auto rounded-lg border-2 border-brand-deep/45 hover:border-brand-deep/70 shadow-md transition-all duration-300 flex items-center gap-3 p-2.5 text-left">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-from/25 border border-brand-deep/30">
-                                <LogIn className="h-3.5 w-3.5 text-brand-deep" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-semibold">{demo.label}</span>
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-from/15 capitalize text-brand-deep/80">{demo.role}</span>
-                                </div>
-                                <p className="text-[10px] text-brand-deep/75 truncate">{demo.email}</p>
-                              </div>
-                              <span className="text-[10px] font-medium text-brand-from shrink-0 pr-1">
-                                {loading ? "…" : "→"}
-                              </span>
-                              <motion.div
-                                className="absolute inset-0 bg-gradient-to-r from-brand-from/0 via-brand-from/5 to-brand-from/0 pointer-events-none"
-                                initial={{ x: "-100%" }}
-                                whileHover={{ x: "100%" }}
-                                transition={{ duration: 1, ease: "easeInOut" }}
-                              />
-                            </div>
-                          </motion.button>
-                        );
-                      })}
-                      <p className="text-center text-[10px] text-brand-to/60">
-                        Password for all demos: <span className="font-mono text-brand-deep/80">admin123</span>
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                <motion.p
-                  className="text-center text-xs text-brand-deep/70 mt-4"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  Don&apos;t have an account?{" "}
-                  <Link to="/signup" className="relative inline-block group/signup">
-                    <span className="relative z-10 text-brand-from group-hover/signup:text-brand-to transition-colors duration-300 font-medium">
-                      Sign up
-                    </span>
-                    <span className="absolute bottom-0 left-0 w-0 h-px bg-brand-from group-hover/signup:w-full transition-all duration-300" />
-                  </Link>
-                </motion.p>
-              </form>
+            <div>
+              <p className="text-sm font-semibold tracking-[0.14em] text-[#6ac6df]">{brandName}</p>
+              <p className="text-xs text-white/60">Pharmaceutical logistics platform</p>
             </div>
           </div>
         </motion.div>
-      </motion.div>
+
+        <div className="relative z-10 mt-12 max-w-xl space-y-6">
+          <motion.h1
+            {...fadeUp(0.08)}
+            className="text-3xl xl:text-4xl font-semibold leading-tight tracking-tight text-white"
+          >
+            {brandSubtitle}
+          </motion.h1>
+          <motion.p {...fadeUp(0.14)} className="text-base leading-relaxed text-white/70 max-w-md">
+            Manage pharmaceutical inventory, warehouse operations, stock movements, and
+            distribution from one secure platform.
+          </motion.p>
+
+          <motion.ul {...fadeUp(0.2)} className="space-y-3 pt-2">
+            {highlights.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 text-sm text-white/80">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/8 border border-white/10">
+                  <Icon className="h-4 w-4 text-[#6ac6df]" aria-hidden />
+                </span>
+                {text}
+              </li>
+            ))}
+          </motion.ul>
+        </div>
+
+        <motion.div {...fadeUp(0.24)} className="relative z-10 mt-8">
+          <WarehouseLoginVisual className="w-full max-w-lg opacity-95" />
+          <div className="mt-6 flex items-center gap-2 text-xs text-white/50">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#0D9488]" aria-hidden />
+            Secure access for authorized warehouse operators
+          </div>
+        </motion.div>
+      </aside>
+
+      {/* Right — form */}
+      <main className="relative flex flex-col justify-center px-5 sm:px-8 py-10 sm:py-12">
+        <div className="mx-auto w-full max-w-[420px]">
+          {/* Compact branding on smaller screens */}
+          <motion.div {...fadeUp(0)} className="mb-8 lg:hidden">
+            <div className="flex items-center gap-3">
+              <img
+                src={LOGO_SRC}
+                alt="RENATA DMS"
+                className="h-11 w-11 rounded-xl object-cover shadow-sm border border-[#E2E8F0]"
+              />
+              <div>
+                <p className="text-sm font-bold tracking-[0.1em] text-[#14263D]">{brandName}</p>
+                <p className="text-xs text-slate-500">Distribution Management System</p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div {...fadeUp(0.06)} className="mb-8 space-y-2">
+            <h2 className="text-2xl sm:text-[1.75rem] font-semibold tracking-tight text-[#172033]">
+              Welcome back
+            </h2>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              Sign in to access your warehouse management workspace.
+            </p>
+          </motion.div>
+
+          <form onSubmit={onSubmit} className="space-y-5" noValidate>
+            <AnimatePresence>
+              {formError ? (
+                <motion.div
+                  role="alert"
+                  initial={reduceMotion ? false : { opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}
+                  className="rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700"
+                >
+                  {formError}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <motion.div {...formItem(0.12)}>
+              <LoginField
+                id="login-email"
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={onEmailChange}
+                placeholder="you@company.com"
+                autoComplete="username"
+                disabled={isLoading}
+                error={emailError}
+              />
+            </motion.div>
+
+            <motion.div {...formItem(0.18)}>
+              <LoginField
+                id="login-password"
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={onPasswordChange}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                disabled={isLoading}
+                error={passwordError}
+                trailing={
+                  <button
+                    type="button"
+                    onClick={onTogglePassword}
+                    disabled={isLoading}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-slate-400 transition-colors hover:text-[#14263D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/30"
+                  >
+                    <motion.span
+                      key={showPassword ? "hide" : "show"}
+                      initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.18 }}
+                      className="flex"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </motion.span>
+                  </button>
+                }
+              />
+            </motion.div>
+
+            <motion.div
+              {...formItem(0.24)}
+              className="flex items-center justify-between gap-3 pt-0.5"
+            >
+              <div className="flex items-center gap-2.5">
+                <CheckBox
+                  checked={rememberMe}
+                  onClick={() => !isLoading && onRememberMeChange(!rememberMe)}
+                  size={18}
+                  color={BRAND.deep}
+                  className="border border-[#E2E8F0] bg-white hover:bg-slate-50"
+                />
+                <label
+                  htmlFor="remember-me"
+                  onClick={() => !isLoading && onRememberMeChange(!rememberMe)}
+                  className="text-sm text-slate-600 cursor-pointer select-none"
+                >
+                  Remember me
+                </label>
+              </div>
+            </motion.div>
+
+            <motion.div {...formItem(0.3)}>
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                whileHover={reduceMotion || isLoading ? undefined : { scale: 1.01 }}
+                whileTap={reduceMotion || isLoading ? undefined : { scale: 0.985 }}
+                transition={{ duration: 0.18 }}
+                className={cn(
+                  "group relative flex h-11 w-full items-center justify-center gap-2 rounded-[10px]",
+                  "bg-[#14263D] text-sm font-semibold text-white",
+                  "shadow-sm transition-[background-color,box-shadow] duration-200",
+                  "hover:bg-[#1a314d] hover:shadow-md",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/40 focus-visible:ring-offset-2",
+                  "disabled:cursor-not-allowed disabled:opacity-70",
+                )}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    <span>Signing in…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </motion.button>
+            </motion.div>
+
+            {demoUsers.length > 0 && onDemoLogin ? (
+              <motion.div {...formItem(0.36)} className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowDemos((v) => !v)}
+                  className="text-xs font-medium text-slate-500 hover:text-[#0D9488] transition-colors"
+                >
+                  {showDemos ? "Hide demo accounts" : "Use a demo account"}
+                </button>
+                <AnimatePresence>
+                  {showDemos ? (
+                    <motion.div
+                      initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 space-y-2">
+                        {demoUsers.map((demo) => {
+                          const loading = isLoading && activeDemoId === demo.id;
+                          return (
+                            <button
+                              key={demo.id}
+                              type="button"
+                              onClick={() => onDemoLogin(demo)}
+                              disabled={isLoading}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-[10px] border border-[#E2E8F0] bg-white px-3 py-2.5 text-left",
+                                "transition-colors hover:border-[#0D9488]/40 hover:bg-[#F7F9FC]",
+                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0D9488]/30",
+                                "disabled:opacity-60",
+                              )}
+                            >
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#14263D]/5 text-[#14263D]">
+                                <LogIn className="h-3.5 w-3.5" aria-hidden />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-xs font-semibold text-[#172033]">
+                                  {demo.label}
+                                  <span className="ml-2 font-normal capitalize text-slate-400">
+                                    {demo.role}
+                                  </span>
+                                </span>
+                                <span className="block truncate text-[11px] text-slate-500">
+                                  {demo.email}
+                                </span>
+                              </span>
+                              <span className="text-[11px] font-medium text-[#0D9488]">
+                                {loading ? "…" : "→"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        <p className="text-center text-[11px] text-slate-400">
+                          Demo password: <span className="font-mono text-slate-600">admin123</span>
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </motion.div>
+            ) : null}
+
+            <motion.p
+              {...formItem(0.4)}
+              className="pt-2 text-center text-sm text-slate-500"
+            >
+              Don&apos;t have an account?{" "}
+              <Link
+                to="/signup"
+                className="font-semibold text-[#0D9488] hover:text-[#0f766e] underline-offset-4 hover:underline"
+              >
+                Sign up
+              </Link>
+            </motion.p>
+          </form>
+        </div>
+      </main>
     </div>
   );
 }

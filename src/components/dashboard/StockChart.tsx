@@ -1,7 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useTheme } from "@/contexts/ThemeContext";
 
-const DEPOT_COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#06b6d4"];
+const DEPOT_COLORS_LIGHT = ["#0C4DA1", "#2874C7", "#093D82", "#4594E8", "#64748B"];
+const DEPOT_COLORS_DARK = ["#70ADFF", "#4594E8", "#9AC6FF", "#2874C7", "#A9B8CC"];
 
 const data = [
   { depot: "Central", stock: 12500 },
@@ -12,10 +14,13 @@ const data = [
 ];
 
 export function StockChart() {
+  const { theme } = useTheme();
+  const colors = theme === "dark" ? DEPOT_COLORS_DARK : DEPOT_COLORS_LIGHT;
+
   return (
-    <Card className="p-6 card-elevated border-2 border-blue-100 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/50 to-card dark:from-blue-950/20">
-      <h3 className="text-lg font-semibold mb-1">Depot-wise Stock Levels</h3>
-      <p className="text-xs text-muted-foreground mb-4">Sellable inventory across depots</p>
+    <Card className="p-6 card-elevated border-2 border-brand-from/20 bg-card">
+      <h3 className="text-lg font-semibold mb-1 text-brand-deep">Depot-wise Stock Levels</h3>
+      <p className="text-xs text-brand-muted mb-4">Sellable inventory across depots</p>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -35,11 +40,12 @@ export function StockChart() {
               backgroundColor: "hsl(var(--card))",
               border: "1px solid hsl(var(--border))",
               borderRadius: "8px",
+              color: "hsl(var(--card-foreground))",
             }}
           />
           <Bar dataKey="stock" radius={[8, 8, 0, 0]}>
             {data.map((_, index) => (
-              <Cell key={`bar-${index}`} fill={DEPOT_COLORS[index % DEPOT_COLORS.length]} />
+              <Cell key={`bar-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Bar>
         </BarChart>

@@ -1,16 +1,6 @@
-import { ExpandCards } from "@/components/ui/expand-cards";
-import DisplayCards, { type DisplayCardProps } from "@/components/ui/display-cards";
-import { NavTileCard } from "@/components/ui/tile-card";
-import { NAV_CARD_VARIANT } from "@/lib/uiDesign";
+import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { brandLabelClasses } from "@/lib/brandTheme";
-import type { LucideIcon } from "lucide-react";
-
-const STACK_OFFSETS = [
-  "[grid-area:stack] hover:-translate-y-8 before:absolute before:w-full before:outline-1 before:rounded-xl before:outline-brand-from/20 before:h-full before:content-[''] before:bg-blend-overlay before:bg-background/40 grayscale-[25%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0",
-  "[grid-area:stack] translate-x-6 sm:translate-x-12 translate-y-6 sm:translate-y-8 hover:-translate-y-1 before:absolute before:w-full before:outline-1 before:rounded-xl before:outline-brand-from/20 before:h-full before:content-[''] before:bg-blend-overlay before:bg-background/40 grayscale-[25%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0",
-  "[grid-area:stack] translate-x-12 sm:translate-x-24 translate-y-12 sm:translate-y-16 hover:translate-y-8",
-];
+import { brandLabelClasses, brandMutedClasses } from "@/lib/brandTheme";
 
 export interface QuickActionItem {
   title: string;
@@ -25,68 +15,67 @@ interface QuickActionsGridProps {
   className?: string;
 }
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
+/**
+ * Compact operational Quick Actions grid for Dashboard.
+ * Preserves action order, labels, and onNavigate destinations.
+ */
 export function QuickActionsGrid({ actions, onNavigate, className }: QuickActionsGridProps) {
-  if (NAV_CARD_VARIANT === "tile") {
-    return (
-      <div className={cn("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4", className)}>
-        {actions.map((action, index) => (
-          <NavTileCard
-            key={action.path}
-            title={action.title}
-            icon={action.icon}
-            index={index}
-            compact
-            onClick={() => onNavigate(action.path)}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (NAV_CARD_VARIANT === "expand") {
-    return (
-      <ExpandCards
-        className={cn("rounded-3xl border border-brand-from/10 bg-brand-tile-from/30 p-4", className)}
-        defaultExpanded={1}
-        collapsedWidth="4.5rem"
-        expandedWidth="20rem"
-        height="18rem"
-        items={actions.map((action) => ({
-          id: action.path,
-          title: action.title,
-          description: action.description ?? `Go to ${action.title}`,
-          subtitle: "Quick action",
-          icon: <action.icon className="size-5 text-white" strokeWidth={2.25} />,
-          onClick: () => onNavigate(action.path),
-        }))}
-      />
-    );
-  }
-
-  const stacks = chunk(actions, 3);
-
   return (
-    <div className={cn("grid gap-10 sm:grid-cols-2", className)}>
-      {stacks.map((group, stackIndex) => {
-        const cards: DisplayCardProps[] = group.map((action, cardIndex) => ({
-          title: action.title,
-          description: action.description ?? `Go to ${action.title}`,
-          date: "Quick action",
-          icon: <action.icon className="size-4 text-white" strokeWidth={2.25} />,
-          onClick: () => onNavigate(action.path),
-          className: STACK_OFFSETS[cardIndex],
-        }));
+    <div
+      className={cn(
+        "grid gap-3",
+        "grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4",
+        className,
+      )}
+    >
+      {actions.map((action) => {
+        const Icon = action.icon;
+        const description = action.description ?? `Go to ${action.title}`;
 
         return (
-          <div key={stackIndex} className="flex justify-center py-2">
-            <DisplayCards cards={cards} className="w-full max-w-[22rem]" />
-          </div>
+          <button
+            key={action.path}
+            type="button"
+            onClick={() => onNavigate(action.path)}
+            className={cn(
+              "group relative flex w-full items-start gap-3 rounded-[11px] border border-border bg-card p-3.5 text-left",
+              "shadow-sm transition-[border-color,background-color,box-shadow,transform] duration-150 ease-out",
+              "hover:border-nt-accent/45 hover:bg-nt-muted/40 hover:shadow-md",
+              "active:scale-[0.99] active:bg-nt-muted/60",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nt-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "motion-reduce:transition-none motion-reduce:active:scale-100",
+            )}
+          >
+            <div
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                "bg-nt-accent/10 text-nt-accent",
+                "transition-colors duration-150 group-hover:bg-nt-accent/15",
+                "motion-reduce:transition-none",
+              )}
+            >
+              <Icon className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+            </div>
+
+            <div className="min-w-0 flex-1 pr-5">
+              <p className={cn("text-sm font-semibold leading-snug", brandLabelClasses)}>
+                {action.title}
+              </p>
+              <p className={cn("mt-0.5 text-xs leading-snug", brandMutedClasses)}>
+                {description}
+              </p>
+            </div>
+
+            <ArrowUpRight
+              className={cn(
+                "absolute right-3 top-3.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/50",
+                "transition-transform duration-150 ease-out",
+                "group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-nt-accent",
+                "motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 motion-reduce:group-hover:translate-y-0",
+              )}
+              aria-hidden
+            />
+          </button>
         );
       })}
     </div>
@@ -95,8 +84,13 @@ export function QuickActionsGrid({ actions, onNavigate, className }: QuickAction
 
 export function QuickActionsHeading({ className }: { className?: string }) {
   return (
-    <h2 className={cn("text-lg font-semibold mb-4", brandLabelClasses, className)}>
-      Quick Actions
-    </h2>
+    <div className={cn("mb-3", className)}>
+      <h2 className={cn("text-lg font-semibold leading-tight", brandLabelClasses)}>
+        Quick Actions
+      </h2>
+      <p className={cn("mt-0.5 text-xs", brandMutedClasses)}>
+        Access frequently used warehouse operations
+      </p>
+    </div>
   );
 }

@@ -28,7 +28,7 @@ describe("ApiClient auth handling", () => {
 
     const { api } = await import("../lib/api");
 
-    await expect(api.get("/orders")).rejects.toThrow("Authentication required");
+    await expect(api.get("/orders")).rejects.toThrow("Unauthorized");
     expect(localStorage.getItem("token")).toBeNull();
     expect(localStorage.getItem("user")).toBeNull();
     expect(window.location.href).toBe("/login");
