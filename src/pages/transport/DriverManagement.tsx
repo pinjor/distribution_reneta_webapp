@@ -1,23 +1,36 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Users, Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { motion, useReducedMotion } from "framer-motion";
+import { Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
-import { TransportStatCard } from "@/components/transport/TransportStatCard";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ActionIconButton,
+  asList,
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  sectionMotion,
+  selectItemClass,
+  selectPanelClass,
+  StatusPill,
+} from "@/components/transport/transportUi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { useTableSort } from "@/hooks/useTableSort";
 
 const driverSchema = z.object({
   driver_id: z.string().min(1, "Driver ID is required"),
@@ -33,16 +46,33 @@ const driverSchema = z.object({
 
 type DriverFormData = z.infer<typeof driverSchema>;
 
+interface TransportDriver {
+  id: number;
+  driver_id: string;
+  first_name?: string;
+  last_name?: string;
+  license_number?: string;
+  license_expiry?: string;
+  contact?: string;
+  email?: string;
+  address?: string;
+  status?: string;
+}
+
 export default function DriverManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const reduceMotion = useReducedMotion();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [editingDriver, setEditingDriver] = useState<TransportDriver | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: drivers = [], isLoading } = useQuery({
+  const { data: driversResponse = [], isLoading } = useQuery({
     queryKey: ["transport", "drivers"],
     queryFn: () => apiEndpoints.transport.drivers.getAll(),
   });
+
+  const drivers = asList<TransportDriver>(driversResponse);
 
   const form = useForm<DriverFormData>({
     resolver: zodResolver(driverSchema),
@@ -60,14 +90,14 @@ export default function DriverManagement() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiEndpoints.transport.drivers.create(data),
+    mutationFn: (data: DriverFormData) => apiEndpoints.transport.drivers.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transport", "drivers"] });
       toast({ title: "Success", description: "Driver created successfully" });
       setIsDialogOpen(false);
       form.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create driver",
@@ -77,7 +107,7 @@ export default function DriverManagement() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
+    mutationFn: ({ id, data }: { id: number; data: DriverFormData }) =>
       apiEndpoints.transport.drivers.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transport", "drivers"] });
@@ -86,7 +116,7 @@ export default function DriverManagement() {
       setEditingDriver(null);
       form.reset();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to update driver",
@@ -101,7 +131,7 @@ export default function DriverManagement() {
       queryClient.invalidateQueries({ queryKey: ["transport", "drivers"] });
       toast({ title: "Success", description: "Driver deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete driver",
@@ -110,7 +140,13 @@ export default function DriverManagement() {
     },
   });
 
-  const handleEdit = (driver: any) => {
+  const openAddDialog = () => {
+    setEditingDriver(null);
+    form.reset();
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (driver: TransportDriver) => {
     setEditingDriver(driver);
     form.reset({
       driver_id: driver.driver_id,
@@ -146,280 +182,286 @@ export default function DriverManagement() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+  const filteredDrivers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return drivers;
+    return drivers.filter((driver) =>
+      [driver.driver_id, driver.first_name, driver.last_name, driver.license_number, driver.contact, driver.email, driver.status]
+        .map((value) => String(value || "").toLowerCase())
+        .some((value) => value.includes(term)),
     );
-  }
+  }, [drivers, searchTerm]);
+
+  const tableRows = filteredDrivers.map((driver) => ({
+    ...driver,
+    name: `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "—",
+  }));
+
+  const { sortedData, sortKey, sortOrder, handleSort } = useTableSort(tableRows, "driver_id");
+  const motionProps = sectionMotion(reduceMotion);
+  const saving = createMutation.isPending || updateMutation.isPending;
+
+  const columns: DataTableColumn<(typeof tableRows)[number]>[] = [
+    {
+      key: "driver_id",
+      label: "Driver ID",
+      sortable: true,
+      render: (val) => <span className="font-medium text-[#172B4D] dark:text-[#F1F5F9]">{String(val || "—")}</span>,
+    },
+    { key: "name", label: "Name", sortable: true, render: (val) => String(val || "—") },
+    { key: "license_number", label: "License Number", sortable: true, render: (val) => String(val || "—") },
+    { key: "contact", label: "Contact", sortable: true, render: (val) => String(val || "-") },
+    { key: "email", label: "Email", sortable: true, render: (val) => String(val || "-") },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (val) => <StatusPill value={String(val || "—")} active={String(val) === "Available"} />,
+    },
+    {
+      key: "id",
+      label: "Actions",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => (
+        <div className="flex justify-end gap-0.5">
+          <ActionIconButton
+            label="Edit driver"
+            onClick={() => handleEdit(row)}
+            className="text-[#475569] hover:bg-[#EAF2FC] hover:text-[#0C4DA1]"
+          >
+            <Pencil className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            label="Delete driver"
+            onClick={() => handleDelete(row.id)}
+            disabled={deleteMutation.isPending}
+            className="text-[#94A3B8] hover:bg-[#FEF2F2] hover:text-[#DC2626]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </ActionIconButton>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <TransportPageHeader
-        title="Driver Management"
-        subtitle="Manage fleet drivers — licenses, contact details, and availability status."
-        icon={Users}
-        variant="emerald"
-        actions={
-          <Button
-            onClick={() => {
-              setEditingDriver(null);
-              form.reset();
-              setIsDialogOpen(true);
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-x-hidden">
+        <motion.div {...motionProps} className="shrink-0">
+          <TransportQuickNav />
+        </motion.div>
+
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Total Drivers" value={drivers.length} icon={Users} accent="blue" />
+          <KpiCard
+            title="Available"
+            value={drivers.filter((d) => d.status === "Available").length}
+            icon={Users}
+            accent="green"
+          />
+          <KpiCard
+            title="On Trip"
+            value={drivers.filter((d) => d.status === "On Trip").length}
+            icon={Users}
+            accent="purple"
+          />
+        </motion.div>
+
+        <motion.div {...motionProps} className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Drivers"
+            description="List of all drivers in the system"
+            toolbarIcon={<Users className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search drivers...",
             }}
-            className="bg-white text-emerald-700 hover:bg-white/90 shadow-md font-semibold"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Driver
-          </Button>
-        }
-      />
-
-      <TransportQuickNav />
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <TransportStatCard
-          title="Total Drivers"
-          value={drivers.length}
-          icon={Users}
-          accent="emerald"
-        />
-        <TransportStatCard
-          title="Available"
-          value={drivers.filter((d: { status?: string }) => d.status === "Available").length}
-          icon={Users}
-          accent="blue"
-        />
-        <TransportStatCard
-          title="On Trip"
-          value={drivers.filter((d: { status?: string }) => d.status === "On Trip").length}
-          icon={Users}
-          accent="amber"
-        />
+            toolbarActions={
+              <Button type="button" variant="ntPrimary" className="!h-8" onClick={openAddDialog} aria-label="Add Driver">
+                <Plus className="h-3.5 w-3.5" />
+                Add Driver
+              </Button>
+            }
+            data={sortedData}
+            columns={columns}
+            loading={isLoading}
+            sortKey={sortKey}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            getRowId={(row) => row.id}
+            resetPageKey={`${searchTerm}|${String(sortKey ?? "")}|${sortOrder}|${sortedData.length}`}
+            emptyMessage={searchTerm ? "No drivers found matching your search." : "No drivers found"}
+          />
+        </motion.div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Drivers</CardTitle>
-          <CardDescription>List of all drivers in the system</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Driver ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>License Number</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {drivers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    No drivers found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                drivers.map((driver: any) => (
-                  <TableRow key={driver.id}>
-                    <TableCell className="font-medium">{driver.driver_id}</TableCell>
-                    <TableCell>
-                      {driver.first_name} {driver.last_name || ""}
-                    </TableCell>
-                    <TableCell>{driver.license_number}</TableCell>
-                    <TableCell>{driver.contact || "-"}</TableCell>
-                    <TableCell>{driver.email || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={driver.status === "Available" ? "default" : "secondary"}>
-                        {driver.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(driver)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(driver.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingDriver ? "Edit Driver" : "Add New Driver"}</DialogTitle>
-            <DialogDescription>
-              {editingDriver ? "Update driver information" : "Add a new driver to the system"}
-            </DialogDescription>
+        <DialogContent className={dialogContentClass}>
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <Users className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editingDriver ? "Edit driver" : "Add driver"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {editingDriver ? "Update driver information" : "Enter driver details"}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="driver_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Driver ID *</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={!!editingDriver} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="license_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>License Number *</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={!!editingDriver} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+              <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="driver_id"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Driver ID {requiredMark}</FormLabel>
+                        <FormControl>
+                          <Input className={fieldClass} {...field} disabled={!!editingDriver} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="license_number"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>License Number {requiredMark}</FormLabel>
+                        <FormControl>
+                          <Input className={fieldClass} {...field} disabled={!!editingDriver} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="first_name"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>First Name {requiredMark}</FormLabel>
+                        <FormControl>
+                          <Input className={fieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Last Name</FormLabel>
+                        <FormControl>
+                          <Input className={fieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="contact"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Contact</FormLabel>
+                        <FormControl>
+                          <Input className={fieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" className={fieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="license_expiry"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>License Expiry</FormLabel>
+                        <FormControl>
+                          <Input type="date" className={fieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className={fieldClass}>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className={selectPanelClass}>
+                            <SelectItem value="Available" className={selectItemClass}>Available</SelectItem>
+                            <SelectItem value="On Route" className={selectItemClass}>On Route</SelectItem>
+                            <SelectItem value="Off Duty" className={selectItemClass}>Off Duty</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem className={`${fieldWrapClass} sm:col-span-2`}>
+                        <FormLabel className={labelClass}>Address</FormLabel>
+                        <FormControl>
+                          <Textarea className={fieldClass} rows={3} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First Name *</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="contact"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="license_expiry"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>License Expiry</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <FormControl>
-                        <select
-                          {...field}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                        >
-                          <option value="Available">Available</option>
-                          <option value="On Route">On Route</option>
-                          <option value="Off Duty">Off Duty</option>
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Address</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={3} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
+              <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50]">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ntSecondary"
                   onClick={() => {
                     setIsDialogOpen(false);
                     setEditingDriver(null);
                     form.reset();
                   }}
+                  disabled={saving}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {(createMutation.isPending || updateMutation.isPending) && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
+                <Button type="submit" variant="ntPrimary" disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                   {editingDriver ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
@@ -427,7 +469,6 @@ export default function DriverManagement() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </ThemeScope>
   );
 }
-

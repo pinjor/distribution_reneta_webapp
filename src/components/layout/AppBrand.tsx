@@ -29,7 +29,7 @@ export function AppBrand({ collapsed = false, variant = "sidebar", className }: 
         alt="RENATA DMS"
         className={cn(
           "shrink-0 rounded-xl object-cover shadow-sm",
-          collapsed ? "h-9 w-9" : "h-10 w-10",
+          collapsed ? "h-8 w-8" : "h-10 w-10",
         )}
       />
       {!collapsed && (

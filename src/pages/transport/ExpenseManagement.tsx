@@ -1,16 +1,25 @@
-import { useState, useMemo } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Receipt, Plus, Edit, Trash2, Loader2, Calculator, Truck, User, MapPin, DollarSign, Filter, X } from "lucide-react";
-import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { motion, useReducedMotion } from "framer-motion";
+import { Receipt, Plus, Loader2, Calculator, Truck, User, DollarSign, X, Search } from "lucide-react";
+import { DateRangeField } from "@/components/transport/DateRangeField";
 import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
-import { TransportStatCard } from "@/components/transport/TransportStatCard";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  sectionMotion,
+  selectItemClass,
+  selectPanelClass,
+} from "@/components/transport/transportUi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,7 +28,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
+import { ThemeScope } from "@/components/theme/ThemeScope";
 import { TripExpenseItem } from "./TripExpenseItem";
+import { cn } from "@/lib/utils";
 
 const expenseSchema = z.object({
   trip_number: z.string().min(1, "Trip number is required"),
@@ -34,6 +45,8 @@ type ExpenseFormData = z.infer<typeof expenseSchema>;
 export default function ExpenseManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const reduceMotion = useReducedMotion();
+  const motionProps = sectionMotion(reduceMotion);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [autoCalculatedAmount, setAutoCalculatedAmount] = useState<number | null>(null);
@@ -360,370 +373,332 @@ export default function ExpenseManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <TransportPageHeader
-        title="Expense Management"
-        subtitle="Track and manage trip expenses — fuel, tolls, maintenance, and more by trip number."
-        icon={Receipt}
-        variant="amber"
-        actions={
-          <Button
-            onClick={() => handleAdd()}
-            className="bg-white text-amber-700 hover:bg-white/90 shadow-md font-semibold"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Expense
-          </Button>
-        }
-      />
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-x-hidden">
+        <motion.div {...motionProps} className="shrink-0">
+          <TransportQuickNav />
+        </motion.div>
 
-      <TransportQuickNav />
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Trips with Expenses" value={tripNumbersWithExpenses.length} icon={Receipt} accent="blue" />
+          <KpiCard title="Total Expense Items" value={filteredTotals.totalExpenses} icon={DollarSign} accent="green" />
+          <KpiCard title="Total Amount" value={`৳${filteredTotals.totalAmount.toFixed(2)}`} icon={Calculator} accent="purple" />
+        </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <TransportStatCard
-          title="Trips with Expenses"
-          value={tripNumbersWithExpenses.length}
-          icon={Receipt}
-          accent="amber"
-        />
-        <TransportStatCard
-          title="Total Expense Items"
-          value={filteredTotals.totalExpenses}
-          icon={DollarSign}
-          accent="rose"
-        />
-        <TransportStatCard
-          title="Total Amount"
-          value={`৳${filteredTotals.totalAmount.toFixed(2)}`}
-          icon={Calculator}
-          accent="violet"
-        />
-      </div>
-
-      {/* Filters */}
-      <Card className="border-2 border-amber-100 dark:border-amber-900/40">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters
-            </CardTitle>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="mr-2 h-4 w-4" />
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Search Trip Number</label>
-              <Input
-                placeholder="Search trip number..."
-                value={searchTripNumber}
-                onChange={(e) => setSearchTripNumber(e.target.value)}
-              />
+        <motion.div {...motionProps} className="nt-form shrink-0">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <div className="w-[240px] max-w-full space-y-1">
+              <label className={labelClass} htmlFor="expense-trip-search">Search</label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]" aria-hidden />
+                <Input
+                  id="expense-trip-search"
+                  placeholder="Trip number"
+                  value={searchTripNumber}
+                  onChange={(e) => setSearchTripNumber(e.target.value)}
+                  className={cn("nt-search-input w-full", fieldClass)}
+                />
+                {searchTripNumber ? (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#94A3B8] hover:text-[#172B4D]"
+                    onClick={() => setSearchTripNumber("")}
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Expense Type</label>
+            <div className="w-[160px] space-y-1">
+              <label className={labelClass}>Type</label>
               <Select value={filterExpenseType} onValueChange={setFilterExpenseType}>
-                <SelectTrigger>
+                <SelectTrigger className={cn("w-full", fieldClass)}>
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="fuel">Fuel</SelectItem>
-                  <SelectItem value="toll">Toll</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="repair">Repair</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>All types</SelectItem>
+                  <SelectItem value="fuel" className={selectItemClass}>Fuel</SelectItem>
+                  <SelectItem value="toll" className={selectItemClass}>Toll</SelectItem>
+                  <SelectItem value="maintenance" className={selectItemClass}>Maintenance</SelectItem>
+                  <SelectItem value="repair" className={selectItemClass}>Repair</SelectItem>
+                  <SelectItem value="other" className={selectItemClass}>Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Route</label>
+            <div className="w-[180px] space-y-1">
+              <label className={labelClass}>Route</label>
               <Select value={filterRouteId} onValueChange={setFilterRouteId}>
-                <SelectTrigger>
+                <SelectTrigger className={cn("w-full", fieldClass)}>
                   <SelectValue placeholder="All routes" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Routes</SelectItem>
-                  {routes.map((route: any) => (
-                    <SelectItem key={route.id} value={route.id.toString()}>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>All routes</SelectItem>
+                  {routes.map((route: { id: number; name?: string; route_id?: string }) => (
+                    <SelectItem key={route.id} value={route.id.toString()} className={selectItemClass}>
                       {route.name || route.route_id || `Route ${route.id}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Start Date</label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">End Date</label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
-          {hasActiveFilters && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Showing {tripNumbersWithExpenses.length} trip(s)</span>
-                <span>•</span>
-                <span>{filteredTotals.totalExpenses} expense(s)</span>
-                <span>•</span>
-                <span className="font-semibold">Total: ৳{filteredTotals.totalAmount.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {tripNumbersWithExpenses.length === 0 ? (
-        <Card>
-          <CardContent className="py-8">
-            <div className="text-center text-muted-foreground">
-              No expenses found. Create trips and add expenses to see them here.
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Trip-wise Expenses</CardTitle>
-            <CardDescription>
-              {hasActiveFilters ? (
-                <>
-                  {tripNumbersWithExpenses.length} trip{tripNumbersWithExpenses.length !== 1 ? "s" : ""} found
-                  {filteredTotals.totalExpenses > 0 && (
-                    <> • {filteredTotals.totalExpenses} expense{filteredTotals.totalExpenses !== 1 ? "s" : ""} • Total: ৳{filteredTotals.totalAmount.toFixed(2)}</>
-                  )}
-                </>
-              ) : (
-                <>
-                  {tripNumbersWithExpenses.length} trip{tripNumbersWithExpenses.length !== 1 ? "s" : ""} with expenses
-                </>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion 
-              type="multiple" 
-              className="w-full"
-              onValueChange={(values) => {
-                setExpandedTrips(values);
+            <DateRangeField
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(start, end) => {
+                setStartDate(start);
+                setEndDate(end);
               }}
-            >
-              {tripNumbersWithExpenses.map((tripNumber) => {
-                const tripData = expensesByTrip[tripNumber];
-                if (!tripData) return null;
-                const trip = tripData.trip;
-                const expenses = tripData.expenses || [];
-                const total = tripData.total || 0;
-                const vehicle = (vehicles || []).find((v: any) => v.id === trip?.vehicle_id);
-                const driver = trip?.driver;
+            />
+            {hasActiveFilters ? (
+              <Button type="button" variant="ntSecondary" className="!h-8" onClick={clearFilters}>
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            ) : null}
+            <Button type="button" variant="ntPrimary" className="!h-8 ml-auto" onClick={() => handleAdd()} aria-label="Add Expense">
+              <Plus className="h-3.5 w-3.5" />
+              Add Expense
+            </Button>
+          </div>
+        </motion.div>
 
-                return (
-                  <AccordionItem key={tripNumber} value={tripNumber}>
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center justify-between w-full pr-4">
-                        <div className="flex items-center gap-4">
-                          <Badge variant="outline" className="text-lg px-3 py-1">
-                            {tripNumber}
-                          </Badge>
-                          <div className="flex items-center gap-3 text-sm">
-                            <span className="flex items-center gap-1">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
+        <motion.div
+          {...motionProps}
+          className="nt-page-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto rounded-2xl border border-[#E3EAF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#2C3B50] dark:bg-[#151F30]"
+        >
+          {tripNumbersWithExpenses.length === 0 ? (
+            <p className="px-5 py-10 text-center text-sm text-[#64748B]">
+              No expenses found. Create trips and add expenses to see them here.
+            </p>
+          ) : (
+            <div className="px-4 py-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Trip-wise Expenses</h3>
+                  <p className="text-xs text-[#64748B] dark:text-[#A9B8CC]">
+                    {hasActiveFilters ? (
+                      <>
+                        {tripNumbersWithExpenses.length} trip{tripNumbersWithExpenses.length !== 1 ? "s" : ""} found
+                        {filteredTotals.totalExpenses > 0 && (
+                          <>
+                            {" "}
+                            • {filteredTotals.totalExpenses} expense{filteredTotals.totalExpenses !== 1 ? "s" : ""} • Total: ৳
+                            {filteredTotals.totalAmount.toFixed(2)}
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {tripNumbersWithExpenses.length} trip{tripNumbersWithExpenses.length !== 1 ? "s" : ""} with expenses
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Accordion
+                type="multiple"
+                className="w-full"
+                onValueChange={(values) => {
+                  setExpandedTrips(values);
+                }}
+              >
+                {tripNumbersWithExpenses.map((tripNumber) => {
+                  const tripData = expensesByTrip[tripNumber];
+                  if (!tripData) return null;
+                  const trip = tripData.trip;
+                  const expenses = tripData.expenses || [];
+                  const total = tripData.total || 0;
+                  const vehicle = (vehicles || []).find((v: { id?: number }) => v.id === trip?.vehicle_id);
+                  const driver = trip?.driver;
+
+                  return (
+                    <AccordionItem key={tripNumber} value={tripNumber} className="border-[#E3EAF3] dark:border-[#2C3B50]">
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex w-full items-center justify-between pr-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="rounded-full bg-[#EAF2FC] px-2.5 py-0.5 text-xs font-semibold text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                              {tripNumber}
+                            </span>
+                            <div className="flex min-w-0 items-center gap-3 text-[13px] text-[#475569]">
+                              <span className="inline-flex items-center gap-1">
+                                <User className="h-3.5 w-3.5" />
                                 {driver && driver.first_name
                                   ? `${driver.first_name} ${driver.last_name || ""}`.trim()
                                   : "N/A"}
                               </span>
-                            </span>
-                            <span className="text-muted-foreground">•</span>
-                            <span className="flex items-center gap-1">
-                              <Truck className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
+                              <span className="inline-flex items-center gap-1">
+                                <Truck className="h-3.5 w-3.5" />
                                 {vehicle?.registration_number || vehicle?.vehicle_id || trip?.vehicle_id || "N/A"}
                               </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-[13px]">
+                            <span className="text-[#64748B]">
+                              {expenses.length} expense{expenses.length !== 1 ? "s" : ""}
+                            </span>
+                            <span className="font-semibold tabular-nums text-[#172B4D] dark:text-[#F1F5F9]">
+                              ৳{total.toFixed(2)}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-muted-foreground">
-                            {expenses.length} expense{expenses.length !== 1 ? "s" : ""}
-                          </span>
-                          <span className="text-lg font-semibold">
-                            Total: ৳{total.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <TripExpenseItem
-                        tripNumber={tripNumber}
-                        trip={trip}
-                        expenses={expenses}
-                        total={total}
-                        vehicle={vehicle}
-                        driver={driver}
-                        onAddExpense={handleAdd}
-                        onEditExpense={handleEdit}
-                        onDeleteExpense={handleDelete}
-                        isExpanded={expandedTrips.includes(tripNumber)}
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          </CardContent>
-        </Card>
-      )}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <TripExpenseItem
+                          tripNumber={tripNumber}
+                          trip={trip}
+                          expenses={expenses}
+                          total={total}
+                          vehicle={vehicle}
+                          driver={driver}
+                          onAddExpense={handleAdd}
+                          onEditExpense={handleEdit}
+                          onDeleteExpense={handleDelete}
+                          isExpanded={expandedTrips.includes(tripNumber)}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            </div>
+          )}
+        </motion.div>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingExpense ? "Edit Expense" : "Add Expense"}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedTripForAdd ? `Add expense for trip: ${selectedTripForAdd}` : "Create an expense for a trip"}
-            </DialogDescription>
+        <DialogContent className={dialogContentClass}>
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <Receipt className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editingExpense ? "Edit expense" : "Add expense"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {selectedTripForAdd ? `Add expense for trip: ${selectedTripForAdd}` : "Create an expense for a trip"}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="trip_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Trip Number *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!!selectedTripForAdd}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select or enter trip number" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {trips
-                          .filter((t: any) => t.trip_number)
-                          .map((trip: any) => (
-                            <SelectItem key={trip.trip_number} value={trip.trip_number}>
-                              {trip.trip_number}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCalculateExpense}
-                  disabled={!formTripNumber}
-                  className="flex-1"
-                >
-                  <Calculator className="mr-2 h-4 w-4" />
-                  Auto-Calculate Fuel Cost
-                </Button>
-              </div>
-              {autoCalculatedAmount !== null && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                  <p className="text-sm text-blue-900 dark:text-blue-100">
-                    Auto-calculated amount: ৳{autoCalculatedAmount.toFixed(2)}
-                  </p>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+              <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="trip_number"
+                    render={({ field }) => (
+                      <FormItem className={`${fieldWrapClass} sm:col-span-2`}>
+                        <FormLabel className={labelClass}>Trip Number {requiredMark}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!!selectedTripForAdd}>
+                          <FormControl>
+                            <SelectTrigger className={fieldClass}>
+                              <SelectValue placeholder="Select or enter trip number" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className={selectPanelClass}>
+                            {trips
+                              .filter((t: { trip_number?: string }) => t.trip_number)
+                              .map((trip: { trip_number: string }) => (
+                                <SelectItem key={trip.trip_number} value={trip.trip_number} className={selectItemClass}>
+                                  {trip.trip_number}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="sm:col-span-2">
+                    <Button type="button" variant="ntSecondary" className="!h-8" onClick={handleCalculateExpense} disabled={!formTripNumber}>
+                      <Calculator className="h-3.5 w-3.5" />
+                      Auto-Calculate Fuel Cost
+                    </Button>
+                    {autoCalculatedAmount !== null ? (
+                      <p className="mt-2 rounded-lg bg-[#EAF2FC] px-3 py-2 text-[13px] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                        Auto-calculated amount: ৳{autoCalculatedAmount.toFixed(2)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="expense_type"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Expense Type {requiredMark}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className={fieldClass}>
+                              <SelectValue placeholder="Select expense type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className={selectPanelClass}>
+                            <SelectItem value="fuel" className={selectItemClass}>Fuel</SelectItem>
+                            <SelectItem value="toll" className={selectItemClass}>Toll</SelectItem>
+                            <SelectItem value="repair" className={selectItemClass}>Repair</SelectItem>
+                            <SelectItem value="maintenance" className={selectItemClass}>Maintenance</SelectItem>
+                            <SelectItem value="other" className={selectItemClass}>Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Amount (৳) {requiredMark}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className={fieldClass}
+                            {...field}
+                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="expense_date"
+                    render={({ field }) => (
+                      <FormItem className={fieldWrapClass}>
+                        <FormLabel className={labelClass}>Expense Date {requiredMark}</FormLabel>
+                        <FormControl>
+                          <Input type="date" className={fieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem className={`${fieldWrapClass} sm:col-span-2`}>
+                        <FormLabel className={labelClass}>Description</FormLabel>
+                        <FormControl>
+                          <Textarea className={fieldClass} {...field} placeholder="Optional description" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-              )}
-              <FormField
-                control={form.control}
-                name="expense_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Expense Type *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select expense type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="fuel">Fuel</SelectItem>
-                        <SelectItem value="toll">Toll</SelectItem>
-                        <SelectItem value="repair">Repair</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount (৳) *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="expense_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Expense Date *</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} placeholder="Optional description" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
+              </div>
+              <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50]">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ntSecondary"
                   onClick={() => {
                     setIsDialogOpen(false);
                     setAutoCalculatedAmount(null);
@@ -732,10 +707,8 @@ export default function ExpenseManagement() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {createMutation.isPending || updateMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
+                <Button type="submit" variant="ntPrimary" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {createMutation.isPending || updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {editingExpense ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
@@ -743,6 +716,6 @@ export default function ExpenseManagement() {
           </Form>
         </DialogContent>
       </Dialog>
-    </div>
+    </ThemeScope>
   );
 }

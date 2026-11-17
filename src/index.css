@@ -284,6 +284,55 @@ All colors MUST be HSL.
     height: 0;
   }
 
+  /* Main content / table vertical scrollbar */
+  .nt-page-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c5d0dc transparent;
+  }
+
+  .nt-page-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .nt-page-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+  }
+
+  .nt-page-scroll::-webkit-scrollbar-thumb {
+    background-color: #c5d0dc;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .nt-page-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: #94a3b8;
+  }
+
+  .nt-page-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .nt-page-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .dark .nt-page-scroll {
+    scrollbar-color: #3d4f66 transparent;
+  }
+
+  .dark .nt-page-scroll::-webkit-scrollbar-thumb {
+    background-color: #3d4f66;
+  }
+
+  .dark .nt-page-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: #64748b;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .sidebar-nav-scroll {
       scroll-behavior: auto;

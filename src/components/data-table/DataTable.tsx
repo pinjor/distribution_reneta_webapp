@@ -96,10 +96,9 @@ export function DataTable<T>({
       ) : null}
 
       <motion.div
-        key={`${paged.page}-${pageSize}-${String(resetPageKey ?? "")}-${String(sortKey ?? "")}-${sortOrder ?? ""}`}
-        className="min-h-0 flex-1 overflow-auto"
-        initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
+        className={cn("nt-page-scroll min-h-0 flex-1 overflow-x-auto", loading ? "overflow-y-hidden" : "overflow-y-auto")}
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: reduceMotion ? 0 : 0.16 }}
       >
         <table className="w-full min-w-[720px] caption-bottom text-sm">

@@ -85,10 +85,12 @@ function NavLabel({
   );
 }
 
-function ParentButtonClasses(active: boolean) {
+function ParentButtonClasses(active: boolean, collapsed = false) {
   return cn(
-    "relative flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
-    "[&>span:last-child]:whitespace-normal",
+    "relative flex rounded-lg transition-colors duration-150",
+    collapsed
+      ? "items-center justify-center"
+      : "items-start gap-3 px-3 py-2.5 [&>span:last-child]:whitespace-normal",
     active
       ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
       : "hover:bg-sidebar-accent/80 text-sidebar-foreground font-semibold",
@@ -108,7 +110,7 @@ function ChildLinkClasses(active: boolean, nested = false) {
 
 export function AppSidebar() {
   const location = useLocation();
-  const { open } = useSidebar();
+  const { open, setOpen } = useSidebar();
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   // Auto-open parent menu if child is active
@@ -158,13 +160,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="sticky top-0 z-10 shrink-0 border-b border-sidebar-border/80 bg-sidebar px-3 py-3.5">
+      <SidebarHeader className="sticky top-0 z-10 shrink-0 border-b border-sidebar-border/80 bg-sidebar px-3 py-3.5 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-3">
         <AppBrand collapsed={!open} variant="sidebar" />
       </SidebarHeader>
-      <SidebarContent className="px-1 pb-3">
-        <SidebarGroup className="py-2">
+      <SidebarContent className="px-1 pb-3 group-data-[collapsible=icon]:px-0">
+        <SidebarGroup className="py-2 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className={cn("gap-1", !open && "items-center gap-1.5")}>
               {menuItems.map((item) =>
                 item.subItems ? (
                   <Collapsible
@@ -175,9 +177,16 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton
-                          className={ParentButtonClasses(Boolean(isParentActive(item.subItems)))}
+                          tooltip={item.title}
+                          className={ParentButtonClasses(Boolean(isParentActive(item.subItems)), !open)}
+                          onClick={() => {
+                            if (!open) {
+                              setOpen(true);
+                              setOpenMenus((prev) => ({ ...prev, [item.title]: true }));
+                            }
+                          }}
                         >
-                          <item.icon className="h-5 w-5 shrink-0 mt-0.5 opacity-90" />
+                          <item.icon className={cn("h-5 w-5 shrink-0 opacity-90", open && "mt-0.5")} />
                           {open && (
                             <>
                               <NavLabel className="text-sm font-semibold">{item.title}</NavLabel>
@@ -260,17 +269,22 @@ export function AppSidebar() {
                   </Collapsible>
                 ) : (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive(item.path || "")}>
+                    <SidebarMenuButton asChild isActive={isActive(item.path || "")} tooltip={item.title}>
                       <NavLink
                         to={item.path || "/"}
                         className={cn(
-                          "relative flex items-start gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
+                          "relative flex rounded-lg transition-colors duration-150",
+                          open ? "items-start gap-3 px-3 py-2.5" : "items-center justify-center",
                           isActive(item.path || "")
-                            ? "bg-sidebar-primary/20 text-sidebar-primary-foreground font-semibold before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full before:bg-sidebar-primary"
+                            ? cn(
+                                "bg-sidebar-primary/20 text-sidebar-primary-foreground font-semibold",
+                                open &&
+                                  "before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-full before:bg-sidebar-primary",
+                              )
                             : "hover:bg-sidebar-accent text-sidebar-foreground font-semibold",
                         )}
                       >
-                        <item.icon className="h-5 w-5 shrink-0 mt-0.5" />
+                        <item.icon className={cn("h-5 w-5 shrink-0", open && "mt-0.5")} />
                         {open && (
                           <NavLabel className="text-sm font-semibold">{item.title}</NavLabel>
                         )}

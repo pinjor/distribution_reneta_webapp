@@ -10,12 +10,9 @@ import {
   Receipt,
   BarChart3,
   PieChartIcon,
-  CalendarRange,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,10 +20,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
-import { TransportPageHeader } from "@/components/transport/TransportPageHeader";
+import { DateRangeField } from "@/components/transport/DateRangeField";
 import { TransportQuickNav } from "@/components/transport/TransportQuickNav";
-import { TransportStatCard } from "@/components/transport/TransportStatCard";
+import { fieldClass, KpiCard, labelClass, sectionMotion, selectItemClass, selectPanelClass } from "@/components/transport/transportUi";
+import { ThemeScope } from "@/components/theme/ThemeScope";
 import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   BarChart,
   Bar,
@@ -43,8 +42,8 @@ import {
   Cell,
 } from "recharts";
 
-const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4"];
-const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+const CHART_COLORS = ["#0C4DA1", "#15803D", "#7C3AED", "#C2410C", "#DC2626", "#0E7490"];
+const PIE_COLORS = ["#0C4DA1", "#15803D", "#7C3AED", "#DC2626", "#C2410C"];
 
 const tooltipStyle = {
   backgroundColor: "hsl(var(--card))",
@@ -90,19 +89,18 @@ function PieLegendList({
 function ChartCard({
   title,
   description,
-  borderAccent,
   children,
 }: {
   title: string;
   description: string;
-  borderAccent: string;
+  borderAccent?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Card className={cn("border-2 overflow-hidden", borderAccent)}>
-      <CardHeader className="bg-gradient-to-r from-muted/50 to-transparent pb-3">
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="min-w-0 overflow-hidden rounded-2xl border border-[#E3EAF3] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#2C3B50] dark:bg-[#151F30]">
+      <CardHeader className="border-b border-[#E3EAF3] pb-3 dark:border-[#2C3B50]">
+        <CardTitle className="text-base text-[#172B4D] dark:text-[#F1F5F9]">{title}</CardTitle>
+        <CardDescription className="text-[#64748B]">{description}</CardDescription>
       </CardHeader>
       <CardContent className="pt-4">{children}</CardContent>
     </Card>
@@ -111,6 +109,8 @@ function ChartCard({
 
 export default function TransportReports() {
   const { toast } = useToast();
+  const reduceMotion = useReducedMotion();
+  const motionProps = sectionMotion(reduceMotion);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [vehicleId, setVehicleId] = useState<string>("all");
@@ -210,109 +210,88 @@ export default function TransportReports() {
       : [];
 
   return (
-    <div className="space-y-6">
-      <TransportPageHeader
-        title="Transport Reports & Analytics"
-        subtitle="Fleet performance, trip costs, fuel spend, and expense breakdowns — all in one place."
-        icon={TrendingUp}
-        variant="orange"
-        actions={
-          <Button
-            onClick={() => handleExportPDF(activeTab)}
-            className="bg-white text-orange-700 hover:bg-white/90 shadow-md font-semibold"
-          >
-            <Download className="mr-2 h-4 w-4" />
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
+      <div className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col gap-3 overflow-x-hidden">
+      <motion.div {...motionProps} className="shrink-0">
+        <TransportQuickNav />
+      </motion.div>
+
+      <motion.div {...motionProps} className="nt-form shrink-0">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+          <DateRangeField
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+          />
+          <div className="w-[180px] space-y-1">
+            <label className={labelClass}>Vehicle</label>
+            <Select value={vehicleId} onValueChange={setVehicleId}>
+              <SelectTrigger className={cn("w-full", fieldClass)}>
+                <SelectValue placeholder="All vehicles" />
+              </SelectTrigger>
+              <SelectContent className={selectPanelClass}>
+                <SelectItem value="all" className={selectItemClass}>All vehicles</SelectItem>
+                {vehicles.map((vehicle: { id: number; registration_number: string }) => (
+                  <SelectItem key={vehicle.id} value={vehicle.id.toString()} className={selectItemClass}>
+                    {vehicle.registration_number}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-[180px] space-y-1">
+            <label className={labelClass}>Driver</label>
+            <Select value={driverId} onValueChange={setDriverId}>
+              <SelectTrigger className={cn("w-full", fieldClass)}>
+                <SelectValue placeholder="All drivers" />
+              </SelectTrigger>
+              <SelectContent className={selectPanelClass}>
+                <SelectItem value="all" className={selectItemClass}>All drivers</SelectItem>
+                {drivers.map((driver: { id: number; first_name: string; last_name?: string }) => (
+                  <SelectItem key={driver.id} value={driver.id.toString()} className={selectItemClass}>
+                    {driver.first_name} {driver.last_name || ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button type="button" variant="ntPrimary" className="!h-8" onClick={() => handleExportPDF(activeTab)}>
+            <Download className="h-3.5 w-3.5" />
             Export PDF
           </Button>
-        }
-      />
+        </div>
+      </motion.div>
 
-      <TransportQuickNav />
-
-      {/* Filters */}
-      <Card className="border-2 border-orange-100 dark:border-orange-900/40 bg-gradient-to-br from-orange-50/40 to-card dark:from-orange-950/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <div className="p-2 rounded-lg bg-orange-500 text-white">
-              <CalendarRange className="h-4 w-4" />
-            </div>
-            Report Filters
-          </CardTitle>
-          <CardDescription>Refine analytics by date range, vehicle, or driver</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Vehicle</Label>
-              <Select value={vehicleId} onValueChange={setVehicleId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All vehicles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All vehicles</SelectItem>
-                  {vehicles.map((vehicle: { id: number; registration_number: string }) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                      {vehicle.registration_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Driver</Label>
-              <Select value={driverId} onValueChange={setDriverId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All drivers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All drivers</SelectItem>
-                  {drivers.map((driver: { id: number; first_name: string; last_name?: string }) => (
-                    <SelectItem key={driver.id} value={driver.id.toString()}>
-                      {driver.first_name} {driver.last_name || ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-muted/60">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="min-w-0 max-w-full">
+        <TabsList className="inline-flex h-auto w-fit justify-start gap-0.5 rounded-xl border border-[#E3EAF3] bg-[#F8FAFC] p-1 dark:border-[#2C3B50] dark:bg-[#1B283B]">
           <TabsTrigger
             value="general"
-            className="gap-2 py-2.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+            className="gap-1.5 rounded-lg px-3 py-1.5 text-[13px] data-[state=active]:bg-white data-[state=active]:text-[#0C4DA1] data-[state=active]:shadow-sm"
           >
-            <BarChart3 className="h-4 w-4" />
+            <BarChart3 className="h-3.5 w-3.5" />
             General Report
           </TabsTrigger>
           <TabsTrigger
             value="vehicle"
-            className="gap-2 py-2.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white"
+            className="gap-1.5 rounded-lg px-3 py-1.5 text-[13px] data-[state=active]:bg-white data-[state=active]:text-[#0C4DA1] data-[state=active]:shadow-sm"
           >
-            <Truck className="h-4 w-4" />
+            <Truck className="h-3.5 w-3.5" />
             Vehicle Expenses
           </TabsTrigger>
           <TabsTrigger
             value="driver"
-            className="gap-2 py-2.5 data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
+            className="gap-1.5 rounded-lg px-3 py-1.5 text-[13px] data-[state=active]:bg-white data-[state=active]:text-[#0C4DA1] data-[state=active]:shadow-sm"
           >
-            <User className="h-4 w-4" />
+            <User className="h-3.5 w-3.5" />
             Driver Expenses
           </TabsTrigger>
         </TabsList>
 
         {/* General tab */}
-        <TabsContent value="general" className="space-y-6 mt-6">
+        <TabsContent value="general" className="mt-6 min-w-0 space-y-6">
           {isLoading ? (
             <div className="flex items-center justify-center h-48 rounded-xl border-2 border-dashed">
               <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
@@ -325,63 +304,65 @@ export default function TransportReports() {
             </Card>
           ) : report ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <TransportStatCard
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <KpiCard
                   title="Total Trips"
                   value={report.total_trips || 0}
                   icon={Route}
                   accent="blue"
                   description="Completed assignments"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Total Distance"
                   value={`${(report.total_distance || 0).toFixed(1)} km`}
                   icon={TrendingUp}
-                  accent="emerald"
+                  accent="green"
                   description="Fleet kilometers covered"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Fuel Cost"
                   value={`৳${(report.total_fuel_cost || 0).toFixed(2)}`}
                   icon={Fuel}
-                  accent="amber"
+                  accent="purple"
                   description="Estimated fuel spend"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Total Expenses"
                   value={`৳${(report.total_expenses || 0).toFixed(2)}`}
                   icon={Receipt}
-                  accent="rose"
+                  accent="purple"
                   description="All trip-related costs"
                 />
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-2">
+              <div className="grid min-w-0 gap-6 lg:grid-cols-2">
                 {fuelVsOther.length > 0 && (
                   <ChartCard
                     title="Cost Breakdown"
                     description="Fuel vs other transport expenses"
                     borderAccent="border-amber-200 dark:border-amber-900/40"
                   >
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={fuelVsOther}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
-                          paddingAngle={4}
-                          dataKey="value"
-                          label={false}
-                        >
-                          {fuelVsOther.map((_, i) => (
-                            <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
-                          ))}
-                        </Pie>
-                        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `৳${v.toFixed(2)}`} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <div className="h-[200px] w-full min-w-0 overflow-hidden">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={fuelVsOther}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={4}
+                            dataKey="value"
+                            label={false}
+                          >
+                            {fuelVsOther.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="transparent" />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => `৳${v.toFixed(2)}`} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                     <PieLegendList items={fuelVsOther} colors={PIE_COLORS} showPercent />
                   </ChartCard>
                 )}
@@ -392,29 +373,31 @@ export default function TransportReports() {
                     description="Highest spending trips in selected period"
                     borderAccent="border-violet-200 dark:border-violet-900/40"
                   >
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={expensePieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
-                          paddingAngle={3}
-                          dataKey="value"
-                          label={false}
-                        >
-                          {expensePieData.map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="transparent" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={tooltipStyle}
-                          formatter={(v: number) => `৳${v.toFixed(2)}`}
-                          labelFormatter={(label) => String(label)}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <div className="h-[200px] w-full min-w-0 overflow-hidden">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={expensePieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={3}
+                            dataKey="value"
+                            label={false}
+                          >
+                            {expensePieData.map((_, i) => (
+                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="transparent" />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={tooltipStyle}
+                            formatter={(v: number) => `৳${v.toFixed(2)}`}
+                            labelFormatter={(label) => String(label)}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                     <PieLegendList items={expensePieData} colors={CHART_COLORS} />
                   </ChartCard>
                 )}
@@ -426,8 +409,9 @@ export default function TransportReports() {
                   description="Trip count and distance per vehicle"
                   borderAccent="border-blue-200 dark:border-blue-900/40"
                 >
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={report.trips_by_vehicle}>
+                  <div className="h-[300px] w-full min-w-0 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={report.trips_by_vehicle} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                       <XAxis dataKey="registration_number" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -437,6 +421,7 @@ export default function TransportReports() {
                       <Bar dataKey="total_distance" fill="#10b981" name="Distance (km)" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 </ChartCard>
               )}
 
@@ -446,8 +431,9 @@ export default function TransportReports() {
                   description="Performance across your driver fleet"
                   borderAccent="border-emerald-200 dark:border-emerald-900/40"
                 >
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={report.trips_by_driver}>
+                  <div className="h-[300px] w-full min-w-0 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={report.trips_by_driver} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                       <XAxis dataKey="driver_name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -457,6 +443,7 @@ export default function TransportReports() {
                       <Bar dataKey="total_distance" fill="#8b5cf6" name="Distance (km)" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 </ChartCard>
               )}
 
@@ -466,8 +453,9 @@ export default function TransportReports() {
                   description="Distance and fuel cost over time"
                   borderAccent="border-indigo-200 dark:border-indigo-900/40"
                 >
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={report.monthly_stats}>
+                  <div className="h-[300px] w-full min-w-0 overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={report.monthly_stats} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -477,6 +465,7 @@ export default function TransportReports() {
                       <Line type="monotone" dataKey="total_fuel_cost" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4 }} name="Fuel Cost (৳)" />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </ChartCard>
               )}
 
@@ -536,7 +525,7 @@ export default function TransportReports() {
         </TabsContent>
 
         {/* Vehicle tab */}
-        <TabsContent value="vehicle" className="space-y-6 mt-6">
+        <TabsContent value="vehicle" className="mt-6 min-w-0 space-y-6">
           {isLoadingVehicle ? (
             <div className="flex items-center justify-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -544,23 +533,23 @@ export default function TransportReports() {
           ) : vehicleExpenses?.vehicles?.length > 0 ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <TransportStatCard
+                <KpiCard
                   title="Total Vehicles"
                   value={vehicleExpenses.summary?.total_vehicles || 0}
                   icon={Truck}
                   accent="blue"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Total Trips"
                   value={vehicleExpenses.summary?.total_trips || 0}
                   icon={Route}
-                  accent="violet"
+                  accent="purple"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Total Expenses"
                   value={`৳${vehicleExpenses.total_expenses?.toFixed(2) || "0.00"}`}
                   icon={Receipt}
-                  accent="amber"
+                  accent="purple"
                 />
               </div>
 
@@ -617,7 +606,7 @@ export default function TransportReports() {
         </TabsContent>
 
         {/* Driver tab */}
-        <TabsContent value="driver" className="space-y-6 mt-6">
+        <TabsContent value="driver" className="mt-6 min-w-0 space-y-6">
           {isLoadingDriver ? (
             <div className="flex items-center justify-center h-48">
               <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
@@ -631,23 +620,23 @@ export default function TransportReports() {
           ) : driverExpenses?.drivers?.length > 0 ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <TransportStatCard
+                <KpiCard
                   title="Total Drivers"
                   value={driverExpenses.summary?.total_drivers || 0}
                   icon={User}
-                  accent="emerald"
+                  accent="green"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Total Trips"
                   value={driverExpenses.summary?.total_trips || 0}
                   icon={Route}
-                  accent="violet"
+                  accent="purple"
                 />
-                <TransportStatCard
+                <KpiCard
                   title="Total Expenses"
                   value={`৳${driverExpenses.total_expenses?.toFixed(2) || "0.00"}`}
                   icon={Receipt}
-                  accent="amber"
+                  accent="purple"
                 />
               </div>
 
@@ -697,6 +686,7 @@ export default function TransportReports() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </ThemeScope>
   );
 }

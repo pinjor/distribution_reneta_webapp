@@ -711,16 +711,16 @@ const StockReceipt = () => {
                     required
                   />
                 </div>
-                <Button
-                  type="button"
-                  onClick={handleChallanVerify}
-                  disabled={verifying || challanVerified}
+                  <Button
+                    type="button"
+                    onClick={handleChallanVerify}
+                    disabled={verifying || challanVerified}
                   variant="ntPrimary"
                   className="!h-8 shrink-0"
                 >
                   {verifying ? <LoadingSpinner size="sm" className="mr-1" /> : <Search className="h-3.5 w-3.5" />}
                   {verifying ? "Verifying..." : challanVerified ? "Verified" : "Verify"}
-                </Button>
+                  </Button>
               </div>
             </FormBlock>
 
@@ -732,32 +732,32 @@ const StockReceipt = () => {
                   </Label>
                   <ProductSearchSelect
                     products={products}
-                    value={selectedProduct}
-                    onValueChange={setSelectedProduct}
-                    disabled={loadingProducts}
+                value={selectedProduct} 
+                onValueChange={setSelectedProduct}
+                disabled={loadingProducts}
                     loading={loadingProducts}
                   />
-                </div>
+            </div>
                 <div className={fieldWrapClass}>
                   <Label htmlFor="batch" className={labelClass}>
                     Batch Number * (Numeric Only)
                   </Label>
-                  <Input
-                    id="batch"
-                    placeholder="Enter batch number (digits only)"
-                    required
-                    pattern="[0-9]+"
-                    title="Batch number must contain only digits"
+              <Input 
+                id="batch" 
+                placeholder="Enter batch number (digits only)" 
+                required 
+                pattern="[0-9]+"
+                title="Batch number must contain only digits"
                     className={fieldClass}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value && !/^\d+$/.test(value)) {
-                        e.target.setCustomValidity("Batch number must be numeric only (digits only)");
-                      } else {
-                        e.target.setCustomValidity("");
-                      }
-                    }}
-                  />
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value && !/^\d+$/.test(value)) {
+                    e.target.setCustomValidity("Batch number must be numeric only (digits only)");
+                  } else {
+                    e.target.setCustomValidity("");
+                  }
+                }}
+              />
                 </div>
                 <div className={fieldWrapClass}>
                   <Label htmlFor="qty" className={labelClass}>
@@ -772,7 +772,7 @@ const StockReceipt = () => {
                     className={fieldClass}
                     onWheel={preventNumberWheel}
                   />
-                </div>
+            </div>
                 <div className={fieldWrapClass}>
                   <Label htmlFor="unitPrice" className={labelClass}>
                     Unit Price *
@@ -787,8 +787,8 @@ const StockReceipt = () => {
                     className={fieldClass}
                     onWheel={preventNumberWheel}
                   />
-                </div>
-              </div>
+            </div>
+            </div>
             </FormBlock>
 
             <FormBlock title="Dates & Storage">
@@ -798,21 +798,21 @@ const StockReceipt = () => {
                     Manufacturing Date *
                   </Label>
                   <DateField id="mfgDate" required />
-                </div>
+            </div>
                 <div className={fieldWrapClass}>
                   <Label htmlFor="expDate" className={labelClass}>
                     Expiry Date *
                   </Label>
                   <DateField id="expDate" required />
-                </div>
+            </div>
                 <div className={fieldWrapClass}>
                   <Label htmlFor="storage" className={labelClass}>
                     Storage Condition *
                   </Label>
-                  <Select required>
+              <Select required>
                     <SelectTrigger id="storage" className={fieldClass}>
-                      <SelectValue placeholder="Select storage type" />
-                    </SelectTrigger>
+                  <SelectValue placeholder="Select storage type" />
+                </SelectTrigger>
                     <SelectContent className={selectPanelClass}>
                       <SelectItem value="ambient" className={selectItemClass}>
                         <SelectOptionIcon icon={Sun} />
@@ -830,17 +830,17 @@ const StockReceipt = () => {
                         <SelectOptionIcon icon={Snowflake} />
                         Frozen (-20°C)
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                </SelectContent>
+              </Select>
+            </div>
                 <div className={fieldWrapClass}>
                   <Label htmlFor="source" className={labelClass}>
                     Source Depot *
                   </Label>
-                  <Select required>
+              <Select required>
                     <SelectTrigger id="source" className={fieldClass}>
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
+                  <SelectValue placeholder="Select source" />
+                </SelectTrigger>
                     <SelectContent className={selectPanelClass}>
                       <SelectItem value="mumbai" className={selectItemClass}>
                         <SelectOptionIcon icon={Warehouse} />
@@ -862,22 +862,22 @@ const StockReceipt = () => {
                         <SelectOptionIcon icon={Warehouse} />
                         Hyderabad Warehouse
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
             </FormBlock>
 
             <div className="mt-3 flex justify-end gap-2">
               <Button type="button" variant="ntSecondary" className="!h-8">
-                Cancel
-              </Button>
+              Cancel
+            </Button>
               <Button type="submit" variant="ntPrimary" className="!h-8">
                 <CheckCircle className="h-3.5 w-3.5" />
-                Confirm Receipt
-              </Button>
-            </div>
-          </form>
+              Confirm Receipt
+            </Button>
+          </div>
+        </form>
         </motion.div>
 
         <DataTable
@@ -898,9 +898,9 @@ const StockReceipt = () => {
                   variant="ntSecondary"
                   onClick={() => printReceiptReport(filteredData)}
                 >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Report
-                </Button>
+              <Printer className="h-4 w-4 mr-2" />
+              Print Report
+            </Button>
               </TooltipTrigger>
               <TooltipContent>Print Report</TooltipContent>
             </Tooltip>
@@ -968,7 +968,7 @@ const StockReceipt = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+    </div>
     </ThemeScope>
   );
 };

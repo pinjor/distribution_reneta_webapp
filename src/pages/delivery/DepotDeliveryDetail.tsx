@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Printer, Loader2, CheckCircle2, PackageCheck } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { motion, useReducedMotion } from "framer-motion";
+import { CheckCircle2, Loader2, PackageCheck, Printer, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { DeliveryStatusBadge } from "@/pages/delivery/DeliveryStatusBadge";
 
 interface DepotTransferItem {
   id: number;
@@ -46,34 +46,28 @@ interface DepotTransfer {
   items: DepotTransferItem[];
 }
 
-const statusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  Draft: "secondary",
-  Pending: "outline",
-  Approved: "default",
-  "In Transit": "outline",
-  Received: "default",
-  Cancelled: "destructive",
-};
+type ItemRow = DepotTransferItem & { sl: number; amount: number };
 
-const statusColors: Record<string, string> = {
-  Draft: "bg-gray-100 text-gray-800 border-gray-300",
-  Pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  Approved: "bg-blue-100 text-blue-800 border-blue-300",
-  "In Transit": "bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-400 text-white border-orange-500 shadow-lg font-semibold animate-pulse",
-  Received: "bg-green-100 text-green-800 border-green-300",
-  Cancelled: "bg-red-100 text-red-800 border-red-300",
+const statusClass: Record<string, string> = {
+  Draft: "bg-[#F1F5F9] text-[#475569] dark:bg-[#1B283B] dark:text-[#A9B8CC]",
+  Pending: "bg-[#FEF3C7] text-[#B45309] dark:bg-[#3B2A0A] dark:text-[#FBBF24]",
+  Approved: "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]",
+  "In Transit": "bg-[#FFEDD5] text-[#C2410C] dark:bg-[#3B1F0A] dark:text-[#FB923C]",
+  Received: "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]",
+  Cancelled: "bg-[#FEF2F2] text-[#DC2626] dark:bg-[#3B1212] dark:text-[#F87171]",
 };
 
 export default function DepotDeliveryDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
+  const reduceMotion = useReducedMotion();
   const [approving, setApproving] = useState(false);
   const [receiving, setReceiving] = useState(false);
 
   const { data: transfer, isLoading: loading, refetch } = useQuery({
-    queryKey: ['depot-transfer', id],
+    queryKey: ["depot-transfer", id],
     queryFn: async () => {
       if (!id) return null;
       return await apiEndpoints.depotTransfers.getById(Number(id));
@@ -88,10 +82,10 @@ export default function DepotDeliveryDetail() {
     }
 
     if (!user || !user.id) {
-      toast({ 
-        title: "Authentication required", 
+      toast({
+        title: "Authentication required",
         description: "Please log in to approve transfers",
-        variant: "destructive" 
+        variant: "destructive",
       });
       return;
     }
@@ -109,10 +103,10 @@ export default function DepotDeliveryDetail() {
     } catch (error: any) {
       console.error("Failed to approve transfer", error);
       const errorMessage = error?.message || error?.details || "Unknown error occurred";
-      toast({ 
-        title: "Unable to approve transfer", 
+      toast({
+        title: "Unable to approve transfer",
         description: errorMessage,
-        variant: "destructive" 
+        variant: "destructive",
       });
     } finally {
       setApproving(false);
@@ -126,10 +120,10 @@ export default function DepotDeliveryDetail() {
     }
 
     if (!user || !user.id) {
-      toast({ 
-        title: "Authentication required", 
+      toast({
+        title: "Authentication required",
         description: "Please log in to receive transfers",
-        variant: "destructive" 
+        variant: "destructive",
       });
       return;
     }
@@ -147,238 +141,184 @@ export default function DepotDeliveryDetail() {
     } catch (error: any) {
       console.error("Failed to receive transfer", error);
       const errorMessage = error?.message || error?.details || "Unknown error occurred";
-      toast({ 
-        title: "Unable to receive transfer", 
+      toast({
+        title: "Unable to receive transfer",
         description: errorMessage,
-        variant: "destructive" 
+        variant: "destructive",
       });
     } finally {
       setReceiving(false);
     }
   };
 
+  const sectionMotion = {
+    initial: reduceMotion ? false : { opacity: 0, y: 6 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: reduceMotion ? 0 : 0.18 },
+  };
+
   if (loading) {
     return (
-      <main className="p-6">
-        <Card>
-          <CardContent className="py-16 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">Loading delivery details...</p>
-          </CardContent>
-        </Card>
-      </main>
-    );
-  }
-
-  if (!transfer && !loading) {
-    return (
-      <main className="p-6">
-        <Card>
-          <CardContent className="py-16 text-center text-muted-foreground">
-            Transfer not found.
-          </CardContent>
-        </Card>
-      </main>
+      <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0C4DA1]" />
+        <p className="mt-3 text-sm text-[#64748B]">Loading delivery details...</p>
+      </ThemeScope>
     );
   }
 
   if (!transfer) {
-    return null;
+    return (
+      <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
+        <p className="text-sm text-[#64748B]">Transfer not found.</p>
+        <Button type="button" variant="ntSecondary" className="mt-3" onClick={() => navigate("/delivery/depot")}>
+          Back to transfers
+        </Button>
+      </ThemeScope>
+    );
   }
 
   const canApprove = transfer.status === "Pending";
   const canReceive = transfer.status === "In Transit";
+  const itemRows: ItemRow[] = (transfer.items || []).map((item, index) => ({
+    ...item,
+    sl: index + 1,
+    amount: Number(item.quantity) * Number(item.unit_price),
+  }));
+
+  const columns: DataTableColumn<ItemRow>[] = [
+    { key: "sl", label: "SL", className: "w-12 tabular-nums text-[#64748B]" },
+    { key: "product_code", label: "Product code", className: "font-mono text-xs", render: (val) => String(val || "—") },
+    {
+      key: "product_name",
+      label: "Product name",
+      render: (val) => <span className="font-medium text-[#172B4D] dark:text-[#F1F5F9]">{String(val || "—")}</span>,
+    },
+    { key: "batch_number", label: "Batch number", className: "font-mono text-xs", render: (val) => String(val || "—") },
+    {
+      key: "expiry_date",
+      label: "Expiry date",
+      className: "whitespace-nowrap tabular-nums",
+      render: (val) => (val ? new Date(String(val)).toLocaleDateString() : "—"),
+    },
+    {
+      key: "quantity",
+      label: "Quantity",
+      align: "right",
+      className: "tabular-nums",
+      render: (val) => Number(val || 0).toLocaleString(),
+    },
+    {
+      key: "unit_price",
+      label: "Unit price",
+      align: "right",
+      className: "tabular-nums",
+      render: (val) => `৳${Number(val || 0).toFixed(2)}`,
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      align: "right",
+      className: "tabular-nums",
+      render: (val) => `৳${Number(val || 0).toFixed(2)}`,
+    },
+  ];
+
+  const infoItem = (label: string, value: string) => (
+    <div className="min-w-0 space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">{label}</p>
+      <p className="truncate text-[13px] font-medium text-[#172B4D] dark:text-[#F1F5F9]">{value}</p>
+    </div>
+  );
 
   return (
-    <main className="p-6 space-y-6">
-      <PageHeader
-        title={transfer.transfer_number}
-        subtitle="Depot Transfer Details"
-        icon={PackageCheck}
-        variant="emerald"
-        actions={(
-          <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate("/delivery/depot")}
-           
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-x-hidden">
+        <motion.div {...sectionMotion} className="nt-form nt-form-compact nt-form-card shrink-0 overflow-hidden px-4 py-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Transfer</p>
+              <p className="truncate font-mono text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{transfer.transfer_number}</p>
+            </div>
+            <DeliveryStatusBadge
+              status={transfer.status}
+              label={transfer.status}
+              size="md"
+              className={statusClass[transfer.status] || "bg-[#F1F5F9] text-[#475569]"}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {infoItem("Transfer date", new Date(transfer.transfer_date).toLocaleDateString())}
+            {infoItem("From depot", transfer.from_depot_name || "—")}
+            {infoItem("To depot", transfer.to_depot_name || "—")}
+            {infoItem("Vehicle", transfer.vehicle_registration || "—")}
+            {infoItem("Driver", transfer.driver_name || "—")}
+            {infoItem("Total items", String(transfer.total_items))}
+            {infoItem("Total quantity", Number(transfer.total_quantity).toLocaleString())}
+            {infoItem("Total value", `৳${Number(transfer.total_value).toFixed(2)}`)}
+            {transfer.approved_at ? infoItem("Approved at", new Date(transfer.approved_at).toLocaleString()) : null}
+            {transfer.received_at ? infoItem("Received at", new Date(transfer.received_at).toLocaleString()) : null}
+            {transfer.transfer_note ? infoItem("Transfer note", transfer.transfer_note) : null}
+            {transfer.remarks ? infoItem("Remarks", transfer.remarks) : null}
+          </div>
+        </motion.div>
+
+        <motion.div {...sectionMotion} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Transfer items"
+            description={`${transfer.total_items} item${transfer.total_items === 1 ? "" : "s"} · Qty ${Number(transfer.total_quantity).toLocaleString()}`}
+            toolbarIcon={<Warehouse className="h-4 w-4" />}
+            toolbarActions={
+              <Button type="button" variant="ntSecondary" className="!h-8">
+                <Printer className="h-3.5 w-3.5" />
+                Print
+              </Button>
+            }
+            data={itemRows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            resetPageKey={itemRows.length}
+            emptyMessage="No items on this transfer."
+          />
+        </motion.div>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#E3EAF3] bg-white/80 py-2 dark:border-[#2C3B50] dark:bg-[#151F30]/80">
+          <Button type="button" variant="ntSecondary" onClick={() => navigate("/delivery/depot")}>
             Back
           </Button>
           {canApprove && (
-            <Button onClick={handleApprove} disabled={approving || !user || !user.id}>
+            <Button type="button" variant="ntPrimary" onClick={handleApprove} disabled={approving || !user || !user.id}>
               {approving ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Approving...
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  <CheckCircle2 className="h-4 w-4" />
                   Approve Transfer
                 </>
               )}
             </Button>
           )}
           {canReceive && (
-            <Button
-              onClick={handleReceive}
-              disabled={receiving || !user || !user.id}
-              variant="default"
-             
-            >
+            <Button type="button" variant="ntPrimary" onClick={handleReceive} disabled={receiving || !user || !user.id}>
               {receiving ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Receiving...
                 </>
               ) : (
                 <>
-                  <PackageCheck className="h-4 w-4 mr-2" />
+                  <PackageCheck className="h-4 w-4" />
                   Receive Transfer
                 </>
               )}
             </Button>
           )}
         </div>
-        )}
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Transfer Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Status:</span>
-              <Badge 
-                variant={statusVariant[transfer.status] || "secondary"}
-                className={statusColors[transfer.status] || ""}
-              >
-                {transfer.status}
-              </Badge>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Transfer Date:</span>
-              <span>{new Date(transfer.transfer_date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">From Depot:</span>
-              <span>{transfer.from_depot_name || "—"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">To Depot:</span>
-              <span>{transfer.to_depot_name || "—"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Vehicle:</span>
-              <span>{transfer.vehicle_registration || "—"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Driver:</span>
-              <span>{transfer.driver_name || "—"}</span>
-            </div>
-            {transfer.approved_at && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Approved At:</span>
-                <span>{new Date(transfer.approved_at).toLocaleString()}</span>
-              </div>
-            )}
-            {transfer.received_at && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Received At:</span>
-                <span>{new Date(transfer.received_at).toLocaleString()}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Items:</span>
-              <span>{transfer.total_items}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Quantity:</span>
-              <span>{Number(transfer.total_quantity).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between font-semibold">
-              <span>Total Value:</span>
-              <span>৳{Number(transfer.total_value).toFixed(2)}</span>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-
-      {transfer.transfer_note && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Transfer Note</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{transfer.transfer_note}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {transfer.remarks && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Remarks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{transfer.remarks}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Transfer Items</CardTitle>
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product Code</TableHead>
-                <TableHead>Product Name</TableHead>
-                <TableHead>Batch Number</TableHead>
-                <TableHead>Expiry Date</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transfer.items?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-mono text-xs">{item.product_code || "—"}</TableCell>
-                  <TableCell className="font-medium">{item.product_name || "—"}</TableCell>
-                  <TableCell>{item.batch_number || "—"}</TableCell>
-                  <TableCell>{item.expiry_date ? new Date(item.expiry_date).toLocaleDateString() : "—"}</TableCell>
-                  <TableCell className="text-right">{Number(item.quantity).toLocaleString()}</TableCell>
-                  <TableCell className="text-right">৳{Number(item.unit_price).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">
-                    ৳{(Number(item.quantity) * Number(item.unit_price)).toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </main>
+    </ThemeScope>
   );
 }
-
