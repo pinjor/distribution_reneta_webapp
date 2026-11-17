@@ -314,6 +314,37 @@
   background-color: #64748b;
 }
 
+.nt-date-year-list {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+.nt-date-year-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.nt-date-year-list::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.nt-date-year-list::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 999px;
+}
+
+.nt-date-year-list::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
+.dark .nt-date-year-list {
+  scrollbar-color: #64748b transparent;
+}
+
+.dark .nt-date-year-list::-webkit-scrollbar-thumb {
+  background-color: #64748b;
+}
+
 .dark .nt-select-panel [role="option"] {
   color: #f1f5f9;
 }
@@ -334,10 +365,48 @@
 }
 
 /* Premium form controls — scoped to migrated pages using .nt-form */
+.theme-scope-navy-teal .nt-form.nt-form-compact input:not([type="checkbox"]):not([type="radio"]),
+.theme-scope-navy-teal .nt-form.nt-form-compact input:read-only,
+.theme-scope-navy-teal .nt-form.nt-form-compact button[role="combobox"],
+.theme-scope-navy-teal .nt-form.nt-form-compact .nt-date-field > button {
+  height: 32px !important;
+  border-radius: 6px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-color: #cbd5e1 !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  padding-left: 10px;
+  padding-right: 10px;
+  font-size: 13px;
+}
+
+.theme-scope-navy-teal .nt-form.nt-form-compact .nt-form-block + .nt-form-block {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.theme-scope-navy-teal .nt-form.nt-form-compact .nt-form-block + .nt-form-block.nt-form-block--no-divider {
+  margin-top: 10px;
+}
+
+.theme-scope-navy-teal .nt-form.nt-form-compact .nt-form-grid {
+  column-gap: 12px;
+  row-gap: 8px;
+}
+
+.theme-scope-navy-teal .nt-form button[role="combobox"]::before {
+  display: none;
+}
+
 .theme-scope-navy-teal .nt-form input:not([type="checkbox"]):not([type="radio"]),
-.theme-scope-navy-teal .nt-form button[role="combobox"] {
+.theme-scope-navy-teal .nt-form button[role="combobox"],
+.theme-scope-navy-teal .nt-form .nt-date-field > button {
   height: 36px;
   border-radius: 8px;
+  border-width: 1px;
+  border-style: solid;
   border-color: #cbd5e1;
   background-color: var(--nt-surface);
   color: var(--nt-text);
@@ -357,14 +426,17 @@
 }
 
 .theme-scope-navy-teal .nt-form input:hover:not(:disabled):not(:focus):not(:focus-visible),
-.theme-scope-navy-teal .nt-form button[role="combobox"]:hover:not(:disabled):not(:focus) {
+.theme-scope-navy-teal .nt-form button[role="combobox"]:hover:not(:disabled):not(:focus),
+.theme-scope-navy-teal .nt-form .nt-date-field > button:hover:not(:disabled):not(:focus) {
   border-color: #94a3b8;
 }
 
 .theme-scope-navy-teal .nt-form input:focus,
 .theme-scope-navy-teal .nt-form input:focus-visible,
 .theme-scope-navy-teal .nt-form button[role="combobox"]:focus,
-.theme-scope-navy-teal .nt-form button[role="combobox"]:focus-visible {
+.theme-scope-navy-teal .nt-form button[role="combobox"]:focus-visible,
+.theme-scope-navy-teal .nt-form .nt-date-field > button:focus,
+.theme-scope-navy-teal .nt-form .nt-date-field > button:focus-visible {
   outline: none;
   border-color: var(--nt-focus);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nt-focus) 18%, transparent);
@@ -411,7 +483,23 @@
   position: relative;
 }
 
+.theme-scope-navy-teal .nt-form .nt-date-field > button {
+  justify-content: space-between;
+  text-align: left;
+  font-weight: 400;
+}
+
+.theme-scope-navy-teal .nt-form .nt-date-field > button::before {
+  display: none;
+}
+
+.theme-scope-navy-teal .nt-form .nt-date-field > button:active {
+  transform: none;
+}
+
 .theme-scope-navy-teal .nt-form input[type="date"] {
+  position: relative;
+  overflow: hidden;
   color-scheme: light;
 }
 
@@ -435,16 +523,22 @@
 }
 
 .dark .theme-scope-navy-teal .nt-form input:not([type="checkbox"]):not([type="radio"]),
-.dark .theme-scope-navy-teal .nt-form button[role="combobox"] {
-  border-color: var(--nt-border);
-  background-color: var(--nt-surface);
+.dark .theme-scope-navy-teal .nt-form button[role="combobox"],
+.dark .theme-scope-navy-teal .nt-form .nt-date-field > button,
+.dark .theme-scope-navy-teal .nt-form.nt-form-compact input:not([type="checkbox"]):not([type="radio"]),
+.dark .theme-scope-navy-teal .nt-form.nt-form-compact button[role="combobox"],
+.dark .theme-scope-navy-teal .nt-form.nt-form-compact .nt-date-field > button {
+  border-color: var(--nt-border) !important;
+  background-color: var(--nt-surface) !important;
   color: var(--nt-text);
 }
 
 .dark .theme-scope-navy-teal .nt-form input:focus,
 .dark .theme-scope-navy-teal .nt-form input:focus-visible,
 .dark .theme-scope-navy-teal .nt-form button[role="combobox"]:focus,
-.dark .theme-scope-navy-teal .nt-form button[role="combobox"]:focus-visible {
+.dark .theme-scope-navy-teal .nt-form button[role="combobox"]:focus-visible,
+.dark .theme-scope-navy-teal .nt-form .nt-date-field > button:focus,
+.dark .theme-scope-navy-teal .nt-form .nt-date-field > button:focus-visible {
   border-color: var(--nt-focus);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nt-focus) 22%, transparent);
 }
@@ -464,4 +558,88 @@
   .theme-scope-navy-teal .nt-form button {
     transition: none;
   }
+}
+
+/* Reusable ERP buttons — opt in with Button variant="ntPrimary" | "ntSecondary" */
+.nt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: none;
+  transform: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.nt-btn::before {
+  display: none !important;
+}
+
+.nt-btn:active {
+  transform: none;
+}
+
+.nt-btn-primary {
+  border: 0;
+  background: #0c4da1;
+  color: #fff;
+}
+
+.nt-btn-primary:hover {
+  background: #093d82;
+  color: #fff;
+}
+
+.nt-btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #0c4da1 28%, transparent);
+}
+
+.nt-btn-secondary {
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #172b4d !important;
+}
+
+.nt-btn-secondary:hover {
+  border-color: #94a3b8 !important;
+  background: #f8fafc !important;
+  color: #0c4da1 !important;
+}
+
+.nt-btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #0c4da1 18%, transparent);
+}
+
+.dark .nt-btn-primary {
+  background: #70adff;
+  color: #0b1220;
+}
+
+.dark .nt-btn-primary:hover {
+  background: #9ac6ff;
+  color: #0b1220;
+}
+
+.dark .nt-btn-secondary {
+  border-color: #2c3b50 !important;
+  background: #151f30 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark .nt-btn-secondary:hover {
+  border-color: #70adff !important;
+  background: #1b304d !important;
+  color: #70adff !important;
 }

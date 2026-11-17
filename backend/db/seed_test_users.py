@@ -2,7 +2,7 @@
 
 from app.auth import get_password_hash
 from app.database import SessionLocal
-from app.models import Employee
+from app.models import Company, Depot, Employee
 
 DEFAULT_PASSWORD = "admin123"
 
@@ -43,21 +43,55 @@ ADMIN_USERS = [
 ]
 
 
+def ensure_default_depot(db) -> int:
+    depot = db.query(Depot).order_by(Depot.id.asc()).first()
+    if depot:
+        return depot.id
+
+    company = db.query(Company).order_by(Company.id.asc()).first()
+    if not company:
+        company = Company(
+            name="RENATA Limited",
+            code="RENATA",
+            country="Bangladesh",
+            is_active=True,
+        )
+        db.add(company)
+        db.flush()
+
+    depot = Depot(
+        name="Dhaka Depot",
+        code="DHK",
+        company_id=company.id,
+        city="Dhaka",
+        is_active=True,
+    )
+    db.add(depot)
+    db.flush()
+    return depot.id
+
+
 def main():
     db = SessionLocal()
     try:
         hashed = get_password_hash(DEFAULT_PASSWORD)
         created = 0
         updated = 0
+        depot_id = ensure_default_depot(db)
 
         for user_data in ADMIN_USERS:
-            existing = db.query(Employee).filter(Employee.email == user_data["email"]).first()
+            payload = {**user_data, "depot_id": depot_id}
+            existing = db.query(Employee).filter(Employee.email == payload["email"]).first()
             if existing:
-                if not existing.hashed_password:
-                    existing.hashed_password = hashed
-                    updated += 1
+                existing.hashed_password = hashed
+                existing.is_active = True
+                existing.is_blocked = False
+                existing.role = payload["role"]
+                if not existing.depot_id:
+                    existing.depot_id = depot_id
+                updated += 1
                 continue
-            db.add(Employee(**user_data, hashed_password=hashed, is_active=True))
+            db.add(Employee(**payload, hashed_password=hashed, is_active=True, is_blocked=False))
             created += 1
 
         for employee in db.query(Employee).filter(Employee.hashed_password.is_(None)).all():

@@ -340,6 +340,8 @@ export const apiEndpoints = {
     getAll: () => api.get('/stock/adjustments'),
     create: (data: any) => api.post('/stock/adjustments', data),
     getById: (id: number) => api.get(`/stock/adjustments/${id}`),
+    delete: (id: number) => api.delete(`/stock/adjustments/${id}`),
+    approve: (id: number) => api.post(`/stock/adjustments/${id}/approve`, {}),
   },
   
   stockMaintenance: {

@@ -173,9 +173,8 @@ def seed_product_stock(db: Session):
     """Seed product stock data"""
     print("Starting product stock data seeding...")
     
-    # Get first depot (or create one if none exists)
-    depot = db.query(Depot).first()
-    if not depot:
+    depots = db.query(Depot).all()
+    if not depots:
         print("No depot found. Please create a depot first.")
         return
     
@@ -217,66 +216,64 @@ def seed_product_stock(db: Session):
         # Calculate total quantities from batches
         total_quantity = sum(batch["quantity"] for batch in product_data["batches"])
         total_receive = total_quantity
-        
-        # Find or create product item stock
-        item_stock = db.query(ProductItemStock).filter(
-            ProductItemStock.product_id == product.id,
-            ProductItemStock.depot_id == depot.id
-        ).first()
-        
-        if not item_stock:
-            item_stock = ProductItemStock(
-                product_id=product.id,
-                product_code=product_data["code"],
-                sku_code=product_data["sku"],
-                gross_stock_receive=Decimal(str(total_receive)),
-                issue=Decimal("0"),
-                stock_qty=Decimal(str(total_quantity)),
-                adjusted_stock_in_qty=Decimal("0"),
-                adjusted_stock_out_qty=Decimal("0"),
-                depot_id=depot.id
-            )
-            db.add(item_stock)
-            db.flush()
-            created_count += 1
-            print(f"  Created stock record for {product_data['name']}")
-        else:
-            # Update stock quantities
-            item_stock.product_code = product_data["code"]
-            item_stock.sku_code = product_data["sku"]
-            item_stock.gross_stock_receive = Decimal(str(total_receive))
-            item_stock.stock_qty = Decimal(str(total_quantity))
-            updated_count += 1
-            print(f"  Updated stock record for {product_data['name']}")
-        
-        # Create batch details
-        for batch_data in product_data["batches"]:
-            batch_detail = db.query(ProductItemStockDetail).filter(
-                ProductItemStockDetail.item_code == item_stock.id,
-                ProductItemStockDetail.batch_no == batch_data["batch_no"]
+
+        for depot in depots:
+            item_stock = db.query(ProductItemStock).filter(
+                ProductItemStock.product_id == product.id,
+                ProductItemStock.depot_id == depot.id
             ).first()
             
-            if not batch_detail:
-                batch_detail = ProductItemStockDetail(
-                    item_code=item_stock.id,
-                    batch_no=batch_data["batch_no"],
-                    expiry_date=batch_data["expiry"],
-                    quantity=Decimal(str(batch_data["quantity"])),
-                    available_quantity=Decimal(str(batch_data["quantity"])),
-                    reserved_quantity=Decimal("0"),
-                    manufacturing_date=batch_data["mfg_date"],
-                    storage_type="Ambient",
-                    status="Unrestricted",
-                    source_type="FACTORY"
+            if not item_stock:
+                item_stock = ProductItemStock(
+                    product_id=product.id,
+                    product_code=product_data["code"],
+                    sku_code=product_data["sku"],
+                    gross_stock_receive=Decimal(str(total_receive)),
+                    issue=Decimal("0"),
+                    stock_qty=Decimal(str(total_quantity)),
+                    adjusted_stock_in_qty=Decimal("0"),
+                    adjusted_stock_out_qty=Decimal("0"),
+                    depot_id=depot.id
                 )
-                db.add(batch_detail)
-                print(f"    Created batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
+                db.add(item_stock)
+                db.flush()
+                created_count += 1
+                print(f"  Created stock record for {product_data['name']} @ {depot.name}")
             else:
-                batch_detail.quantity = Decimal(str(batch_data["quantity"]))
-                batch_detail.available_quantity = Decimal(str(batch_data["quantity"]))
-                batch_detail.expiry_date = batch_data["expiry"]
-                batch_detail.manufacturing_date = batch_data["mfg_date"]
-                print(f"    Updated batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
+                item_stock.product_code = product_data["code"]
+                item_stock.sku_code = product_data["sku"]
+                item_stock.gross_stock_receive = Decimal(str(total_receive))
+                item_stock.stock_qty = Decimal(str(total_quantity))
+                updated_count += 1
+                print(f"  Updated stock record for {product_data['name']} @ {depot.name}")
+            
+            for batch_data in product_data["batches"]:
+                batch_detail = db.query(ProductItemStockDetail).filter(
+                    ProductItemStockDetail.item_code == item_stock.id,
+                    ProductItemStockDetail.batch_no == batch_data["batch_no"]
+                ).first()
+                
+                if not batch_detail:
+                    batch_detail = ProductItemStockDetail(
+                        item_code=item_stock.id,
+                        batch_no=batch_data["batch_no"],
+                        expiry_date=batch_data["expiry"],
+                        quantity=Decimal(str(batch_data["quantity"])),
+                        available_quantity=Decimal(str(batch_data["quantity"])),
+                        reserved_quantity=Decimal("0"),
+                        manufacturing_date=batch_data["mfg_date"],
+                        storage_type="Ambient",
+                        status="Unrestricted",
+                        source_type="FACTORY"
+                    )
+                    db.add(batch_detail)
+                    print(f"    Created batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
+                else:
+                    batch_detail.quantity = Decimal(str(batch_data["quantity"]))
+                    batch_detail.available_quantity = Decimal(str(batch_data["quantity"]))
+                    batch_detail.expiry_date = batch_data["expiry"]
+                    batch_detail.manufacturing_date = batch_data["mfg_date"]
+                    print(f"    Updated batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
     
     try:
         db.commit()

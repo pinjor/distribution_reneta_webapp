@@ -28,6 +28,10 @@ const buttonVariants = cva(
         ),
         link: "rounded-none border-0 bg-transparent p-0 h-auto shadow-none text-brand-deep underline-offset-4 hover:text-brand-to hover:underline",
         headerAction: cn(shineHoverSoftClasses, brandButtonClasses, "shadow-md hover:shadow-lg"),
+        ntPrimary:
+          "nt-btn nt-btn-primary !h-9 !rounded-lg border-0 !px-4 text-[13px] font-semibold text-white shadow-none hover:text-white active:scale-100",
+        ntSecondary:
+          "nt-btn nt-btn-secondary !h-9 !rounded-lg !px-4 text-[13px] font-semibold shadow-none active:scale-100",
       },
       size: {
         default: "h-10 px-5 rounded-full",
