@@ -1,31 +1,25 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { apiEndpoints } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  Search, 
-  RefreshCw,
-  Loader2,
-  FileText,
-  DollarSign,
-  Coins,
-  Download,
-  User,
-  TrendingUp,
-  Calendar,
+import { apiEndpoints } from "@/lib/api";
+import {
   ChevronDown,
   ChevronRight,
+  Coins,
+  FileText,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+  TrendingUp,
+  User,
 } from "lucide-react";
 import { format } from "date-fns";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { DateRangeField } from "@/components/transport/DateRangeField";
+import { ActionIconButton, KpiCard, sectionMotion } from "@/components/transport/transportUi";
+import { cn } from "@/lib/utils";
 
 interface CollectionReport {
   collection_person_id: number;
@@ -46,6 +40,7 @@ interface CollectionDeposit {
   deposit_amount: number;
   transaction_number: string;
   approved: boolean;
+  rejected?: boolean;
 }
 
 interface CollectionTransaction {
@@ -61,21 +56,24 @@ interface CollectionTransaction {
   total_amount: number;
 }
 
+function formatMoney(value: number) {
+  return `৳${Number(value).toFixed(2)}`;
+}
+
 export default function CollectionReports() {
-  const { toast } = useToast();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     document.title = "Collection Reports | Renata";
   }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPerson, setSelectedPerson] = useState<number | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [expandedPersons, setExpandedPersons] = useState<Set<number>>(new Set());
 
-  const { data: reportsData, isLoading, refetch } = useQuery({
-    queryKey: ['billing-reports', startDate, endDate],
+  const { data: reportsData, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["billing-reports", startDate, endDate],
     queryFn: async () => {
       const params: Record<string, any> = {};
       if (startDate) params.start_date = startDate;
@@ -112,308 +110,324 @@ export default function CollectionReports() {
         total_pending: acc.total_pending + Number(report.total_pending),
         transaction_count: acc.transaction_count + report.transaction_count,
       }),
-      { total_collected: 0, total_deposited: 0, total_pending: 0, transaction_count: 0 }
+      { total_collected: 0, total_deposited: 0, total_pending: 0, transaction_count: 0 },
     );
     return totals;
   };
 
   const totals = getTotalStats();
+  const motionProps = sectionMotion(reduceMotion);
+  const expandedReports = filteredReports.filter((report) => expandedPersons.has(report.collection_person_id));
+
+  const personColumns: DataTableColumn<CollectionReport>[] = [
+    {
+      key: "collection_person_name",
+      label: "Collection Person",
+      render: (val) => <span className="font-medium text-[#172B4D] dark:text-[#F1F5F9]">{String(val || "—")}</span>,
+    },
+    {
+      key: "transaction_count",
+      label: "Transactions",
+      className: "tabular-nums",
+      render: (val) => String(val ?? 0),
+    },
+    {
+      key: "total_collected",
+      label: "Collected",
+      align: "right",
+      className: "tabular-nums font-medium text-[#15803D]",
+      render: (val) => formatMoney(Number(val)),
+    },
+    {
+      key: "total_deposited",
+      label: "Deposited",
+      align: "right",
+      className: "tabular-nums font-medium text-[#0C4DA1]",
+      render: (val) => formatMoney(Number(val)),
+    },
+    {
+      key: "total_pending",
+      label: "Pending",
+      align: "right",
+      className: "tabular-nums font-medium text-[#B45309]",
+      render: (val) => formatMoney(Number(val)),
+    },
+    {
+      key: "collection_person_id",
+      label: "Details",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => {
+        const isExpanded = expandedPersons.has(row.collection_person_id);
+        return (
+          <div
+            className="flex justify-end"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <ActionIconButton
+              label={isExpanded ? "Hide details" : "Show details"}
+              onClick={() => togglePerson(row.collection_person_id)}
+              className="text-[#0C4DA1] hover:bg-[#EAF2FC]"
+            >
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </ActionIconButton>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const depositColumns: DataTableColumn<CollectionDeposit>[] = [
+    {
+      key: "deposit_number",
+      label: "Deposit Number",
+      render: (val) => <span className="font-medium text-[#0C4DA1] dark:text-[#70ADFF]">{String(val || "—")}</span>,
+    },
+    {
+      key: "deposit_date",
+      label: "Date",
+      className: "whitespace-nowrap",
+      render: (val) => (val ? format(new Date(String(val)), "MMM dd, yyyy") : "—"),
+    },
+    {
+      key: "deposit_method",
+      label: "Method",
+      render: (val) => (
+        <span className="inline-flex rounded-full border border-[#E3EAF3] bg-[#F8FAFC] px-2 py-0.5 text-[11px] font-semibold text-[#0C4DA1] dark:border-[#2C3B50] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+          {String(val || "—")}
+        </span>
+      ),
+    },
+    {
+      key: "transaction_number",
+      label: "Transaction Number",
+      className: "font-mono text-[13px]",
+    },
+    {
+      key: "deposit_amount",
+      label: "Amount",
+      align: "right",
+      className: "tabular-nums font-medium",
+      render: (val) => formatMoney(Number(val)),
+    },
+    {
+      key: "approved",
+      label: "Status",
+      render: (_val, row) =>
+        row.rejected ? (
+          <span className="inline-flex rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+            Rejected
+          </span>
+        ) : row.approved ? (
+          <span className="inline-flex rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]">
+            Approved
+          </span>
+        ) : (
+          <span className="inline-flex rounded-full bg-[#FFFBEB] px-2 py-0.5 text-[11px] font-semibold text-[#B45309] dark:bg-[#3B2A0A] dark:text-[#FBBF24]">
+            Pending
+          </span>
+        ),
+    },
+  ];
+
+  const transactionColumns: DataTableColumn<CollectionTransaction>[] = [
+    {
+      key: "memo_number",
+      label: "Memo No.",
+      render: (val) => <span className="font-medium">{String(val || "—")}</span>,
+    },
+    {
+      key: "order_number",
+      label: "Order No.",
+      render: (val) => String(val || "—"),
+    },
+    {
+      key: "customer_name",
+      label: "Customer",
+      render: (val) => String(val || "—"),
+    },
+    {
+      key: "collection_date",
+      label: "Date",
+      className: "whitespace-nowrap",
+      render: (val) => (val ? format(new Date(String(val)), "MMM dd, yyyy") : "—"),
+    },
+    {
+      key: "collection_type",
+      label: "Type",
+      render: (val) => {
+        const type = String(val || "—");
+        const full = type === "Fully Collected";
+        return (
+          <span
+            className={cn(
+              "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold",
+              full
+                ? "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]"
+                : "border border-[#E3EAF3] bg-[#F8FAFC] text-[#475569] dark:border-[#2C3B50] dark:bg-[#1B283B] dark:text-[#A9B8CC]",
+            )}
+          >
+            {type}
+          </span>
+        );
+      },
+    },
+    {
+      key: "total_amount",
+      label: "Total",
+      align: "right",
+      className: "tabular-nums",
+      render: (val) => formatMoney(Number(val)),
+    },
+    {
+      key: "collected_amount",
+      label: "Collected",
+      align: "right",
+      className: "tabular-nums font-medium text-[#15803D]",
+      render: (val) => formatMoney(Number(val)),
+    },
+    {
+      key: "pending_amount",
+      label: "Pending",
+      align: "right",
+      className: "tabular-nums text-[#B45309]",
+      render: (val) => formatMoney(Number(val)),
+    },
+  ];
+
+  const hasExpanded = expandedReports.length > 0;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <PageHeader
-        title="Collection Reports"
-        subtitle="View collection history and statistics by collection person"
-        icon={Coins}
-        variant="amber"
-        actions={(
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-           
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        )}
-      />
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Collected</p>
-                <p className="text-2xl font-bold">৳{totals.total_collected.toFixed(2)}</p>
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard title="Total Collected" value={formatMoney(totals.total_collected)} icon={Coins} accent="green" />
+          <KpiCard title="Total Deposited" value={formatMoney(totals.total_deposited)} icon={TrendingUp} accent="blue" />
+          <div className="rounded-xl border border-[#E3EAF3] bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#2C3B50] dark:bg-[#151F30]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#FFFBEB] text-[#B45309] dark:bg-[#3B2A0A] dark:text-[#FBBF24]">
+                <FileText className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#A9B8CC]">Total Pending</p>
+                <p className="text-xl font-semibold tabular-nums tracking-tight text-[#172B4D] dark:text-[#F1F5F9]">
+                  {formatMoney(totals.total_pending)}
+                </p>
               </div>
-              <Coins className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Deposited</p>
-                <p className="text-2xl font-bold">৳{totals.total_deposited.toFixed(2)}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Pending</p>
-                <p className="text-2xl font-bold">৳{totals.total_pending.toFixed(2)}</p>
-              </div>
-              <FileText className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Transactions</p>
-                <p className="text-2xl font-bold">{totals.transaction_count}</p>
-              </div>
-              <User className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>Search Collection Person</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search by name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                  setSearchTerm("");
-                }}
-                className="w-full"
-              >
-                Clear Filters
-              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <KpiCard title="Total Transactions" value={totals.transaction_count} icon={User} accent="purple" />
+        </motion.div>
 
-      {/* Reports List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Collection Person Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredReports.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No reports found</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredReports.map((report: CollectionReport) => {
-                const isExpanded = expandedPersons.has(report.collection_person_id);
-                return (
-                  <Collapsible
-                    key={report.collection_person_id}
-                    open={isExpanded}
-                    onOpenChange={() => togglePerson(report.collection_person_id)}
-                  >
-                    <Card>
-                      <CollapsibleTrigger className="w-full">
-                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {isExpanded ? (
-                                <ChevronDown className="h-5 w-5" />
-                              ) : (
-                                <ChevronRight className="h-5 w-5" />
-                              )}
-                              <div>
-                                <CardTitle className="text-lg">{report.collection_person_name}</CardTitle>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {report.transaction_count} transactions
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-6 text-right">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Collected</p>
-                                <p className="text-lg font-semibold text-green-600">
-                                  ৳{Number(report.total_collected).toFixed(2)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-muted-foreground">Deposited</p>
-                                <p className="text-lg font-semibold text-blue-600">
-                                  ৳{Number(report.total_deposited).toFixed(2)}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-sm text-muted-foreground">Pending</p>
-                                <p className="text-lg font-semibold text-orange-600">
-                                  ৳{Number(report.total_pending).toFixed(2)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </CardHeader>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <CardContent className="pt-0 space-y-6">
-                          {/* Deposits Table */}
-                          {report.deposits.length > 0 && (
-                            <div>
-                              <h3 className="font-semibold mb-3">Deposits</h3>
-                              <div className="rounded-md border">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Deposit Number</TableHead>
-                                      <TableHead>Date</TableHead>
-                                      <TableHead>Method</TableHead>
-                                      <TableHead>Transaction Number</TableHead>
-                                      <TableHead className="text-right">Amount</TableHead>
-                                      <TableHead>Status</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {report.deposits.map((deposit) => (
-                                      <TableRow key={deposit.id}>
-                                        <TableCell className="font-medium">{deposit.deposit_number}</TableCell>
-                                        <TableCell>{format(new Date(deposit.deposit_date), "MMM dd, yyyy")}</TableCell>
-                                        <TableCell>
-                                          <Badge variant="outline">{deposit.deposit_method}</Badge>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">{deposit.transaction_number}</TableCell>
-                                        <TableCell className="text-right font-medium">
-                                          ৳{Number(deposit.deposit_amount).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell>
-                                          {deposit.approved ? (
-                                            <Badge className="bg-green-600">Approved</Badge>
-                                          ) : (
-                                            <Badge variant="outline">Pending</Badge>
-                                          )}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </div>
-                          )}
+        <motion.div {...motionProps} className="nt-form shrink-0">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <DateRangeField
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(start, end) => {
+                setStartDate(start);
+                setEndDate(end);
+              }}
+            />
+            <Button
+              type="button"
+              variant="ntSecondary"
+              className="!h-10"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                setSearchTerm("");
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Clear Filters
+            </Button>
+          </div>
+        </motion.div>
 
-                          {/* Transactions Table */}
-                          {report.transactions.length > 0 && (
-                            <div>
-                              <h3 className="font-semibold mb-3">Transactions</h3>
-                              <div className="rounded-md border">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Memo No.</TableHead>
-                                      <TableHead>Order No.</TableHead>
-                                      <TableHead>Customer</TableHead>
-                                      <TableHead>Date</TableHead>
-                                      <TableHead>Type</TableHead>
-                                      <TableHead className="text-right">Total</TableHead>
-                                      <TableHead className="text-right">Collected</TableHead>
-                                      <TableHead className="text-right">Pending</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {report.transactions.map((transaction) => (
-                                      <TableRow key={transaction.id}>
-                                        <TableCell className="font-medium">
-                                          {transaction.memo_number || "—"}
-                                        </TableCell>
-                                        <TableCell>{transaction.order_number || "—"}</TableCell>
-                                        <TableCell>{transaction.customer_name || "—"}</TableCell>
-                                        <TableCell>{format(new Date(transaction.collection_date), "MMM dd, yyyy")}</TableCell>
-                                        <TableCell>
-                                          <Badge
-                                            variant={
-                                              transaction.collection_type === "Fully Collected"
-                                                ? "default"
-                                                : "outline"
-                                            }
-                                          >
-                                            {transaction.collection_type}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          ৳{Number(transaction.total_amount).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-right text-green-600 font-medium">
-                                          ৳{Number(transaction.collected_amount).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell className="text-right text-orange-600">
-                                          ৳{Number(transaction.pending_amount).toFixed(2)}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                );
-              })}
+        <motion.div
+          {...motionProps}
+          className={cn("flex min-h-0 min-w-0 flex-col", hasExpanded ? "h-[11.5rem] shrink-0" : "min-h-0 flex-1")}
+        >
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Collection Person Reports"
+            description="View collection history and statistics by collection person."
+            toolbarIcon={<FileText className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search by name...",
+            }}
+            toolbarActions={
+              <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => refetch()} disabled={isFetching}>
+                {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Refresh
+              </Button>
+            }
+            data={filteredReports}
+            columns={personColumns}
+            loading={isLoading}
+            error={isError ? (error instanceof Error ? error.message : "Unable to load reports") : undefined}
+            getRowId={(row) => row.collection_person_id}
+            onRowClick={(row) => togglePerson(row.collection_person_id)}
+            getRowClassName={(row) =>
+              expandedPersons.has(row.collection_person_id)
+                ? "bg-[#EAF2FC]/70 dark:bg-[#1B304D]/40"
+                : ""
+            }
+            resetPageKey={`${startDate}|${endDate}|${searchTerm}|${filteredReports.length}`}
+            emptyMessage="No reports found"
+          />
+        </motion.div>
+
+        {expandedReports.map((report) => (
+          <motion.div
+            key={report.collection_person_id}
+            {...motionProps}
+            className="nt-page-scroll flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto rounded-2xl border border-[#E3EAF3] bg-white p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#2C3B50] dark:bg-[#151F30]"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div>
+                <p className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{report.collection_person_name}</p>
+                <p className="text-[12px] text-[#64748B] dark:text-[#A9B8CC]">{report.transaction_count} transactions</p>
+              </div>
+              <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => togglePerson(report.collection_person_id)}>
+                Hide details
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+            {report.deposits.length > 0 ? (
+              <DataTable
+                className="h-[28rem] min-h-[28rem] shrink-0 overflow-hidden"
+                title="Deposits"
+                toolbarIcon={<Coins className="h-4 w-4" />}
+                data={report.deposits}
+                columns={depositColumns}
+                getRowId={(row) => row.id}
+                initialPageSize={20}
+                resetPageKey={`${report.collection_person_id}|deposits|${report.deposits.length}`}
+                emptyMessage="No deposits found"
+              />
+            ) : null}
+
+            {report.transactions.length > 0 ? (
+              <DataTable
+                className="h-[28rem] min-h-[28rem] shrink-0 overflow-hidden"
+                title="Transactions"
+                toolbarIcon={<FileText className="h-4 w-4" />}
+                data={report.transactions}
+                columns={transactionColumns}
+                getRowId={(row) => row.id}
+                initialPageSize={20}
+                resetPageKey={`${report.collection_person_id}|transactions|${report.transactions.length}`}
+                emptyMessage="No transactions found"
+              />
+            ) : null}
+          </motion.div>
+        ))}
+      </div>
+    </ThemeScope>
   );
 }
-

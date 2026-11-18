@@ -18,7 +18,7 @@ export interface AnimatedCheckMarkProps {
 export function AnimatedCheckMark({
   checked,
   size = 20,
-  color = "#0ea5e9",
+  color = "currentColor",
   duration = 0.45,
   className,
 }: AnimatedCheckMarkProps) {
@@ -62,7 +62,7 @@ export const CheckBox = ({
   checked,
   onClick,
   size = 20,
-  color = "#0ea5e9",
+  color = "currentColor",
   duration = 0.45,
   className,
 }: CheckBoxProps) => {
@@ -73,9 +73,11 @@ export const CheckBox = ({
       aria-checked={checked}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center justify-center rounded-md border border-sky-200 bg-sky-50/80 p-0.5",
-        "transition-colors hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50",
+        "inline-flex items-center justify-center rounded-md border border-[#CBD5E1] bg-white p-0.5 text-[#0C4DA1]",
+        "transition-colors hover:border-[#0C4DA1] hover:bg-[#EAF2FC]",
+        "focus-visible:outline-none focus-visible:border-[#0C4DA1]",
         "disabled:pointer-events-none disabled:opacity-50",
+        "dark:border-[#2C3B50] dark:bg-[#151F30] dark:text-[#70ADFF] dark:hover:bg-[#1B304D]",
         className,
       )}
     >
@@ -94,7 +96,7 @@ const Checkbox = React.forwardRef<
   (
     {
       className,
-      checkColor = "#0ea5e9",
+      checkColor = "currentColor",
       checkDuration = 0.45,
       checked,
       onCheckedChange,
@@ -122,12 +124,15 @@ const Checkbox = React.forwardRef<
         }}
         className={cn(
           "peer inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px]",
-          "border border-sky-300/90 bg-sky-50/90 shadow-sm",
-          "transition-colors hover:bg-sky-100/90 hover:border-sky-400",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "border border-[#CBD5E1] bg-white text-[#0C4DA1] shadow-none",
+          "transition-colors hover:border-[#0C4DA1] hover:bg-[#EAF2FC]",
+          "focus-visible:outline-none focus-visible:border-[#0C4DA1] focus-visible:ring-0",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "data-[state=checked]:border-sky-500 data-[state=checked]:bg-sky-50",
-          "data-[state=indeterminate]:border-sky-500 data-[state=indeterminate]:bg-sky-50",
+          "data-[state=checked]:border-[#0C4DA1] data-[state=checked]:bg-white",
+          "data-[state=indeterminate]:border-[#0C4DA1] data-[state=indeterminate]:bg-white",
+          "dark:border-[#2C3B50] dark:bg-[#151F30] dark:text-[#70ADFF] dark:hover:bg-[#1B304D]",
+          "dark:data-[state=checked]:border-[#70ADFF] dark:data-[state=checked]:bg-[#151F30]",
+          "dark:data-[state=indeterminate]:border-[#70ADFF] dark:data-[state=indeterminate]:bg-[#151F30]",
           className,
         )}
         {...props}

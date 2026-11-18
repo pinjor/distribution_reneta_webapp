@@ -1,11 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,18 +10,34 @@ import {
   Search, 
   RefreshCw,
   Loader2,
-  FileText,
   ChevronDown,
   ChevronRight,
   Truck,
   User,
   Package,
-  ArrowLeft,
   FileBarChart,
+  Clock,
+  Coins,
+  Pause,
 } from "lucide-react";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
-import { TAG_COLORS } from "@/lib/tagColors";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { cn } from "@/lib/utils";
+import { FilterSelect, OrderPageShell, OrderPanel, fieldClass, panelClass } from "@/components/orders/orderMgmtUi";
+
+
+const collectionBadgeClass = (status: string) => {
+  switch (status) {
+    case "Fully Collected":
+      return "bg-[#ECFDF5] text-[#047857]";
+    case "Partially Collected":
+      return "bg-[#FFEDD5] text-[#C2410C]";
+    case "Postponed":
+      return "bg-[#FEE2E2] text-[#B91C1C]";
+    case "Pending":
+      return "bg-[#EAF2FC] text-[#0C4DA1]";
+    default:
+      return "bg-[#F1F5F9] text-[#475569]";
+  }
+};
 
 interface CollectionOrder {
   id: number;
@@ -227,18 +239,11 @@ export default function ApprovalForCollection() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const colorConfig = TAG_COLORS[status as keyof typeof TAG_COLORS] || TAG_COLORS["Pending"];
-    
-    return (
-      <span 
-        className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2"
-        style={{ backgroundColor: colorConfig.bg }}
-      >
-        {status}
-      </span>
-    );
-  };
+  const getStatusBadge = (status: string) => (
+    <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-semibold", collectionBadgeClass(status))}>
+      {status}
+    </span>
+  );
 
   const hasPendingApprovals = (group: LoadingGroup) => {
     return group.orders.some(order => 
@@ -249,225 +254,153 @@ export default function ApprovalForCollection() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <OrderBreadcrumb />
-      <PageHeader
-        title="Approval for Collection"
-        subtitle="Approve orders with partial or cancelled collection status from mobile app. Orders are grouped by loading number."
-        icon={CheckCircle2}
-        variant="amber"
-        actions={(
-          <>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate("/orders/distribution-cockpit")}
-             
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <Button onClick={() => refetch()} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </>
-        )}
-      />
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by memo number, customer, loading number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Partially Collected">Partially Collected</SelectItem>
-                  <SelectItem value="Postponed">Postponed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <OrderPageShell>
+      <OrderPanel className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-64 shrink-0">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B]" />
+            <Input
+              aria-label="Search"
+              placeholder="Search by memo number, customer, loading number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={cn(fieldClass, "h-8 pl-8")}
+            />
           </div>
-        </CardContent>
-      </Card>
+          <FilterSelect
+            label="Status"
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            placeholder="All statuses"
+            icon={Coins}
+            triggerClassName="w-[10.5rem] min-w-0"
+            items={[
+              { value: "all", label: "All statuses", icon: Coins },
+              { value: "Pending", label: "Pending", icon: Clock },
+              { value: "Partially Collected", label: "Partially Collected", icon: Coins },
+              { value: "Postponed", label: "Postponed", icon: Pause },
+            ]}
+          />
+          <Button type="button" variant="ntSecondary" className="!h-8 ml-auto" onClick={() => refetch()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
+        </div>
+      </OrderPanel>
 
-      {/* Loading Groups List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Collection Approval List ({loadingGroups.length} Loading Groups)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
-              <Loader2 className="h-10 w-10 animate-spin" />
-              <p className="text-sm">Loading orders…</p>
-            </div>
-          ) : loadingGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
-              <Package className="h-10 w-10" />
-              <p className="text-sm">No orders found for collection approval.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {loadingGroups.map((group) => {
-                const isExpanded = expandedLoadingNumbers[group.loading_number];
-                const hasPending = hasPendingApprovals(group);
-                
-                return (
-                  <div key={group.loading_number} className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-card">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <button
-                          onClick={() => toggleExpand(group.loading_number)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground transition hover:text-foreground hover:bg-muted"
-                        >
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-lg font-semibold text-foreground">
-                              Loading No: {group.loading_number}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-1">
-                            <span>Date: {formatDate(group.loading_date)}</span>
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {group.employee_name} {group.employee_code ? `(${group.employee_code})` : ""}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Truck className="h-3 w-3" />
-                              {group.vehicle_registration}
-                            </span>
-                            <span>Orders: {group.total_orders}</span>
-                            <span>Total: ৳{group.total_amount.toFixed(2)}</span>
-                            <span>Collected: ৳{group.total_collected.toFixed(2)}</span>
-                            <span>Pending: ৳{group.total_pending.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {hasPending && (
-                          <Button
-                            onClick={() => handleApproveLoading(group.loading_number)}
-                            size="sm"
-                            className="flex items-center gap-2 whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
-                            disabled={approvingLoadingNumber === group.loading_number}
-                          >
-                            {approvingLoadingNumber === group.loading_number ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Approving...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-4 w-4" />
-                                <span>Approve</span>
-                              </>
-                            )}
-                          </Button>
+      <div className="space-y-2">
+        {loading ? (
+          <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#0C4DA1]" />
+            <p className="text-sm text-[#64748B]">Loading orders…</p>
+          </OrderPanel>
+        ) : loadingGroups.length === 0 ? (
+          <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+            <Package className="h-8 w-8 text-[#94A3B8]" />
+            <p className="text-sm text-[#64748B]">No orders found for collection approval.</p>
+          </OrderPanel>
+        ) : (
+          loadingGroups.map((group) => {
+            const isExpanded = expandedLoadingNumbers[group.loading_number];
+            const hasPending = hasPendingApprovals(group);
+            return (
+              <div key={group.loading_number} className={cn(panelClass, "overflow-hidden")}>
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(group.loading_number)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-90"
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Collapse loading" : "Expand loading"}
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#E3EAF3] text-[#64748B] dark:border-[#2C3B50]">
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{group.loading_number}</span>
+                        {group.area && group.area !== "N/A" && (
+                          <span className="rounded-md bg-[#EAF2FC] px-1.5 py-0.5 text-[11px] font-semibold text-[#0C4DA1]">{group.area}</span>
                         )}
-                      </div>
-                    </div>
+                      </span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#64748B]">
+                        <span>{formatDate(group.loading_date)}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {group.employee_name} {group.employee_code ? `(${group.employee_code})` : ""}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Truck className="h-3 w-3" />
+                          {group.vehicle_registration}
+                        </span>
+                        <span>{group.total_orders} orders</span>
+                        <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{group.total_amount.toFixed(2)}</span>
+                        <span className="font-semibold text-[#047857]">৳{group.total_collected.toFixed(2)}</span>
+                        <span className="font-semibold text-[#C2410C]">৳{group.total_pending.toFixed(2)}</span>
+                      </span>
+                    </span>
+                  </button>
+                  {hasPending && (
+                    <Button
+                      type="button"
+                      variant="ntPrimary"
+                      className="!h-8 shrink-0"
+                      onClick={() => handleApproveLoading(group.loading_number)}
+                      disabled={approvingLoadingNumber === group.loading_number}
+                    >
+                      {approvingLoadingNumber === group.loading_number ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      )}
+                      {approvingLoadingNumber === group.loading_number ? "Approving..." : "Approve"}
+                    </Button>
+                  )}
+                </div>
 
-                    {isExpanded && (
-                      <div className="px-4 pb-4 border-t bg-muted/30">
-                        <div className="pt-4">
-                          <h4 className="text-sm font-semibold mb-3 text-foreground">
-                            Memos ({group.orders.length})
-                          </h4>
-                          {group.orders.length === 0 ? (
-                            <div className="text-sm text-muted-foreground py-4 text-center">
-                              No orders found in this loading group.
+                {isExpanded && (
+                  <div className="space-y-2 border-t border-[#E3EAF3] px-3 py-2.5 dark:border-[#2C3B50]">
+                    <p className="text-xs font-medium text-[#64748B]">Memos ({group.orders.length})</p>
+                    {group.orders.length === 0 ? (
+                      <p className="py-3 text-center text-sm text-[#64748B]">No orders found in this loading group.</p>
+                    ) : (
+                      group.orders.map((order) => (
+                        <div key={order.id} className="flex items-center gap-3 rounded-lg border border-[#E3EAF3] px-3 py-2 dark:border-[#2C3B50]">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                                {order.memo_number || order.order_number || `order-${order.id}`}
+                              </span>
+                              {getStatusBadge(order.collection_status)}
                             </div>
-                          ) : (
-                            <div className="rounded-md border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Memo No.</TableHead>
-                                    <TableHead>Customer</TableHead>
-                                    <TableHead>PSO</TableHead>
-                                    <TableHead>Delivery Date</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                    <TableHead className="text-right">Collected</TableHead>
-                                    <TableHead className="text-right">Pending</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {group.orders.map((order) => (
-                                    <TableRow key={order.id}>
-                                      <TableCell className="font-medium font-mono text-sm">
-                                        {order.memo_number || "—"}
-                                      </TableCell>
-                                      <TableCell>
-                                        <div>
-                                          <div className="font-medium">{order.customer_name}</div>
-                                          {order.customer_code && (
-                                            <div className="text-sm text-muted-foreground">{order.customer_code}</div>
-                                          )}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>{order.pso_name}</TableCell>
-                                      <TableCell>{formatDate(order.delivery_date)}</TableCell>
-                                      <TableCell className="text-right font-medium">
-                                        ৳{Number(order.total_amount || 0).toFixed(2)}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        {order.collected_amount ? `৳${Number(order.collected_amount).toFixed(2)}` : "—"}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        {order.pending_amount ? `৳${Number(order.pending_amount).toFixed(2)}` : "—"}
-                                      </TableCell>
-                                      <TableCell>{getStatusBadge(order.collection_status)}</TableCell>
-                                      <TableCell>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => navigate(`/orders/mis-report?memo_id=${order.id}`)}
-                                          className="flex items-center gap-2"
-                                        >
-                                          <FileBarChart className="h-4 w-4" />
-                                          <span>View in MIS</span>
-                                        </Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+                            <div className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-[#64748B]">
+                              <span>{order.customer_name} {order.customer_code ? `(${order.customer_code})` : ""}</span>
+                              <span>{order.pso_name}</span>
+                              <span>{formatDate(order.delivery_date)}</span>
+                              <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{Number(order.total_amount || 0).toFixed(2)}</span>
+                              <span className="font-semibold text-[#047857]">৳{Number(order.collected_amount || 0).toFixed(2)}</span>
+                              <span className="font-semibold text-[#C2410C]">৳{Number(order.pending_amount || 0).toFixed(2)}</span>
                             </div>
-                          )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ntSecondary"
+                            className="!h-8 shrink-0"
+                            onClick={() => navigate(`/orders/mis-report?memo_id=${order.id}`)}
+                          >
+                            <FileBarChart className="h-3.5 w-3.5" />
+                            View in MIS
+                          </Button>
                         </div>
-                      </div>
+                      ))
                     )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </OrderPageShell>
   );
 }

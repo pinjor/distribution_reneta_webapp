@@ -1,452 +1,714 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ListFilter,
+  Loader2,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Trash2,
+  UserSquare2,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserSquare2, ArrowLeft, Mail, Phone } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { useToast } from "@/hooks/use-toast";
-import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
-import { generateCode } from "@/utils/codeGenerator";
-import { getBadgeVariant } from "@/utils/badgeColors";
 import { apiEndpoints } from "@/lib/api";
+import { NAVY_TEAL_SCOPE_CLASS } from "@/lib/navyTealTheme";
+import { generateCode } from "@/utils/codeGenerator";
+import { cn } from "@/lib/utils";
+import {
+  ActionIconButton,
+  asList,
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  selectItemClass,
+  selectPanelClass,
+} from "@/components/transport/transportUi";
 
-interface Employee {
-  id: string;
-  code: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-  status: "active" | "inactive";
+interface EmployeeRecord {
+  id: number;
+  employee_id: string;
+  first_name: string;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  department?: string | null;
+  designation?: string | null;
+  depot_id?: number | null;
+  role_master_id?: number | null;
+  is_active?: boolean;
 }
 
-interface RoleMaster {
+interface DepotOption {
+  id: number;
+  name: string;
+  code: string;
+}
+
+interface RoleMasterOption {
   id: number;
   code: string;
   name: string;
   role_type: string;
 }
 
-export default function Employees() {
-  const { toast } = useToast();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [newEmployeeCode, setNewEmployeeCode] = useState<string>("");
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [roles, setRoles] = useState<RoleMaster[]>([]);
-  const [depots, setDepots] = useState<Array<{ id: number; name: string; code: string }>>([]);
-  const [loading, setLoading] = useState(true);
+const DESIGNATIONS = ["Manager", "Supervisor", "Operator", "Driver"];
+const DEPARTMENTS = ["Warehouse", "Distribution", "Admin"];
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    department: "",
-    depot_id: "",
-    role_master_id: "",
-  });
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  designation: "",
+  department: "",
+  depot_id: "",
+  role_master_id: "none",
+};
+
+function employeeName(employee: EmployeeRecord) {
+  return `${employee.first_name} ${employee.last_name || ""}`.trim();
+}
+
+function splitName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    first_name: parts[0] || name.trim(),
+    last_name: parts.slice(1).join(" ") || "",
+  };
+}
+
+function StatusFilterOption({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: typeof ListFilter;
+  label: string;
+  tone: "navy" | "green" | "red";
+}) {
+  const toneClass = {
+    navy: "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]",
+    green: "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]",
+    red: "bg-[#FEF2F2] text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]",
+  }[tone];
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md", toneClass)}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      {label}
+    </span>
+  );
+}
+
+export default function Employees() {
+  const reduceMotion = useReducedMotion();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<EmployeeRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeRecord | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     document.title = "Employees | Renata";
-    fetchEmployees();
-    fetchRoles();
-    fetchDepots();
   }, []);
 
-  const fetchEmployees = async () => {
-    try {
-      setLoading(true);
-      const data = await apiEndpoints.employees.getAll();
-      setEmployees(data.map((emp: any) => ({
-        id: emp.id.toString(),
-        code: emp.employee_id || `EMP-${emp.id}`,
-        name: `${emp.first_name} ${emp.last_name || ""}`.trim(),
-        email: emp.email || "",
-        phone: emp.phone || "",
-        role: emp.designation || "",
-        department: emp.department || "",
-        status: emp.is_active ? "active" : "inactive",
-        role_master_id: emp.role_master_id,
-      })));
-    } catch (error) {
-      console.error("Failed to fetch employees:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load employees. Please try again.",
-        variant: "destructive",
-      });
-      setEmployees([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["employees"],
+    queryFn: async () => asList<EmployeeRecord>(await apiEndpoints.employees.getAll()),
+  });
 
-  const fetchRoles = async () => {
-    try {
-      const data = await apiEndpoints.roleMasters.getAll();
-      setRoles(data);
-    } catch (error) {
-      console.error("Failed to fetch roles:", error);
-    }
-  };
+  const { data: depotsData } = useQuery({
+    queryKey: ["depots"],
+    queryFn: async () => asList<DepotOption>(await apiEndpoints.depots.getAll()),
+  });
 
-  const fetchDepots = async () => {
-    try {
-      const data = await apiEndpoints.depots.getAll();
-      setDepots(data);
-    } catch (error) {
-      console.error("Failed to fetch depots:", error);
-    }
-  };
+  const { data: rolesData } = useQuery({
+    queryKey: ["role-masters"],
+    queryFn: async () => asList<RoleMasterOption>(await apiEndpoints.roleMasters.getAll()),
+  });
 
-  const generateEmployeeCode = (): string => {
-    const existingCodes = employees.map(e => e.code);
-    return generateCode("EMP", existingCodes);
-  };
+  const employees = data || [];
+  const depots = depotsData || [];
+  const roles = rolesData || [];
+  const depotById = useMemo(() => new Map(depots.map((depot) => [depot.id, depot])), [depots]);
+  const roleById = useMemo(() => new Map(roles.map((role) => [role.id, role])), [roles]);
 
-  // Generate code when form opens for new employee
-  useEffect(() => {
-    if (showAddForm && !editMode) {
-      setNewEmployeeCode(generateEmployeeCode());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAddForm, editMode]);
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => apiEndpoints.employees.create(payload),
+    onSuccess: () => {
+      toast({ title: "Employee added", description: `${formData.name} has been created.` });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
-  const handleAdd = async () => {
-    try {
-      const nameParts = formData.name.split(" ");
-      const employeeData: any = {
-        employee_id: newEmployeeCode || `EMP-${Date.now()}`,
-        first_name: nameParts[0] || formData.name,
-        last_name: nameParts.slice(1).join(" ") || "",
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        designation: formData.role || undefined,
-        department: formData.department || undefined,
-        role_master_id: formData.role_master_id && formData.role_master_id !== "none" ? parseInt(formData.role_master_id) : undefined,
-        is_active: true,
-      };
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
+      apiEndpoints.employees.update(id, payload),
+    onSuccess: () => {
+      toast({ title: "Employee updated", description: "Employee information has been updated successfully." });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
-      if (editMode && selectedEmployee) {
-        await apiEndpoints.employees.update(parseInt(selectedEmployee.id), employeeData);
-        toast({
-          title: "Employee updated",
-          description: "Employee information has been updated successfully.",
-        });
-      } else {
-        await apiEndpoints.employees.create(employeeData);
-        toast({
-          title: "Employee added",
-          description: `New employee created with code ${employeeData.employee_id}.`,
-        });
-      }
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiEndpoints.employees.delete(id),
+    onSuccess: () => {
+      toast({ title: "Employee deleted", description: "The employee has been removed." });
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
-      await fetchEmployees();
-      resetForm();
-    } catch (error: any) {
-      console.error("Failed to save employee:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save employee. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  const formBusy = createMutation.isPending || updateMutation.isPending;
 
-  const handleEdit = (employee: Employee) => {
-    setSelectedEmployee(employee);
-    const employeeData = employee as any;
-    setFormData({
-      name: employee.name,
-      email: employee.email,
-      phone: employee.phone,
-      role: employee.role,
-      department: employee.department,
-      role_master_id: employeeData.role_master_id?.toString() || "none",
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return employees.filter((employee) => {
+      const active = employee.is_active !== false;
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      if (!term) return true;
+      const depot = employee.depot_id ? depotById.get(employee.depot_id) : undefined;
+      const role = employee.role_master_id ? roleById.get(employee.role_master_id) : undefined;
+      return [
+        employeeName(employee),
+        employee.employee_id,
+        employee.email,
+        employee.phone,
+        employee.designation,
+        employee.department,
+        depot?.name,
+        depot?.code,
+        role?.name,
+        role?.code,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
     });
-    setNewEmployeeCode(employee.code);
-    setEditMode(true);
-    setShowAddForm(true);
+  }, [depotById, employees, roleById, searchTerm, statusFilter]);
+
+  const totals = useMemo(() => {
+    const active = employees.filter((employee) => employee.is_active !== false).length;
+    return { total: employees.length, active, inactive: employees.length - active };
+  }, [employees]);
+
+  const buildPayload = (active: boolean) => {
+    const names = splitName(formData.name);
+    return {
+      employee_id: generatedCode,
+      first_name: names.first_name,
+      last_name: names.last_name || undefined,
+      email: formData.email.trim() || undefined,
+      phone: formData.phone.trim() || undefined,
+      designation: formData.designation || undefined,
+      department: formData.department || undefined,
+      depot_id: formData.depot_id ? Number(formData.depot_id) : undefined,
+      role_master_id:
+        formData.role_master_id && formData.role_master_id !== "none" ? Number(formData.role_master_id) : undefined,
+      is_active: active,
+    };
   };
 
-  const handleDelete = async (employee: Employee) => {
-    try {
-      await apiEndpoints.employees.delete(parseInt(employee.id));
-      toast({
-        title: "Employee deleted",
-        description: "The employee has been removed.",
-        variant: "destructive",
-      });
-      await fetchEmployees();
-    } catch (error: any) {
-      console.error("Failed to delete employee:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete employee. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCancel = () => {
-    resetForm();
-  };
-
-  const resetForm = () => {
+  const openCreate = () => {
+    setEditTarget(null);
     setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      role: "",
-      department: "",
-      role_master_id: "none",
+      ...emptyForm,
+      depot_id: depots[0] ? String(depots[0].id) : "",
     });
-    setNewEmployeeCode("");
-    setEditMode(false);
-    setSelectedEmployee(null);
-    setShowAddForm(false);
+    setIsActive(true);
+    setGeneratedCode(generateCode("EMP", employees.map((employee) => employee.employee_id)));
+    setShowForm(true);
   };
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const openEdit = (employee: EmployeeRecord) => {
+    setEditTarget(employee);
+    setGeneratedCode(employee.employee_id);
+    setIsActive(employee.is_active !== false);
+    setFormData({
+      name: employeeName(employee),
+      email: employee.email || "",
+      phone: employee.phone || "",
+      designation: employee.designation || "",
+      department: employee.department || "",
+      depot_id: employee.depot_id ? String(employee.depot_id) : "",
+      role_master_id: employee.role_master_id ? String(employee.role_master_id) : "none",
+    });
+    setShowForm(true);
   };
 
-  // Define table columns
-  const columns: ColumnDef<Employee>[] = [
+  const closeForm = () => {
+    setShowForm(false);
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setGeneratedCode("");
+    setIsActive(true);
+  };
+
+  const handleChange = (field: keyof typeof emptyForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const designationOptions = useMemo(() => {
+    if (formData.designation && !DESIGNATIONS.includes(formData.designation)) {
+      return [formData.designation, ...DESIGNATIONS];
+    }
+    return DESIGNATIONS;
+  }, [formData.designation]);
+
+  const departmentOptions = useMemo(() => {
+    if (formData.department && !DEPARTMENTS.includes(formData.department)) {
+      return [formData.department, ...DEPARTMENTS];
+    }
+    return DEPARTMENTS;
+  }, [formData.department]);
+
+  const canSubmit = Boolean(formData.name.trim()) && Boolean(formData.email.trim());
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!canSubmit || formBusy) return;
+
+    if (editTarget) {
+      updateMutation.mutate({
+        id: editTarget.id,
+        payload: buildPayload(isActive),
+      });
+      return;
+    }
+
+    createMutation.mutate(buildPayload(true));
+  };
+
+  const columns: DataTableColumn<EmployeeRecord>[] = [
     {
-      key: "name",
-      header: "Name",
-      render: (_, employee) => (
-        <span className="font-medium">{employee.name}</span>
+      key: "employee_id",
+      label: "Code",
+      className: "font-mono text-[13px]",
+    },
+    {
+      key: "first_name",
+      label: "Name",
+      render: (_val, row) => (
+        <span className="font-medium text-[#0C4DA1] dark:text-[#70ADFF]">{employeeName(row) || "—"}</span>
       ),
     },
     {
       key: "email",
-      header: "Contact",
-      render: (_, employee) => (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm">
-            <Mail className="h-3 w-3 text-muted-foreground" />
-            {employee.email}
+      label: "Contact",
+      render: (_val, row) => (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <Mail className="h-3 w-3 text-[#64748B]" />
+            {row.email || "—"}
           </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] dark:text-[#A9B8CC]">
             <Phone className="h-3 w-3" />
-            {employee.phone}
+            {row.phone || "—"}
           </div>
         </div>
       ),
     },
     {
-      key: "role",
-      header: "Role",
+      key: "designation",
+      label: "Role",
+      render: (val) => String(val || "—"),
     },
     {
       key: "department",
-      header: "Department",
+      label: "Department",
+      render: (val) => String(val || "—"),
     },
     {
-      key: "status",
-      header: "Status",
-      render: (value) => (
-        <Badge variant={getBadgeVariant(value)}>
-          {String(value)}
-        </Badge>
+      key: "depot_id",
+      label: "Depot",
+      render: (_val, row) => {
+        const depot = row.depot_id ? depotById.get(row.depot_id) : undefined;
+        return depot ? (
+          <span>
+            {depot.name}
+            <span className="text-[#64748B] dark:text-[#A9B8CC]"> · {depot.code}</span>
+          </span>
+        ) : (
+          "—"
+        );
+      },
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (_val, row) =>
+        row.is_active === false ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+            Inactive
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]">
+            Active
+          </span>
+        ),
+    },
+    {
+      key: "id",
+      label: "Actions",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => (
+        <div className="flex justify-end gap-0.5">
+          <ActionIconButton
+            label="Edit employee"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => openEdit(row)}
+            className="text-[#0C4DA1] hover:bg-[#EAF2FC] hover:text-[#0A3F86]"
+          >
+            <Pencil className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            label="Delete employee"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => setDeleteTarget(row)}
+            className="text-[#DC2626] hover:bg-[#FEF2F2] hover:text-[#B91C1C]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </ActionIconButton>
+        </div>
       ),
     },
   ];
 
-  // Show form page if showAddForm is true
-  if (showAddForm) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title={editMode ? "Edit Employee" : "Add New Employee"}
-          subtitle={editMode ? "Update employee information" : "Register a new staff member"}
-          icon={UserSquare2}
-          variant="slate"
-          actions={(
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancel}
-             
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          )}
-        />
+  const motionProps = {
+    initial: reduceMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: reduceMotion ? 0 : 0.18 },
+  };
 
-        <Card className="card-elevated">
-          <CardContent className="p-6">
-            <div className="space-y-6 max-w-4xl">
-              {/* Code Field - Auto-generated */}
-              <div className="space-y-2">
-                <Label htmlFor="code">Employee Code *</Label>
-                <Input
-                  id="code"
-                  value={editMode && selectedEmployee?.code ? selectedEmployee.code : newEmployeeCode}
-                  disabled
-                  className="bg-muted font-mono font-semibold"
-                  placeholder="Auto-generated"
-                />
-                <p className="text-xs text-muted-foreground">Auto-generated code (cannot be changed)</p>
-              </div>
+  return (
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Employees" value={totals.total} icon={UserSquare2} accent="blue" />
+          <KpiCard title="Active" value={totals.active} icon={CheckCircle2} accent="green" />
+          <KpiCard title="Inactive" value={totals.inactive} icon={XCircle} accent="purple" />
+        </motion.div>
 
-              <div className="space-y-2">
-                <Label htmlFor="emp-name">Full Name *</Label>
-                <Input
-                  id="emp-name"
-                  value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  placeholder="John Smith"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emp-email" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  Email *
-                </Label>
-                <Input
-                  id="emp-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="john@company.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emp-phone" className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  Phone
-                </Label>
-                <Input
-                  id="emp-phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
-                  placeholder="+1 555-0000"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emp-role">Designation *</Label>
-                  <Select value={formData.role} onValueChange={(val) => handleChange("role", val)}>
-                    <SelectTrigger id="emp-role">
-                      <SelectValue placeholder="Select designation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Manager">Manager</SelectItem>
-                      <SelectItem value="Supervisor">Supervisor</SelectItem>
-                      <SelectItem value="Operator">Operator</SelectItem>
-                      <SelectItem value="Driver">Driver</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emp-dept">Department *</Label>
-                  <Select value={formData.department || undefined} onValueChange={(val) => handleChange("department", val)}>
-                    <SelectTrigger id="emp-dept">
-                      <SelectValue placeholder="Select dept" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Warehouse">Warehouse</SelectItem>
-                      <SelectItem value="Distribution">Distribution</SelectItem>
-                      <SelectItem value="Admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emp-depot">Depot *</Label>
-                  <Select value={formData.depot_id || undefined} onValueChange={(val) => handleChange("depot_id", val)}>
-                    <SelectTrigger id="emp-depot">
-                      <SelectValue placeholder="Select depot" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {depots.length > 0 ? (
-                        depots.map((depot) => (
-                          <SelectItem key={depot.id} value={String(depot.id)}>
-                            {depot.name} ({depot.code})
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No depots available</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Select depot from master data</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role_master">Role Master Assignment</Label>
-                <Select 
-                  value={formData.role_master_id || "none"} 
-                  onValueChange={(val) => handleChange("role_master_id", val)}
-                >
-                  <SelectTrigger id="role_master">
-                    <SelectValue placeholder="Select role master (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id.toString()}>
-                        {role.name} ({role.code}) - {role.role_type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Assign employee to a role in the sales hierarchy (NSH, TSM, RSM, DSM, SM, SO)
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel
+        <motion.div {...motionProps} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Employee Master"
+            description="Manage staff, roles, and access permissions."
+            toolbarIcon={<UserSquare2 className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search employees...",
+            }}
+            toolbarFilters={
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className={cn("h-9 w-[180px]", fieldClass)} aria-label="Status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>
+                    <StatusFilterOption icon={ListFilter} label="All Status" tone="navy" />
+                  </SelectItem>
+                  <SelectItem value="active" className={selectItemClass}>
+                    <StatusFilterOption icon={CheckCircle2} label="Active" tone="green" />
+                  </SelectItem>
+                  <SelectItem value="inactive" className={selectItemClass}>
+                    <StatusFilterOption icon={XCircle} label="Inactive" tone="red" />
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+            toolbarActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Refresh
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Employee" : "Create Employee"}
+                <Button type="button" variant="ntPrimary" className="!h-8" onClick={openCreate}>
+                  <Plus className="h-3.5 w-3.5" />
+                  New Employee
                 </Button>
+              </div>
+            }
+            data={filtered}
+            columns={columns}
+            loading={isLoading}
+            error={isError ? (error instanceof Error ? error.message : "Unable to load employees") : undefined}
+            getRowId={(row) => row.id}
+            resetPageKey={`${statusFilter}|${searchTerm}|${filtered.length}`}
+            emptyMessage="No employees found"
+          />
+        </motion.div>
+      </div>
+
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!formBusy) {
+            if (open) setShowForm(true);
+            else closeForm();
+          }
+        }}
+      >
+        <DialogContent
+          className={dialogContentClass}
+          onPointerDownOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+        >
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <UserSquare2 className="h-4 w-4" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editTarget ? "Edit Employee" : "Add Employee"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {editTarget ? "Update employee information." : "Register a new staff member."}
+                </DialogDescription>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Employee details</h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>Employee code</Label>
+                    <Input value={generatedCode} disabled className={cn(fieldClass, "font-mono")} />
+                    <p className="text-[11px] text-[#64748B]">Auto-generated and cannot be changed</p>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-name">
+                      Full name {requiredMark}
+                    </Label>
+                    <Input
+                      id="emp-name"
+                      value={formData.name}
+                      onChange={(event) => handleChange("name", event.target.value)}
+                      placeholder="John Smith"
+                      required
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-email">
+                      Email {requiredMark}
+                    </Label>
+                    <Input
+                      id="emp-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(event) => handleChange("email", event.target.value)}
+                      placeholder="john@company.com"
+                      required
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-phone">
+                      Phone
+                    </Label>
+                    <Input
+                      id="emp-phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(event) => handleChange("phone", event.target.value)}
+                      placeholder="+880 ..."
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-role">
+                      Designation {requiredMark}
+                    </Label>
+                    <Select value={formData.designation || undefined} onValueChange={(value) => handleChange("designation", value)}>
+                      <SelectTrigger id="emp-role" className={fieldClass}>
+                        <SelectValue placeholder="Select designation" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {designationOptions.map((item) => (
+                          <SelectItem key={item} value={item} className={selectItemClass}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-dept">
+                      Department {requiredMark}
+                    </Label>
+                    <Select value={formData.department || undefined} onValueChange={(value) => handleChange("department", value)}>
+                      <SelectTrigger id="emp-dept" className={fieldClass}>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {departmentOptions.map((item) => (
+                          <SelectItem key={item} value={item} className={selectItemClass}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-depot">
+                      Depot {requiredMark}
+                    </Label>
+                    <Select value={formData.depot_id || undefined} onValueChange={(value) => handleChange("depot_id", value)}>
+                      <SelectTrigger id="emp-depot" className={fieldClass}>
+                        <SelectValue placeholder="Select depot" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {depots.map((depot) => (
+                          <SelectItem key={depot.id} value={String(depot.id)} className={selectItemClass}>
+                            {depot.name} ({depot.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="emp-role-master">
+                      Role master
+                    </Label>
+                    <Select value={formData.role_master_id} onValueChange={(value) => handleChange("role_master_id", value)}>
+                      <SelectTrigger id="emp-role-master" className={fieldClass}>
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        <SelectItem value="none" className={selectItemClass}>
+                          None
+                        </SelectItem>
+                        {roles.map((role) => (
+                          <SelectItem key={role.id} value={String(role.id)} className={selectItemClass}>
+                            {role.name} ({role.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50] sm:justify-between">
+              {editTarget ? (
+                <label className="mr-auto flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-[12px] font-semibold",
+                      isActive ? "text-[#15803D] dark:text-[#4ADE80]" : "text-[#B91C1C] dark:text-[#FCA5A5]",
+                    )}
+                  >
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                    aria-label="Employee status"
+                    className="data-[state=checked]:bg-[#15803D] data-[state=unchecked]:bg-[#CBD5E1] dark:data-[state=unchecked]:bg-[#2C3B50]"
+                  />
+                </label>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ntSecondary" onClick={closeForm} disabled={formBusy}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="ntPrimary" disabled={formBusy || !canSubmit}>
+                  {formBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editTarget ? "Update Employee" : "Create Employee"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-  // Show list view
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Employee Management"
-        subtitle="Manage staff, roles, and access permissions"
-        icon={UserSquare2}
-        variant="slate"
-      />
-
-      <MasterDataTable
-        title="All Employees"
-        description={`Total staff: ${employees.length}`}
-        data={employees}
-        columns={columns}
-        searchPlaceholder="Search employees..."
-        searchFields={["name", "code", "email", "role", "department"]}
-        itemsPerPage={10}
-        onAdd={() => setShowAddForm(true)}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        emptyMessage="No employees found"
-        showCode={true}
-        codeKey="code"
-      />
-    </div>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !deleteMutation.isPending && !open && setDeleteTarget(null)}>
+        <DialogContent
+          className={cn(
+            NAVY_TEAL_SCOPE_CLASS,
+            "max-w-[440px] gap-0 overflow-hidden rounded-[20px] border border-[#E3EAF3] p-0 shadow-[0_24px_48px_rgba(15,23,42,0.16)] dark:border-[#2C3B50] dark:bg-[#151F30]",
+          )}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-0 text-left">
+              <div className="flex items-start gap-3 pr-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#DC2626] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+                  <Trash2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                    Delete this employee?
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                    {deleteTarget ? `${employeeName(deleteTarget)} (${deleteTarget.employee_id}) will be removed.` : ""}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+          <div className="flex items-start gap-2 px-5 py-3 text-xs text-[#B91C1C] dark:text-[#FCA5A5]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            This cannot be undone from this screen.
+          </div>
+          <DialogFooter className="gap-2 border-t border-[#E3EAF3] bg-[#F8FAFC] px-5 py-3 dark:border-[#2C3B50] dark:bg-[#1B283B] sm:space-x-0">
+            <Button type="button" variant="ntSecondary" disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="!h-9 rounded-lg border-0 bg-[#DC2626] text-white shadow-none hover:bg-[#B91C1C]"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete employee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ThemeScope>
   );
 }

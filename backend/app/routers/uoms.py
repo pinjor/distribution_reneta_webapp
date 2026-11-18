@@ -39,8 +39,11 @@ def generate_uom_code(db: Session) -> str:
     return code
 
 @router.get("/", response_model=List[UOMSchema])
-def get_uoms(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    uoms = db.query(UOM).filter(UOM.is_active == True).offset(skip).limit(limit).all()
+def get_uoms(skip: int = 0, limit: int = 100, include_inactive: bool = False, db: Session = Depends(get_db)):
+    query = db.query(UOM)
+    if not include_inactive:
+        query = query.filter(UOM.is_active == True)
+    uoms = query.order_by(UOM.name.asc(), UOM.code.asc()).offset(skip).limit(limit).all()
     return uoms
 
 @router.get("/{uom_id}", response_model=UOMSchema)

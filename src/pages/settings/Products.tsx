@@ -1,725 +1,816 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  AlertTriangle,
+  Barcode,
+  CheckCircle2,
+  ListFilter,
+  Loader2,
+  Package,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, ArrowLeft, Barcode } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { useToast } from "@/hooks/use-toast";
-import { generateCode } from "@/utils/codeGenerator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
-import { getBadgeVariant } from "@/utils/badgeColors";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
+import { NAVY_TEAL_SCOPE_CLASS } from "@/lib/navyTealTheme";
+import { cn } from "@/lib/utils";
+import {
+  ActionIconButton,
+  asList,
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  selectItemClass,
+  selectPanelClass,
+} from "@/components/transport/transportUi";
 
-interface Product {
+interface ProductRecord {
   id: number;
-  sku: string;
-  code?: string; // New Code (user input)
-  old_code?: string; // Old Code (user input)
-  new_code?: string; // New Code (user input)
+  sku?: string | null;
+  code?: string | null;
+  old_code?: string | null;
+  new_code?: string | null;
   name: string;
-  generic_name?: string; // Optional generic name
-  base_price: number | string;
-  unit_of_measure: string;
-  is_active: boolean;
-  primary_packaging?: "Bottle" | "Blister" | "Vial" | "Injection";
+  generic_name?: string | null;
+  unit_of_measure?: string | null;
+  business_unit?: string | null;
+  primary_packaging?: string | null;
   product_type_commercial?: boolean;
   product_type_sample?: boolean;
   product_type_institutional?: boolean;
   product_type_export?: boolean;
-  ifc_value1?: number;
-  ifc_value2?: number;
-  ifc_result?: number;
-  mc_value1?: number;
-  mc_value2?: number;
-  mc_value3?: number;
-  mc_result?: number;
-  business_unit?: string;  // Pharma, Purnava, Animal health
-  hsn_code?: string;
-  free_goods_threshold?: number;
-  free_goods_quantity?: number;
+  cold_chain_available?: boolean;
+  ifc_value1?: number | string | null;
+  ifc_value2?: number | string | null;
+  ifc_result?: number | string | null;
+  mc_value1?: number | string | null;
+  mc_value2?: number | string | null;
+  mc_value3?: number | string | null;
+  mc_result?: number | string | null;
+  free_goods_threshold?: number | string | null;
+  free_goods_quantity?: number | string | null;
+  is_active?: boolean;
+}
+
+interface NamedOption {
+  id: number;
+  name: string;
+  code?: string;
+}
+
+const BUSINESS_UNITS = ["Pharma", "Purnava", "Animal health"];
+const FALLBACK_UOMS = ["PCS", "pack", "box", "kg", "liter"];
+const FALLBACK_PACKS = ["Bottle", "Blister", "Vial", "Injection"];
+
+const emptyForm = {
+  old_code: "",
+  new_code: "",
+  name: "",
+  generic_name: "",
+  unit_of_measure: "",
+  business_unit: "",
+  primary_packaging: "",
+  product_type_commercial: false,
+  product_type_sample: false,
+  product_type_institutional: false,
+  product_type_export: false,
+  cold_chain_available: false,
+  ifc_value1: "",
+  ifc_value2: "",
+  mc_value1: "",
+  mc_value2: "",
+  mc_value3: "",
+  free_goods_threshold: "100",
+  free_goods_quantity: "5",
+};
+
+function asNumber(value: string) {
+  if (!value.trim()) return undefined;
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function StatusFilterOption({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: typeof ListFilter;
+  label: string;
+  tone: "navy" | "green" | "red";
+}) {
+  const toneClass = {
+    navy: "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]",
+    green: "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]",
+    red: "bg-[#FEF2F2] text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]",
+  }[tone];
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md", toneClass)}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      {label}
+    </span>
+  );
 }
 
 export default function Products() {
+  const reduceMotion = useReducedMotion();
   const { toast } = useToast();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uoms, setUOMs] = useState<Array<{ id: number; name: string }>>([]);
-  const [primaryPackagings, setPrimaryPackagings] = useState<Array<{ id: number; name: string }>>([]);
-
-  const [formData, setFormData] = useState({
-    old_code: "",
-    new_code: "",
-    name: "",
-    generic_name: "",
-    unit_of_measure: "",
-    business_unit: "" as "Pharma" | "Purnava" | "Animal health" | "",
-    primary_packaging: "" as "Bottle" | "Blister" | "Vial" | "Injection" | "",
-    product_type_commercial: false,
-    product_type_sample: false,
-    product_type_institutional: false,
-    product_type_export: false,
-    cold_chain_available: false,
-    ifc_value1: "",
-    ifc_value2: "",
-    mc_value1: "",
-    mc_value2: "",
-    mc_value3: "",
-    free_goods_threshold: "100",
-    free_goods_quantity: "5",
-  });
-  
-  const [newProductSku, setNewProductSku] = useState<string>("");
-
-  // Calculate IFC result
-  const ifcResult = formData.ifc_value1 && formData.ifc_value2 
-    ? parseFloat(formData.ifc_value1) * parseFloat(formData.ifc_value2)
-    : null;
-
-  // Calculate MC result
-  const mcResult = formData.mc_value1 && formData.mc_value2 && formData.mc_value3
-    ? parseFloat(formData.mc_value1) * parseFloat(formData.mc_value2) * parseFloat(formData.mc_value3)
-    : null;
-
-  // Fetch products, UOMs, and Primary Packagings from API
-  useEffect(() => {
-    fetchProducts();
-    fetchUOMs();
-    fetchPrimaryPackagings();
-  }, []);
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const data = await apiEndpoints.products.getAll();
-      setProducts(data);
-    } catch (error) {
-      console.error("Failed to fetch products:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load products. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUOMs = async () => {
-    try {
-      const data = await apiEndpoints.uoms.getAll();
-      setUOMs(data);
-    } catch (error) {
-      console.error("Failed to fetch UOMs:", error);
-    }
-  };
-
-  const fetchPrimaryPackagings = async () => {
-    try {
-      const data = await apiEndpoints.primaryPackagings.getAll();
-      setPrimaryPackagings(data);
-    } catch (error) {
-      console.error("Failed to fetch Primary Packagings:", error);
-    }
-  };
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<ProductRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductRecord | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [skuPreview, setSkuPreview] = useState("PRD-XXXX");
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     document.title = "Products | Renata";
   }, []);
 
-  // Generate SKU when form opens for new product (will be auto-generated by backend)
-  useEffect(() => {
-    if (showAddForm && !editMode) {
-      setNewProductSku("PRD-XXXX"); // Placeholder, will be generated by backend
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAddForm, editMode]);
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["products", "master"],
+    queryFn: async () => asList<ProductRecord>(await apiEndpoints.products.getAll({ include_inactive: true })),
+  });
 
-  const handleAdd = async () => {
-    try {
-      const productData: any = {
-        name: formData.name,
-        old_code: formData.old_code || undefined,
-        new_code: formData.new_code || undefined,
-        generic_name: formData.generic_name || undefined,
-        base_price: 0,  // Default to 0, not editable in form
-        unit_of_measure: formData.unit_of_measure || "PCS",
-        business_unit: formData.business_unit || undefined,
-        primary_packaging: formData.primary_packaging || undefined,
-        product_type_commercial: formData.product_type_commercial,
-        product_type_sample: formData.product_type_sample,
-        product_type_institutional: formData.product_type_institutional,
-        product_type_export: formData.product_type_export,
-        cold_chain_available: formData.cold_chain_available,
-        ifc_value1: formData.ifc_value1 ? parseFloat(formData.ifc_value1) : undefined,
-        ifc_value2: formData.ifc_value2 ? parseFloat(formData.ifc_value2) : undefined,
-        ifc_result: ifcResult || undefined,
-        mc_value1: formData.mc_value1 ? parseFloat(formData.mc_value1) : undefined,
-        mc_value2: formData.mc_value2 ? parseFloat(formData.mc_value2) : undefined,
-        mc_value3: formData.mc_value3 ? parseFloat(formData.mc_value3) : undefined,
-        mc_result: mcResult || undefined,
-        free_goods_threshold: formData.free_goods_threshold ? parseFloat(formData.free_goods_threshold) : 100,
-        free_goods_quantity: formData.free_goods_quantity ? parseFloat(formData.free_goods_quantity) : 5,
-        is_active: true,
-      };
+  const { data: uomsData } = useQuery({
+    queryKey: ["uoms"],
+    queryFn: async () => asList<NamedOption>(await apiEndpoints.uoms.getAll()),
+  });
 
-      if (editMode && selectedProduct) {
-        await apiEndpoints.products.update(selectedProduct.id, productData);
-        toast({
-          title: "Product updated",
-          description: "Product information has been updated successfully.",
-        });
-      } else {
-        const newProduct = await apiEndpoints.products.create(productData);
-        toast({
-          title: "Product added",
-          description: `New product created with SKU ${newProduct.sku}.`,
-        });
-      }
-      
-      await fetchProducts();
-      resetForm();
-    } catch (error: any) {
-      console.error("Failed to save product:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save product. Please try again.",
-        variant: "destructive",
-      });
+  const { data: packsData } = useQuery({
+    queryKey: ["primary-packagings"],
+    queryFn: async () => asList<NamedOption>(await apiEndpoints.primaryPackagings.getAll()),
+  });
+
+  const products = data || [];
+  const uoms = uomsData || [];
+  const packagings = packsData || [];
+
+  const ifcResult = formData.ifc_value1 && formData.ifc_value2
+    ? parseFloat(formData.ifc_value1) * parseFloat(formData.ifc_value2)
+    : null;
+  const mcResult =
+    formData.mc_value1 && formData.mc_value2 && formData.mc_value3
+      ? parseFloat(formData.mc_value1) * parseFloat(formData.mc_value2) * parseFloat(formData.mc_value3)
+      : null;
+
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => apiEndpoints.products.create(payload),
+    onSuccess: (created: ProductRecord) => {
+      toast({ title: "Product added", description: `New product created with SKU ${created.sku}.` });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
+      apiEndpoints.products.update(id, payload),
+    onSuccess: () => {
+      toast({ title: "Product updated", description: "Product information has been updated successfully." });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiEndpoints.products.delete(id),
+    onSuccess: () => {
+      toast({ title: "Product deleted", description: "The product has been removed from catalog." });
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const formBusy = createMutation.isPending || updateMutation.isPending;
+
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return products.filter((product) => {
+      const active = product.is_active !== false;
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      if (!term) return true;
+      return [product.name, product.old_code, product.new_code, product.code, product.sku, product.generic_name, product.business_unit]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [products, searchTerm, statusFilter]);
+
+  const totals = useMemo(() => {
+    const active = products.filter((product) => product.is_active !== false).length;
+    return { total: products.length, active, inactive: products.length - active };
+  }, [products]);
+
+  const uomOptions = useMemo(() => {
+    const names = uoms.map((item) => item.name);
+    const source = names.length > 0 ? names : FALLBACK_UOMS;
+    if (formData.unit_of_measure && !source.includes(formData.unit_of_measure)) {
+      return [formData.unit_of_measure, ...source];
     }
+    return source;
+  }, [formData.unit_of_measure, uoms]);
+
+  const packOptions = useMemo(() => {
+    const names = packagings.map((item) => item.name);
+    const source = names.length > 0 ? names : FALLBACK_PACKS;
+    if (formData.primary_packaging && !source.includes(formData.primary_packaging)) {
+      return [formData.primary_packaging, ...source];
+    }
+    return source;
+  }, [formData.primary_packaging, packagings]);
+
+  const businessUnitOptions = useMemo(() => {
+    if (formData.business_unit && !BUSINESS_UNITS.includes(formData.business_unit)) {
+      return [formData.business_unit, ...BUSINESS_UNITS];
+    }
+    return BUSINESS_UNITS;
+  }, [formData.business_unit]);
+
+  const buildPayload = (active: boolean) => ({
+    name: formData.name.trim(),
+    old_code: formData.old_code || undefined,
+    new_code: formData.new_code || undefined,
+    generic_name: formData.generic_name || undefined,
+    base_price: 0,
+    unit_of_measure: formData.unit_of_measure || "PCS",
+    business_unit: formData.business_unit || undefined,
+    primary_packaging: formData.primary_packaging || undefined,
+    product_type_commercial: formData.product_type_commercial,
+    product_type_sample: formData.product_type_sample,
+    product_type_institutional: formData.product_type_institutional,
+    product_type_export: formData.product_type_export,
+    cold_chain_available: formData.cold_chain_available,
+    ifc_value1: asNumber(formData.ifc_value1),
+    ifc_value2: asNumber(formData.ifc_value2),
+    ifc_result: ifcResult ?? undefined,
+    mc_value1: asNumber(formData.mc_value1),
+    mc_value2: asNumber(formData.mc_value2),
+    mc_value3: asNumber(formData.mc_value3),
+    mc_result: mcResult ?? undefined,
+    free_goods_threshold: asNumber(formData.free_goods_threshold) ?? 100,
+    free_goods_quantity: asNumber(formData.free_goods_quantity) ?? 5,
+    is_active: active,
+  });
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setIsActive(true);
+    setSkuPreview("PRD-XXXX");
+    setShowForm(true);
   };
 
-  const handleEdit = (product: Product) => {
-    setSelectedProduct(product);
+  const openEdit = (product: ProductRecord) => {
+    setEditTarget(product);
+    setSkuPreview(product.sku || product.code || "PRD-XXXX");
+    setIsActive(product.is_active !== false);
     setFormData({
       old_code: product.old_code || "",
       new_code: product.new_code || product.code || "",
-      name: product.name,
+      name: product.name || "",
       generic_name: product.generic_name || "",
       unit_of_measure: product.unit_of_measure || "",
       business_unit: product.business_unit || "",
       primary_packaging: product.primary_packaging || "",
-      product_type_commercial: product.product_type_commercial || false,
-      product_type_sample: product.product_type_sample || false,
-      product_type_institutional: product.product_type_institutional || false,
-      product_type_export: product.product_type_export || false,
-      cold_chain_available: product.cold_chain_available || false,
-      ifc_value1: product.ifc_value1?.toString() || "",
-      ifc_value2: product.ifc_value2?.toString() || "",
-      mc_value1: product.mc_value1?.toString() || "",
-      mc_value2: product.mc_value2?.toString() || "",
-      mc_value3: product.mc_value3?.toString() || "",
-      free_goods_threshold: product.free_goods_threshold?.toString() || "100",
-      free_goods_quantity: product.free_goods_quantity?.toString() || "5",
+      product_type_commercial: Boolean(product.product_type_commercial),
+      product_type_sample: Boolean(product.product_type_sample),
+      product_type_institutional: Boolean(product.product_type_institutional),
+      product_type_export: Boolean(product.product_type_export),
+      cold_chain_available: Boolean(product.cold_chain_available),
+      ifc_value1: product.ifc_value1 != null ? String(product.ifc_value1) : "",
+      ifc_value2: product.ifc_value2 != null ? String(product.ifc_value2) : "",
+      mc_value1: product.mc_value1 != null ? String(product.mc_value1) : "",
+      mc_value2: product.mc_value2 != null ? String(product.mc_value2) : "",
+      mc_value3: product.mc_value3 != null ? String(product.mc_value3) : "",
+      free_goods_threshold: product.free_goods_threshold != null ? String(product.free_goods_threshold) : "100",
+      free_goods_quantity: product.free_goods_quantity != null ? String(product.free_goods_quantity) : "5",
     });
-    setNewProductSku(product.sku);
-    setEditMode(true);
-    setShowAddForm(true);
+    setShowForm(true);
   };
 
-  const handleDelete = async (product: Product) => {
-    try {
-      await apiEndpoints.products.delete(product.id);
-      toast({
-        title: "Product deleted",
-        description: "The product has been removed from catalog.",
-        variant: "destructive",
-      });
-      await fetchProducts();
-    } catch (error: any) {
-      console.error("Failed to delete product:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete product. Please try again.",
-        variant: "destructive",
-      });
+  const closeForm = () => {
+    setShowForm(false);
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setSkuPreview("PRD-XXXX");
+    setIsActive(true);
+  };
+
+  const handleChange = (field: keyof typeof emptyForm, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!formData.name.trim() || formBusy) return;
+    if (editTarget) {
+      updateMutation.mutate({ id: editTarget.id, payload: buildPayload(isActive) });
+      return;
     }
+    createMutation.mutate(buildPayload(true));
   };
 
-  const handleCancel = () => {
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      old_code: "",
-      new_code: "",
-      name: "",
-      generic_name: "",
-      unit_of_measure: "",
-      business_unit: "",
-      primary_packaging: "",
-      product_type_commercial: false,
-      product_type_sample: false,
-      product_type_institutional: false,
-      product_type_export: false,
-      cold_chain_available: false,
-      ifc_value1: "",
-      ifc_value2: "",
-      mc_value1: "",
-      mc_value2: "",
-      mc_value3: "",
-      free_goods_threshold: "100",
-      free_goods_quantity: "5",
-    });
-    setNewProductSku("");
-    setEditMode(false);
-    setSelectedProduct(null);
-    setShowAddForm(false);
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Define table columns (Old Code and New Code instead of SKU)
-  const columns: ColumnDef<Product>[] = [
+  const columns: DataTableColumn<ProductRecord>[] = [
     {
       key: "name",
-      header: "Product Name",
-      render: (_, product) => (
-        <span className="font-medium">{product.name}</span>
-      ),
+      label: "Product Name",
+      render: (val) => <span className="font-medium text-[#0C4DA1] dark:text-[#70ADFF]">{String(val || "—")}</span>,
     },
     {
       key: "old_code",
-      header: "Old Code",
-      render: (value) => (
-        <span className="font-mono font-semibold text-muted-foreground bg-muted px-2 py-1 rounded">
-          {value || "-"}
-        </span>
-      ),
+      label: "Old Code",
+      className: "font-mono text-[13px]",
+      render: (val) => String(val || "—"),
     },
     {
       key: "new_code",
-      header: "New Code",
-      render: (value, product) => (
-        <span className="font-mono font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
-          {value || product.code || "-"}
-        </span>
-      ),
+      label: "New Code",
+      className: "font-mono text-[13px]",
+      render: (val, row) => String(val || row.code || "—"),
     },
     {
       key: "generic_name",
-      header: "Generic Name",
-      render: (value) => (
-        <span className="text-muted-foreground">{value || "-"}</span>
-      ),
+      label: "Generic Name",
+      render: (val) => String(val || "—"),
     },
     {
       key: "unit_of_measure",
-      header: "UOM",
-      render: (value) => (
-        <Badge variant="outline" className="text-xs">
-          {String(value)}
-        </Badge>
+      label: "UOM",
+      render: (val) => String(val || "—"),
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (_val, row) =>
+        row.is_active === false ? (
+          <span className="inline-flex rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+            Inactive
+          </span>
+        ) : (
+          <span className="inline-flex rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]">
+            Active
+          </span>
+        ),
+    },
+    {
+      key: "id",
+      label: "Actions",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => (
+        <div className="flex justify-end gap-0.5">
+          <ActionIconButton
+            label="Edit product"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => openEdit(row)}
+            className="text-[#0C4DA1] hover:bg-[#EAF2FC] hover:text-[#0A3F86]"
+          >
+            <Pencil className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            label="Delete product"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => setDeleteTarget(row)}
+            className="text-[#DC2626] hover:bg-[#FEF2F2] hover:text-[#B91C1C]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </ActionIconButton>
+        </div>
       ),
     },
   ];
 
-  // Show form page if showAddForm is true
-  if (showAddForm) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title={editMode ? "Edit Product" : "Add New Product"}
-          subtitle={editMode ? "Update product information" : "Create a new product in the catalog"}
-          icon={Package}
-          variant="indigo"
-          actions={(
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancel}
-             
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          )}
-        />
+  const motionProps = {
+    initial: reduceMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: reduceMotion ? 0 : 0.18 },
+  };
 
-        <Card className="card-elevated">
-          <CardContent className="p-6">
-            <div className="space-y-6 max-w-4xl">
-              {/* SKU Field - Auto-generated */}
-              <div className="space-y-2">
-                <Label htmlFor="sku" className="flex items-center gap-2">
-                  <Barcode className="h-4 w-4 text-muted-foreground" />
-                  SKU / Product Code *
-                </Label>
-                <Input
-                  id="sku"
-                  value={editMode && selectedProduct?.sku ? selectedProduct.sku : newProductSku}
-                  disabled
-                  className="bg-muted font-mono font-semibold"
-                  placeholder="Auto-generated"
-                />
-                <p className="text-xs text-muted-foreground">Auto-generated SKU (cannot be changed)</p>
-              </div>
+  return (
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Products" value={totals.total} icon={Package} accent="blue" />
+          <KpiCard title="Active" value={totals.active} icon={CheckCircle2} accent="green" />
+          <KpiCard title="Inactive" value={totals.inactive} icon={XCircle} accent="purple" />
+        </motion.div>
 
-              {/* Code Fields - User input */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="old-code">Old Code</Label>
-                  <Input
-                    id="old-code"
-                    value={formData.old_code}
-                    onChange={(e) => handleChange("old_code", e.target.value)}
-                    placeholder="Enter old code"
-                  />
-                  <p className="text-xs text-muted-foreground">Manually enter the old product code</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-code">New Code</Label>
-                  <Input
-                    id="new-code"
-                    value={formData.new_code}
-                    onChange={(e) => handleChange("new_code", e.target.value)}
-                    placeholder="Enter new code"
-                  />
-                  <p className="text-xs text-muted-foreground">Manually enter the new product code</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Product Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                    placeholder="Enter product name"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="generic-name">Generic Name</Label>
-                  <Input
-                    id="generic-name"
-                    value={formData.generic_name}
-                    onChange={(e) => handleChange("generic_name", e.target.value)}
-                    placeholder="Enter generic name (optional)"
-                  />
-                  <p className="text-xs text-muted-foreground">Optional generic name for the product</p>
-                </div>
-              </div>
-
-              {/* Product Type */}
-              <div className="space-y-3">
-                <Label>Product Type</Label>
-                <div className="flex flex-wrap items-center gap-6">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="product-type-commercial"
-                      checked={formData.product_type_commercial}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({
-                          ...prev,
-                          product_type_commercial: checked === true
-                        }))
-                      }
-                    />
-                    <Label htmlFor="product-type-commercial" className="font-normal cursor-pointer">
-                      Commercial
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="product-type-sample"
-                      checked={formData.product_type_sample}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({
-                          ...prev,
-                          product_type_sample: checked === true
-                        }))
-                      }
-                    />
-                    <Label htmlFor="product-type-sample" className="font-normal cursor-pointer">
-                      Sample
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="product-type-institutional"
-                      checked={formData.product_type_institutional}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({
-                          ...prev,
-                          product_type_institutional: checked === true
-                        }))
-                      }
-                    />
-                    <Label htmlFor="product-type-institutional" className="font-normal cursor-pointer">
-                      Institutional
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="product-type-export"
-                      checked={formData.product_type_export}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({
-                          ...prev,
-                          product_type_export: checked === true
-                        }))
-                      }
-                    />
-                    <Label htmlFor="product-type-export" className="font-normal cursor-pointer">
-                      Export
-                    </Label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cold Chain Available */}
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="cold-chain-available"
-                  checked={formData.cold_chain_available}
-                  onCheckedChange={(checked) => 
-                    setFormData(prev => ({
-                      ...prev,
-                      cold_chain_available: checked === true
-                    }))
-                  }
-                />
-                <Label htmlFor="cold-chain-available" className="font-normal cursor-pointer">
-                  Cold Chain Available
-                </Label>
-                <p className="text-xs text-muted-foreground">Check if this product requires cold chain storage</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="business-unit">Business Unit</Label>
-                  <Select value={formData.business_unit} onValueChange={(val) => handleChange("business_unit", val)}>
-                    <SelectTrigger id="business-unit">
-                      <SelectValue placeholder="Select business unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pharma">Pharma</SelectItem>
-                      <SelectItem value="Purnava">Purnava</SelectItem>
-                      <SelectItem value="Animal health">Animal health</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="unit">UOM *</Label>
-                  <Select value={formData.unit_of_measure} onValueChange={(val) => handleChange("unit_of_measure", val)}>
-                    <SelectTrigger id="unit">
-                      <SelectValue placeholder="Select UOM" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {uoms.length > 0 ? (
-                        uoms.map((uom) => (
-                          <SelectItem key={uom.id} value={uom.name}>
-                            {uom.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <>
-                          <SelectItem value="PCS">PCS</SelectItem>
-                          <SelectItem value="pack">pack</SelectItem>
-                          <SelectItem value="box">box</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="liter">liter</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {uoms.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Add UOMs in the UOM setup page</p>
-                  )}
-                </div>
-                
-                {/* Primary Packaging */}
-                <div className="space-y-2">
-                  <Label htmlFor="primary-packaging">Primary Packaging</Label>
-                  <Select 
-                    value={formData.primary_packaging} 
-                    onValueChange={(val) => handleChange("primary_packaging", val)}
-                  >
-                    <SelectTrigger id="primary-packaging">
-                      <SelectValue placeholder="Select primary packaging" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {primaryPackagings.length > 0 ? (
-                        primaryPackagings.map((packaging) => (
-                          <SelectItem key={packaging.id} value={packaging.name}>
-                            {packaging.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <>
-                          <SelectItem value="Bottle">Bottle</SelectItem>
-                          <SelectItem value="Blister">Blister</SelectItem>
-                          <SelectItem value="Vial">Vial</SelectItem>
-                          <SelectItem value="Injection">Injection</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {primaryPackagings.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Add Primary Packagings in the Primary Packaging setup page</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Pack Size */}
-              <div className="border-t pt-6 mt-6">
-                <Label className="text-base font-semibold mb-4 block">Pack Size</Label>
-                
-                {/* IFC Section */}
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label className="font-medium">IFC</Label>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 items-center">
-                    <Input
-                      type="number"
-                      value={formData.ifc_value1}
-                      onChange={(e) => handleChange("ifc_value1", e.target.value)}
-                      placeholder="5"
-                      className="text-center"
-                    />
-                    <span className="text-center">×</span>
-                    <Input
-                      type="number"
-                      value={formData.ifc_value2}
-                      onChange={(e) => handleChange("ifc_value2", e.target.value)}
-                      placeholder="10"
-                      className="text-center"
-                    />
-                    <div className="flex items-center gap-2">
-                      <span className="text-center font-medium">=</span>
-                      <Input
-                        value={ifcResult !== null ? ifcResult.toString() : ""}
-                        disabled
-                        className="bg-muted font-semibold text-center"
-                        placeholder="Result"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* MC Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label className="font-medium">MC</Label>
-                  </div>
-                  <div className="grid grid-cols-6 gap-2 items-center">
-                    <Input
-                      type="number"
-                      value={formData.mc_value1}
-                      onChange={(e) => handleChange("mc_value1", e.target.value)}
-                      placeholder="18"
-                      className="text-center"
-                    />
-                    <span className="text-center">×</span>
-                    <Input
-                      type="number"
-                      value={formData.mc_value2}
-                      onChange={(e) => handleChange("mc_value2", e.target.value)}
-                      placeholder="5"
-                      className="text-center"
-                    />
-                    <span className="text-center">×</span>
-                    <Input
-                      type="number"
-                      value={formData.mc_value3}
-                      onChange={(e) => handleChange("mc_value3", e.target.value)}
-                      placeholder="10"
-                      className="text-center"
-                    />
-                    <div className="flex items-center gap-2">
-                      <span className="text-center font-medium">=</span>
-                      <Input
-                        value={mcResult !== null ? mcResult.toString() : ""}
-                        disabled
-                        className="bg-muted font-semibold text-center"
-                        placeholder="Result"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="free-threshold">Free goods threshold</Label>
-                  <Input
-                    id="free-threshold"
-                    type="number"
-                    min="0"
-                    value={formData.free_goods_threshold}
-                    onChange={(e) => handleChange("free_goods_threshold", e.target.value)}
-                    placeholder="e.g. 100"
-                  />
-                  <p className="text-xs text-muted-foreground">Orders at or above this quantity earn free goods.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="free-quantity">Free goods quantity</Label>
-                  <Input
-                    id="free-quantity"
-                    type="number"
-                    min="0"
-                    value={formData.free_goods_quantity}
-                    onChange={(e) => handleChange("free_goods_quantity", e.target.value)}
-                    placeholder="e.g. 5"
-                  />
-                  <p className="text-xs text-muted-foreground">Units given free when threshold is reached.</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel
+        <motion.div {...motionProps} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Product Catalog"
+            description="Manage product catalog, SKUs, and inventory items."
+            toolbarIcon={<Package className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search products...",
+            }}
+            toolbarFilters={
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className={cn("h-9 w-[180px]", fieldClass)} aria-label="Status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>
+                    <StatusFilterOption icon={ListFilter} label="All Status" tone="navy" />
+                  </SelectItem>
+                  <SelectItem value="active" className={selectItemClass}>
+                    <StatusFilterOption icon={CheckCircle2} label="Active" tone="green" />
+                  </SelectItem>
+                  <SelectItem value="inactive" className={selectItemClass}>
+                    <StatusFilterOption icon={XCircle} label="Inactive" tone="red" />
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+            toolbarActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Refresh
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Product" : "Create Product"}
+                <Button type="button" variant="ntPrimary" className="!h-8" onClick={openCreate}>
+                  <Plus className="h-3.5 w-3.5" />
+                  New Product
                 </Button>
+              </div>
+            }
+            data={filtered}
+            columns={columns}
+            loading={isLoading}
+            error={isError ? (error instanceof Error ? error.message : "Unable to load products") : undefined}
+            getRowId={(row) => row.id}
+            resetPageKey={`${statusFilter}|${searchTerm}|${filtered.length}`}
+            emptyMessage="No products found"
+          />
+        </motion.div>
+      </div>
+
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!formBusy) {
+            if (open) setShowForm(true);
+            else closeForm();
+          }
+        }}
+      >
+        <DialogContent
+          className={dialogContentClass}
+          onPointerDownOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+        >
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <Package className="h-4 w-4" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editTarget ? "Edit Product" : "Add Product"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {editTarget ? "Update product information." : "Create a new product in the catalog."}
+                </DialogDescription>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Product details</h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className={fieldWrapClass}>
+                    <Label className={cn(labelClass, "inline-flex items-center gap-1.5")}>
+                      <Barcode className="h-3.5 w-3.5 text-[#64748B]" />
+                      SKU
+                    </Label>
+                    <Input value={skuPreview} disabled className={cn(fieldClass, "font-mono")} />
+                    <p className="text-[11px] text-[#64748B]">Auto-generated and cannot be changed</p>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="product-name">
+                      Product name {requiredMark}
+                    </Label>
+                    <Input
+                      id="product-name"
+                      value={formData.name}
+                      onChange={(event) => handleChange("name", event.target.value)}
+                      placeholder="Enter product name"
+                      required
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="old-code">
+                      Old code
+                    </Label>
+                    <Input
+                      id="old-code"
+                      value={formData.old_code}
+                      onChange={(event) => handleChange("old_code", event.target.value)}
+                      placeholder="Old code"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="new-code">
+                      New code
+                    </Label>
+                    <Input
+                      id="new-code"
+                      value={formData.new_code}
+                      onChange={(event) => handleChange("new_code", event.target.value)}
+                      placeholder="New code"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="generic-name">
+                      Generic name
+                    </Label>
+                    <Input
+                      id="generic-name"
+                      value={formData.generic_name}
+                      onChange={(event) => handleChange("generic_name", event.target.value)}
+                      placeholder="Optional"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="business-unit">
+                      Business unit
+                    </Label>
+                    <Select
+                      value={formData.business_unit || undefined}
+                      onValueChange={(value) => handleChange("business_unit", value)}
+                    >
+                      <SelectTrigger id="business-unit" className={fieldClass}>
+                        <SelectValue placeholder="Select business unit" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {businessUnitOptions.map((item) => (
+                          <SelectItem key={item} value={item} className={selectItemClass}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="uom">
+                      UOM
+                    </Label>
+                    <Select
+                      value={formData.unit_of_measure || undefined}
+                      onValueChange={(value) => handleChange("unit_of_measure", value)}
+                    >
+                      <SelectTrigger id="uom" className={fieldClass}>
+                        <SelectValue placeholder="Select UOM" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {uomOptions.map((item) => (
+                          <SelectItem key={item} value={item} className={selectItemClass}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="primary-packaging">
+                      Primary packaging
+                    </Label>
+                    <Select
+                      value={formData.primary_packaging || undefined}
+                      onValueChange={(value) => handleChange("primary_packaging", value)}
+                    >
+                      <SelectTrigger id="primary-packaging" className={fieldClass}>
+                        <SelectValue placeholder="Select packaging" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {packOptions.map((item) => (
+                          <SelectItem key={item} value={item} className={selectItemClass}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="mt-2.5 rounded-lg border border-[#E3EAF3] px-3 py-2 dark:border-[#2C3B50]">
+                  <Label className={labelClass}>Product type</Label>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                    {[
+                      ["product_type_commercial", "Commercial"],
+                      ["product_type_sample", "Sample"],
+                      ["product_type_institutional", "Institutional"],
+                      ["product_type_export", "Export"],
+                      ["cold_chain_available", "Cold chain"],
+                    ].map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 text-[13px]">
+                        <Checkbox
+                          checked={Boolean(formData[key as keyof typeof emptyForm])}
+                          onCheckedChange={(checked) => handleChange(key as keyof typeof emptyForm, checked === true)}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </section>
 
-  // Show list view
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Product Management"
-        subtitle="Manage product catalog, SKUs, and inventory items"
-        icon={Package}
-        variant="indigo"
-      />
+              <section className="mt-3">
+                <h3 className="mb-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Pack size</h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>IFC</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={formData.ifc_value1}
+                        onChange={(event) => handleChange("ifc_value1", event.target.value)}
+                        className={cn(fieldClass, "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none")}
+                      />
+                      <span className="text-[#64748B]">×</span>
+                      <Input
+                        type="number"
+                        value={formData.ifc_value2}
+                        onChange={(event) => handleChange("ifc_value2", event.target.value)}
+                        className={cn(fieldClass, "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none")}
+                      />
+                      <span className="text-[#64748B]">=</span>
+                      <Input value={ifcResult != null && Number.isFinite(ifcResult) ? String(ifcResult) : ""} disabled className={fieldClass} />
+                    </div>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>MC</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        value={formData.mc_value1}
+                        onChange={(event) => handleChange("mc_value1", event.target.value)}
+                        className={cn(fieldClass, "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none")}
+                      />
+                      <span className="text-[#64748B]">×</span>
+                      <Input
+                        type="number"
+                        value={formData.mc_value2}
+                        onChange={(event) => handleChange("mc_value2", event.target.value)}
+                        className={cn(fieldClass, "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none")}
+                      />
+                      <span className="text-[#64748B]">×</span>
+                      <Input
+                        type="number"
+                        value={formData.mc_value3}
+                        onChange={(event) => handleChange("mc_value3", event.target.value)}
+                        className={cn(fieldClass, "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none")}
+                      />
+                      <span className="text-[#64748B]">=</span>
+                      <Input value={mcResult != null && Number.isFinite(mcResult) ? String(mcResult) : ""} disabled className={fieldClass} />
+                    </div>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="free-threshold">
+                      Free goods threshold
+                    </Label>
+                    <Input
+                      id="free-threshold"
+                      type="number"
+                      min="0"
+                      value={formData.free_goods_threshold}
+                      onChange={(event) => handleChange("free_goods_threshold", event.target.value)}
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="free-quantity">
+                      Free goods quantity
+                    </Label>
+                    <Input
+                      id="free-quantity"
+                      type="number"
+                      min="0"
+                      value={formData.free_goods_quantity}
+                      onChange={(event) => handleChange("free_goods_quantity", event.target.value)}
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+            <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50] sm:justify-between">
+              {editTarget ? (
+                <label className="mr-auto flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-[12px] font-semibold",
+                      isActive ? "text-[#15803D] dark:text-[#4ADE80]" : "text-[#B91C1C] dark:text-[#FCA5A5]",
+                    )}
+                  >
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                    aria-label="Product status"
+                    className="data-[state=checked]:bg-[#15803D] data-[state=unchecked]:bg-[#CBD5E1] dark:data-[state=unchecked]:bg-[#2C3B50]"
+                  />
+                </label>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ntSecondary" onClick={closeForm} disabled={formBusy}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="ntPrimary" disabled={formBusy || !formData.name.trim()}>
+                  {formBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editTarget ? "Update Product" : "Create Product"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      <MasterDataTable
-        title="Product Catalog"
-        description={`Total products: ${products.length}`}
-        data={products}
-        columns={columns}
-        searchPlaceholder="Search products..."
-        searchFields={["name", "old_code", "new_code", "code", "generic_name"]}
-        itemsPerPage={10}
-        onAdd={() => setShowAddForm(true)}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        emptyMessage="No products found"
-        showCode={false}
-      />
-    </div>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !deleteMutation.isPending && !open && setDeleteTarget(null)}>
+        <DialogContent
+          className={cn(
+            NAVY_TEAL_SCOPE_CLASS,
+            "max-w-[440px] gap-0 overflow-hidden rounded-[20px] border border-[#E3EAF3] p-0 shadow-[0_24px_48px_rgba(15,23,42,0.16)] dark:border-[#2C3B50] dark:bg-[#151F30]",
+          )}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-0 text-left">
+              <div className="flex items-start gap-3 pr-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#DC2626] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+                  <Trash2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                    Delete this product?
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                    {deleteTarget ? `${deleteTarget.name} will be removed from the catalog.` : ""}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+          <div className="flex items-start gap-2 px-5 py-3 text-xs text-[#B91C1C] dark:text-[#FCA5A5]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            This cannot be undone from this screen.
+          </div>
+          <DialogFooter className="gap-2 border-t border-[#E3EAF3] bg-[#F8FAFC] px-5 py-3 dark:border-[#2C3B50] dark:bg-[#1B283B] sm:space-x-0">
+            <Button type="button" variant="ntSecondary" disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="!h-9 rounded-lg border-0 bg-[#DC2626] text-white shadow-none hover:bg-[#B91C1C]"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ThemeScope>
   );
 }

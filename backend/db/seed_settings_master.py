@@ -43,6 +43,193 @@ def seed_settings_master():
         for v in vendors:
             upsert_by_code(db, models.Vendor, "code", v)
 
+        chemist_shops = [
+            {
+                "name": "Green Pharmacy",
+                "code": "CHEM-0001",
+                "owner_name": "Mohammad Rahman",
+                "license_number": "LIC-2024-001",
+                "email": "info@greenpharmacy.com",
+                "phone": "+880 1712-345678",
+                "address": "123 Main Street, Dhanmondi",
+                "city": "Dhaka",
+                "is_active": True,
+            },
+            {
+                "name": "City Medical Store",
+                "code": "CHEM-0002",
+                "owner_name": "Fatema Khatun",
+                "license_number": "LIC-2024-002",
+                "email": "contact@citymedical.com",
+                "phone": "+880 1712-345679",
+                "address": "456 Commerce Road, Gulshan",
+                "city": "Dhaka",
+                "is_active": True,
+            },
+            {
+                "name": "Modern Pharmacy",
+                "code": "CHEM-0003",
+                "owner_name": "Abdul Karim",
+                "license_number": "LIC-2024-003",
+                "email": "admin@modernpharma.com",
+                "phone": "+880 1712-345680",
+                "address": "789 Market Avenue, Banani",
+                "city": "Dhaka",
+                "is_active": False,
+            },
+        ]
+        for shop in chemist_shops:
+            upsert_by_code(db, models.ChemistShop, "code", shop)
+
+        doctors = [
+            {
+                "name": "Dr. Mohammad Rahman",
+                "code": "DOC-0001",
+                "specialization": "Cardiology",
+                "registration_number": "BMDC-12345",
+                "qualification": "MBBS, FCPS",
+                "email": "dr.rahman@example.com",
+                "phone": "+880 1712-345678",
+                "address": "123 Medical Tower, Dhanmondi",
+                "city": "Dhaka",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Fatema Khatun",
+                "code": "DOC-0002",
+                "specialization": "Pediatrics",
+                "registration_number": "BMDC-12346",
+                "qualification": "MBBS, MD",
+                "email": "dr.fatema@example.com",
+                "phone": "+880 1712-345679",
+                "address": "456 Health Center, Gulshan",
+                "city": "Dhaka",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Abdul Karim",
+                "code": "DOC-0003",
+                "specialization": "Orthopedics",
+                "registration_number": "BMDC-12347",
+                "qualification": "MBBS, MS",
+                "email": "dr.karim@example.com",
+                "phone": "+880 1712-345680",
+                "address": "789 Clinic Road, Banani",
+                "city": "Dhaka",
+                "is_active": False,
+            },
+            {
+                "name": "Dr. Nusrat Jahan",
+                "code": "DOC-0004",
+                "specialization": "Gynecology",
+                "registration_number": "BMDC-12348",
+                "qualification": "MBBS, FCPS",
+                "email": "dr.nusrat@example.com",
+                "phone": "+880 1712-345681",
+                "address": "12 Women's Clinic, Uttara",
+                "city": "Dhaka",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Shahidul Islam",
+                "code": "DOC-0005",
+                "specialization": "Dermatology",
+                "registration_number": "BMDC-12349",
+                "qualification": "MBBS, DDV",
+                "email": "dr.shahidul@example.com",
+                "phone": "+880 1712-345682",
+                "address": "88 Skin Care Center, Khulna Sadar",
+                "city": "Khulna",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Farhana Akter",
+                "code": "DOC-0006",
+                "specialization": "Endocrinology",
+                "registration_number": "BMDC-12350",
+                "qualification": "MBBS, MD",
+                "email": "dr.farhana@example.com",
+                "phone": "+880 1712-345683",
+                "address": "21 Diabetes Care, Agrabad",
+                "city": "Chattogram",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Rafiqul Hasan",
+                "code": "DOC-0007",
+                "specialization": "General Medicine",
+                "registration_number": "BMDC-12351",
+                "qualification": "MBBS",
+                "email": "dr.rafiqul@example.com",
+                "phone": "+880 1712-345684",
+                "address": "5 Circuit House Road",
+                "city": "Rajshahi",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Mahmuda Begum",
+                "code": "DOC-0008",
+                "specialization": "Oncology",
+                "registration_number": "BMDC-12352",
+                "qualification": "MBBS, FCPS",
+                "email": "dr.mahmuda@example.com",
+                "phone": "+880 1712-345685",
+                "address": "34 Cancer Care, Sylhet Sadar",
+                "city": "Sylhet",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Tanvir Ahmed",
+                "code": "DOC-0009",
+                "specialization": "Neurology",
+                "registration_number": "BMDC-12353",
+                "qualification": "MBBS, MD",
+                "email": "dr.tanvir@example.com",
+                "phone": "+880 1712-345686",
+                "address": "9 Neuro Clinic, Mymensingh",
+                "city": "Mymensingh",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Laila Sultana",
+                "code": "DOC-0010",
+                "specialization": "ENT",
+                "registration_number": "BMDC-12354",
+                "qualification": "MBBS, DLO",
+                "email": "dr.laila@example.com",
+                "phone": "+880 1712-345687",
+                "address": "17 ENT Chamber, Barishal",
+                "city": "Barishal",
+                "is_active": False,
+            },
+            {
+                "name": "Dr. Imran Hossain",
+                "code": "DOC-0011",
+                "specialization": "Pulmonology",
+                "registration_number": "BMDC-12355",
+                "qualification": "MBBS, MD",
+                "email": "dr.imran@example.com",
+                "phone": "+880 1712-345688",
+                "address": "44 Chest Clinic, Rangpur",
+                "city": "Rangpur",
+                "is_active": True,
+            },
+            {
+                "name": "Dr. Sharmin Chowdhury",
+                "code": "DOC-0012",
+                "specialization": "Psychiatry",
+                "registration_number": "BMDC-12356",
+                "qualification": "MBBS, FCPS",
+                "email": "dr.sharmin@example.com",
+                "phone": "+880 1712-345689",
+                "address": "6 Mental Health Center, Comilla",
+                "city": "Cumilla",
+                "is_active": True,
+            },
+        ]
+        for doctor in doctors:
+            upsert_by_code(db, models.Doctor, "code", doctor)
+
         # UOM
         uoms = [
             {"code": "PCS", "name": "Pieces", "description": "Individual units"},
@@ -163,7 +350,7 @@ def seed_settings_master():
                     ))
 
         db.commit()
-        print(f"✅ Settings master data seeded: {len(vendors)} vendors, {len(uoms)} UOMs, {len(packagings)} packagings, {len(roles_data)} roles, {len(shipping_points)} shipping points")
+        print(f"✅ Settings master data seeded: {len(vendors)} vendors, {len(chemist_shops)} chemist shops, {len(doctors)} doctors, {len(uoms)} UOMs, {len(packagings)} packagings, {len(roles_data)} roles, {len(shipping_points)} shipping points")
     except Exception as e:
         db.rollback()
         print(f"❌ Error seeding settings master: {e}")

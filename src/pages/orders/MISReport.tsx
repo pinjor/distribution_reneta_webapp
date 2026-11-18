@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
@@ -24,17 +23,22 @@ import {
   List,
   Loader2,
   MapPin,
+  MapPinned,
   Package,
+  Pause,
   Printer,
   RefreshCw,
   Search,
   Truck,
   User,
+  UserRound,
   XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { cn } from "@/lib/utils";
+import { FilterSelect, OrderPageShell, OrderPanel, dialogContentClass, fieldClass, tableHeadClass } from "@/components/orders/orderMgmtUi";
+import { NtDateField } from "@/components/theme/NtDateField";
+
 
 interface MISReportMemo {
   id: number;
@@ -95,6 +99,38 @@ interface MISReportMemoDetail extends MISReportMemo {
   }>;
   total_items_count: number;
   updated_at: string | null;
+}
+
+const timelineToneClass = {
+  done: "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]",
+  active: "border-[#BFDBFE] bg-[#EAF2FC] text-[#0C4DA1]",
+  pending: "border-[#E3EAF3] bg-[#F8FAFC] text-[#94A3B8] dark:border-[#2C3B50] dark:bg-[#1B283B]",
+  warn: "border-[#FED7AA] bg-[#FFEDD5] text-[#C2410C]",
+  danger: "border-[#FECACA] bg-[#FEE2E2] text-[#B91C1C]",
+} as const;
+
+function TimelineStep({
+  icon: Icon,
+  tone,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  tone: keyof typeof timelineToneClass;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative z-10 flex items-start gap-3">
+      <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border", timelineToneClass[tone])}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 pt-0.5">
+        <p className="text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{title}</p>
+        <p className="mt-0.5 text-[12px] leading-relaxed text-[#64748B]">{children}</p>
+      </div>
+    </div>
+  );
 }
 
 export default function MISReport() {
@@ -228,147 +264,91 @@ export default function MISReport() {
   };
 
   return (
-    <div className="space-y-6">
-      <OrderBreadcrumb />
-      <PageHeader
-        title="MIS Report"
-        subtitle="Comprehensive memo lifecycle tracking and analytics"
-        icon={FileBarChart}
-        variant="indigo"
-        actions={(
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-           
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        )}
-      />
-
-      {/* Filters Card */}
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-blue-600" />
-            Filters
-          </CardTitle>
-          <CardDescription>Filter memos by date range, status, and route</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Start Date */}
-            <div className="space-y-2">
-              <Label htmlFor="start-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Start Date
-              </Label>
-              <Input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
-            {/* End Date */}
-            <div className="space-y-2">
-              <Label htmlFor="end-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                End Date
-              </Label>
-              <Input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="status-filter" className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-                Status
-              </Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger id="status-filter">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending_validation">Pending Validation</SelectItem>
-                  <SelectItem value="validated">Validated</SelectItem>
-                  <SelectItem value="pending_print">Pending Print</SelectItem>
-                  <SelectItem value="printed">Printed</SelectItem>
-                  <SelectItem value="assigned">Assigned</SelectItem>
-                  <SelectItem value="loaded">Loaded</SelectItem>
-                  <SelectItem value="collected">Collected</SelectItem>
-                  <SelectItem value="postponed">Postponed</SelectItem>
-                  <SelectItem value="pending_collection">Pending Collection</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Route Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="route-filter" className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Route
-              </Label>
-              <Select value={routeFilter} onValueChange={setRouteFilter}>
-                <SelectTrigger id="route-filter">
-                  <SelectValue placeholder="All Routes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Routes</SelectItem>
-                  {uniqueRoutes.map((route) => (
-                    <SelectItem key={route} value={route as string}>
-                      {route}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="mt-4">
-            <Label htmlFor="search" className="flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Search
-            </Label>
+    <OrderPageShell>
+      <OrderPanel className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-64 shrink-0">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B]" />
             <Input
               id="search"
-              placeholder="Search by memo number, customer, route..."
+              aria-label="Search"
+              placeholder="Search memo, customer, route..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="mt-2"
+              className={cn(fieldClass, "h-8 pl-8")}
             />
           </div>
-        </CardContent>
-      </Card>
+          <NtDateField
+            id="start-date"
+            value={startDate}
+            onChange={setStartDate}
+            placeholder="Start date"
+            className="w-[10.75rem]"
+          />
+          <NtDateField
+            id="end-date"
+            value={endDate}
+            onChange={setEndDate}
+            placeholder="End date"
+            className="w-[10.75rem]"
+          />
+          <FilterSelect
+            id="status-filter"
+            label="Status"
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            placeholder="All statuses"
+            icon={Clock}
+            triggerClassName="w-[9.5rem] min-w-0"
+            items={[
+              { value: "all", label: "All statuses", icon: Clock },
+              { value: "pending_validation", label: "Pending Validation", icon: Clock },
+              { value: "validated", label: "Validated", icon: CheckCircle2 },
+              { value: "pending_print", label: "Pending Print", icon: Clock },
+              { value: "printed", label: "Printed", icon: Printer },
+              { value: "assigned", label: "Assigned", icon: UserRound },
+              { value: "loaded", label: "Loaded", icon: Truck },
+              { value: "collected", label: "Collected", icon: Coins },
+              { value: "postponed", label: "Postponed", icon: Pause },
+              { value: "pending_collection", label: "Pending Collection", icon: Coins },
+            ]}
+          />
+          <FilterSelect
+            id="route-filter"
+            label="Route"
+            value={routeFilter}
+            onValueChange={setRouteFilter}
+            placeholder="All routes"
+            icon={MapPinned}
+            triggerClassName="w-[9.5rem] min-w-0"
+            items={[
+              { value: "all", label: "All routes", icon: MapPinned },
+              ...uniqueRoutes.map((route) => ({
+                value: route as string,
+                label: String(route),
+                icon: MapPinned,
+              })),
+            ]}
+          />
+          <Button type="button" variant="ntSecondary" className="!h-8 ml-auto" onClick={() => refetch()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
+        </div>
+      </OrderPanel>
 
-      {/* Memos List Card */}
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-          <div className="flex items-center justify-between">
+      <OrderPanel>
+          <div className="flex items-center justify-between border-b border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50]">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                <FileText className="h-4 w-4 text-[#0C4DA1]" />
                 Memo List
-              </CardTitle>
-              <CardDescription className="mt-1">
+              </h2>
+              <p className="mt-1 text-xs text-[#64748B] dark:text-[#A9B8CC]">
                 Showing {filteredMemos.length} memo{filteredMemos.length !== 1 ? 's' : ''}
-              </CardDescription>
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -461,428 +441,228 @@ export default function MISReport() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </OrderPanel>
 
-      {/* Detail Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <FileText className="h-6 w-6 text-blue-600" />
-              Memo Details - {memoDetail?.memo_number || memoDetail?.order_number || `order-${selectedMemo}`}
-            </DialogTitle>
-            <DialogDescription>
-              Complete lifecycle history and transaction details
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className={cn(dialogContentClass, "max-w-[860px] !flex h-[min(90vh,52rem)]")}>
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-1 pr-6 text-left">
+              <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                {memoDetail?.memo_number || memoDetail?.order_number || `order-${selectedMemo}`}
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-[#64748B]">
+                Lifecycle history and line items for this memo.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          {loadingDetail ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            </div>
-          ) : memoDetail ? (
-            <div className="space-y-6">
-              {/* Basic Information */}
-              <Card>
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
-                  <CardTitle className="text-lg">Basic Information</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Customer</Label>
-                      <p className="font-medium">{memoDetail.customer_name}</p>
-                      {memoDetail.customer_code && (
-                        <p className="text-sm text-muted-foreground">{memoDetail.customer_code}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">PSO</Label>
-                      <p className="font-medium">{memoDetail.pso_name || "N/A"}</p>
-                      {memoDetail.pso_code && (
-                        <p className="text-sm text-muted-foreground">{memoDetail.pso_code}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Route</Label>
-                      <p className="font-medium">{memoDetail.route_code || "N/A"}</p>
-                      {memoDetail.route_name && (
-                        <p className="text-sm text-muted-foreground">{memoDetail.route_name}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Delivery Date</Label>
-                      <p className="font-medium">{formatDate(memoDetail.delivery_date)}</p>
-                    </div>
+          <ScrollArea
+            type="always"
+            className="min-h-0 flex-1"
+            scrollbarClassName="w-1 border-l-0 p-0 bg-transparent [&>div]:bg-[#C5D0DC]"
+          >
+          <div className="px-5 py-4">
+            {loadingDetail ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-[#0C4DA1]" />
+              </div>
+            ) : memoDetail ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-[#E3EAF3] bg-[#F8FBFF] px-4 py-3 dark:border-[#2C3B50] dark:bg-[#1B283B] sm:grid-cols-4">
+                  <div>
+                    <p className="text-[11px] text-[#64748B]">Customer</p>
+                    <p className="text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{memoDetail.customer_name}</p>
+                    {memoDetail.customer_code && <p className="text-[12px] text-[#64748B]">{memoDetail.customer_code}</p>}
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <p className="text-[11px] text-[#64748B]">PSO</p>
+                    <p className="text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{memoDetail.pso_name || "N/A"}</p>
+                    {memoDetail.pso_code && <p className="text-[12px] text-[#64748B]">{memoDetail.pso_code}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#64748B]">Route</p>
+                    <p className="text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{memoDetail.route_code || "N/A"}</p>
+                    {memoDetail.route_name && <p className="text-[12px] text-[#64748B]">{memoDetail.route_name}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-[#64748B]">Delivery date</p>
+                    <p className="text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{formatDate(memoDetail.delivery_date)}</p>
+                  </div>
+                </div>
 
-              {/* Lifecycle Timeline */}
-              <Card>
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Complete Lifecycle Timeline
-                  </CardTitle>
-                  <CardDescription>
-                    Full process flow from order creation to completion
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="space-y-4 relative">
-                    {/* Connecting Line */}
-                    <div className="absolute left-6 top-12 bottom-4 w-0.5 bg-gradient-to-b from-blue-200 via-purple-200 to-green-200"></div>
-                    
-                    {/* Step 1: Order Creation */}
-                    <div className="flex items-start gap-4 relative z-10">
-                      <div className="p-2 rounded-full bg-indigo-100 text-indigo-600 border-2 border-indigo-300">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-sm">1. Order Creation</div>
-                        <div className="text-sm text-muted-foreground">
-                          Created on {formatDateTime(memoDetail.created_at)}
-                          {memoDetail.order_number && (
-                            <> • Order: {memoDetail.order_number || `order-${memoDetail.order_id}`}</>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Step 2: Order List (Pending) */}
-                    <div className="flex items-start gap-4 relative z-10">
-                      <div className={`p-2 rounded-full border-2 ${
-                        !memoDetail.validated ? 'bg-yellow-100 text-yellow-600 border-yellow-300' : 'bg-gray-100 text-gray-400 border-gray-300'
-                      }`}>
-                        <List className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-sm">2. Order List (Pending)</div>
-                        <div className="text-sm text-muted-foreground">
-                          {!memoDetail.validated ? (
-                            <>Currently pending in Delivery Order list</>
-                          ) : (
-                            <>Moved from Delivery Order list after validation</>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Step 3: Validation */}
-                    <div className="flex items-start gap-4 relative z-10">
-                      <div className={`p-2 rounded-full border-2 ${memoDetail.validated ? 'bg-green-100 text-green-600 border-green-300' : 'bg-gray-100 text-gray-400 border-gray-300'}`}>
-                        <CheckCircle2 className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-sm">3. Validation</div>
-                        <div className="text-sm text-muted-foreground">
-                          {memoDetail.validated ? (
-                            <>Validated on {formatDateTime(memoDetail.validated_at)} → Moved to Route Wise Order List</>
-                          ) : (
-                            "Pending validation (stays in Delivery Order list)"
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Step 4: Route Wise Order List */}
+                <div className="rounded-xl border border-[#E3EAF3] px-4 py-3 dark:border-[#2C3B50]">
+                  <p className="mb-3 text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Lifecycle</p>
+                  <div className="relative space-y-3">
+                    <div className="absolute bottom-2 left-4 top-2 w-px bg-[#E3EAF3] dark:bg-[#2C3B50]" />
+                    <TimelineStep icon={FileText} tone="active" title="1. Order Creation">
+                      Created on {formatDateTime(memoDetail.created_at)}
+                      {memoDetail.order_number && <> • Order: {memoDetail.order_number || `order-${memoDetail.order_id}`}</>}
+                    </TimelineStep>
+                    <TimelineStep icon={List} tone={!memoDetail.validated ? "warn" : "pending"} title="2. Order List (Pending)">
+                      {!memoDetail.validated ? "Currently pending in Delivery Order list" : "Moved from Delivery Order list after validation"}
+                    </TimelineStep>
+                    <TimelineStep icon={CheckCircle2} tone={memoDetail.validated ? "done" : "pending"} title="3. Validation">
+                      {memoDetail.validated
+                        ? `Validated on ${formatDateTime(memoDetail.validated_at)} → Moved to Route Wise Order List`
+                        : "Pending validation (stays in Delivery Order list)"}
+                    </TimelineStep>
                     {memoDetail.validated && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-indigo-100 text-indigo-600 border-2 border-indigo-300">
-                          <MapPin className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">4. Route Wise Order List</div>
-                          <div className="text-sm text-muted-foreground">
-                            Appears in Route Wise Memo List
-                            {memoDetail.route_code && (
-                              <> • Route: {memoDetail.route_code}</>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={MapPin} tone="active" title="4. Route Wise Order List">
+                        Appears in Route Wise Memo List
+                        {memoDetail.route_code && <> • Route: {memoDetail.route_code}</>}
+                      </TimelineStep>
                     )}
-
-                    {/* Step 5: Printing */}
                     {memoDetail.validated && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className={`p-2 rounded-full border-2 ${memoDetail.printed ? 'bg-teal-100 text-teal-600 border-teal-300' : 'bg-gray-100 text-gray-400 border-gray-300'}`}>
-                          <Printer className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">5. Printing</div>
-                          <div className="text-sm text-muted-foreground">
-                            {memoDetail.printed ? (
-                              <>Printed on {formatDateTime(memoDetail.printed_at)}</>
-                            ) : (
-                              "Pending print"
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={Printer} tone={memoDetail.printed ? "done" : "pending"} title="5. Printing">
+                        {memoDetail.printed ? `Printed on ${formatDateTime(memoDetail.printed_at)}` : "Pending print"}
+                      </TimelineStep>
                     )}
-
-                    {/* Step 6: Assignment */}
                     {memoDetail.assigned && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-purple-100 text-purple-600 border-2 border-purple-300">
-                          <User className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">6. Assignment</div>
-                          <div className="text-sm text-muted-foreground">
-                            Assigned to {memoDetail.assigned_employee_name || "N/A"}
-                            {memoDetail.assigned_employee_code && (
-                              <> ({memoDetail.assigned_employee_code})</>
-                            )}
-                            {memoDetail.assigned_vehicle_registration && (
-                              <> • Vehicle: {memoDetail.assigned_vehicle_registration}</>
-                            )}
-                            {memoDetail.assigned_at && (
-                              <> • {formatDateTime(memoDetail.assigned_at)}</>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={User} tone="active" title="6. Assignment">
+                        Assigned to {memoDetail.assigned_employee_name || "N/A"}
+                        {memoDetail.assigned_employee_code && <> ({memoDetail.assigned_employee_code})</>}
+                        {memoDetail.assigned_vehicle_registration && <> • Vehicle: {memoDetail.assigned_vehicle_registration}</>}
+                        {memoDetail.assigned_at && <> • {formatDateTime(memoDetail.assigned_at)}</>}
+                      </TimelineStep>
                     )}
-
-                    {/* Step 7: Loading */}
                     {memoDetail.loaded && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-blue-100 text-blue-600 border-2 border-blue-300">
-                          <Truck className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">7. Loading</div>
-                          <div className="text-sm text-muted-foreground">
-                            Loading #: {memoDetail.loading_number || "N/A"}
-                            {memoDetail.loading_date && (
-                              <> • Loading Date: {formatDate(memoDetail.loading_date)}</>
-                            )}
-                            {memoDetail.loaded_at && (
-                              <> • Loaded at {formatDateTime(memoDetail.loaded_at)}</>
-                            )}
-                            <> → Appears in Loading Memo List</>
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={Truck} tone="active" title="7. Loading">
+                        Loading #: {memoDetail.loading_number || "N/A"}
+                        {memoDetail.loading_date && <> • Loading Date: {formatDate(memoDetail.loading_date)}</>}
+                        {memoDetail.loaded_at && <> • Loaded at {formatDateTime(memoDetail.loaded_at)}</>}
+                        <> → Appears in Loading Memo List</>
+                      </TimelineStep>
                     )}
-
-                    {/* Step 8: Accepted (from Mobile App) */}
                     {memoDetail.loaded && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-emerald-100 text-emerald-600 border-2 border-emerald-300">
-                          <CheckCircle2 className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">8. Accepted by Delivery Person</div>
-                          <div className="text-sm text-muted-foreground">
-                            {memoDetail.delivery_status ? (
-                              <>Accepted via Mobile App → Marked as "Accepted" in Loading Number</>
-                            ) : (
-                              "Pending acceptance from mobile app (not integrated yet)"
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={CheckCircle2} tone={memoDetail.delivery_status ? "done" : "pending"} title="8. Accepted by Delivery Person">
+                        {memoDetail.delivery_status
+                          ? 'Accepted via Mobile App → Marked as "Accepted" in Loading Number'
+                          : "Pending acceptance from mobile app (not integrated yet)"}
+                      </TimelineStep>
                     )}
-
-                    {/* Step 9: Delivery Status */}
                     {memoDetail.delivery_status && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className={`p-2 rounded-full border-2 ${
-                          memoDetail.delivery_status === "Fully Delivered" ? 'bg-green-100 text-green-600 border-green-300' :
-                          memoDetail.delivery_status === "Partial Delivered" ? 'bg-orange-100 text-orange-600 border-orange-300' :
-                          'bg-rose-100 text-rose-600 border-rose-300'
-                        }`}>
-                          <Package className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">9. Delivery Status</div>
-                          <div className="text-sm text-muted-foreground">
-                            <span className="font-medium">{memoDetail.delivery_status}</span>
-                            {memoDetail.delivery_status === "Partial Delivered" && (
-                              <> → Partial quantity delivered</>
-                            )}
-                            {memoDetail.delivery_status === "Postponed" && (
-                              <> → Delivery postponed</>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep
+                        icon={Package}
+                        tone={
+                          memoDetail.delivery_status === "Fully Delivered"
+                            ? "done"
+                            : memoDetail.delivery_status === "Partial Delivered"
+                              ? "warn"
+                              : "danger"
+                        }
+                        title="9. Delivery Status"
+                      >
+                        <span className="font-medium text-[#172B4D] dark:text-[#F1F5F9]">{memoDetail.delivery_status}</span>
+                        {memoDetail.delivery_status === "Partial Delivered" && <> → Partial quantity delivered</>}
+                        {memoDetail.delivery_status === "Postponed" && <> → Delivery postponed</>}
+                      </TimelineStep>
                     )}
-
-                    {/* Step 10: Collection */}
                     {(memoDetail.collection_status || memoDetail.collected_amount !== null) && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className={`p-2 rounded-full border-2 ${
-                          memoDetail.collection_status === "Fully Collected" ? 'bg-green-100 text-green-600 border-green-300' :
-                          memoDetail.collection_status === "Partially Collected" ? 'bg-orange-100 text-orange-600 border-orange-300' :
-                          memoDetail.collection_status === "Postponed" ? 'bg-rose-100 text-rose-600 border-rose-300' :
-                          'bg-gray-100 text-gray-400 border-gray-300'
-                        }`}>
-                          <Coins className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">10. Collection</div>
-                          <div className="text-sm text-muted-foreground">
-                            Status: {memoDetail.collection_status || "Pending"}
-                            {memoDetail.collected_amount !== null && (
-                              <> • Collected Amount: {formatCurrency(memoDetail.collected_amount)}</>
-                            )}
-                            {memoDetail.pending_amount && memoDetail.pending_amount > 0 && (
-                              <> • Pending Amount: {formatCurrency(memoDetail.pending_amount)}</>
-                            )}
-                            {memoDetail.collection_source && (
-                              <> • Source: {memoDetail.collection_source}</>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep
+                        icon={Coins}
+                        tone={
+                          memoDetail.collection_status === "Fully Collected"
+                            ? "done"
+                            : memoDetail.collection_status === "Partially Collected"
+                              ? "warn"
+                              : memoDetail.collection_status === "Postponed"
+                                ? "danger"
+                                : "pending"
+                        }
+                        title="10. Collection"
+                      >
+                        Status: {memoDetail.collection_status || "Pending"}
+                        {memoDetail.collected_amount !== null && <> • Collected Amount: {formatCurrency(memoDetail.collected_amount)}</>}
+                        {memoDetail.pending_amount && memoDetail.pending_amount > 0 && <> • Pending Amount: {formatCurrency(memoDetail.pending_amount)}</>}
+                        {memoDetail.collection_source && <> • Source: {memoDetail.collection_source}</>}
+                      </TimelineStep>
                     )}
-
-                    {/* Step 11: Collection Approval */}
                     {memoDetail.collection_approved && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-blue-100 text-blue-600 border-2 border-blue-300">
-                          <CheckCircle2 className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">11. Collection Approval</div>
-                          <div className="text-sm text-muted-foreground">
-                            Approved on {formatDateTime(memoDetail.collection_approved_at)}
-                            {memoDetail.collection_approved_by_name && (
-                              <> by {memoDetail.collection_approved_by_name}</>
-                            )}
-                            <> → Approved via "Approval for Collection"</>
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={CheckCircle2} tone="done" title="11. Collection Approval">
+                        Approved on {formatDateTime(memoDetail.collection_approved_at)}
+                        {memoDetail.collection_approved_by_name && <> by {memoDetail.collection_approved_by_name}</>}
+                        <> → Approved via "Approval for Collection"</>
+                      </TimelineStep>
                     )}
-
-                    {/* Step 12: Deposit */}
                     {memoDetail.collection_approved && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-green-100 text-green-600 border-2 border-green-300">
-                          <Coins className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">12. Deposit</div>
-                          <div className="text-sm text-muted-foreground">
-                            {memoDetail.collected_amount !== null && memoDetail.collected_amount > 0 ? (
-                              <>Deposit Amount: {formatCurrency(memoDetail.collected_amount)}</>
-                            ) : (
-                              "Deposit information"
-                            )}
-                            <> → Collection deposited through banking (BRAC/bKash/Nagad)</>
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={Coins} tone="done" title="12. Deposit">
+                        {memoDetail.collected_amount !== null && memoDetail.collected_amount > 0
+                          ? <>Deposit Amount: {formatCurrency(memoDetail.collected_amount)}</>
+                          : "Deposit information"}
+                        <> → Collection deposited through banking (BRAC/bKash/Nagad)</>
+                      </TimelineStep>
                     )}
-
-                    {/* Step 13: Remaining Cash Return */}
                     {memoDetail.collection_approved && memoDetail.pending_amount && memoDetail.pending_amount > 0 && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-yellow-100 text-yellow-600 border-2 border-yellow-300">
-                          <Coins className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">13. Remaining Cash Return</div>
-                          <div className="text-sm text-muted-foreground">
-                            Pending Amount: {formatCurrency(memoDetail.pending_amount)}
-                            <> → Returned to depot through "Approval for Collection"</>
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={Coins} tone="warn" title="13. Remaining Cash Return">
+                        Pending Amount: {formatCurrency(memoDetail.pending_amount)}
+                        <> → Returned to depot through "Approval for Collection"</>
+                      </TimelineStep>
                     )}
-
-                    {/* Step 14: Process Complete */}
                     {memoDetail.collection_approved && (
-                      <div className="flex items-start gap-4 relative z-10">
-                        <div className="p-2 rounded-full bg-green-100 text-green-600 border-2 border-green-300">
-                          <CheckCircle2 className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm text-green-700">14. Process Complete</div>
-                          <div className="text-sm text-muted-foreground">
-                            All steps completed successfully
-                            {memoDetail.collection_approved_at && (
-                              <> • Completed on {formatDateTime(memoDetail.collection_approved_at)}</>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      <TimelineStep icon={CheckCircle2} tone="done" title="14. Process Complete">
+                        All steps completed successfully
+                        {memoDetail.collection_approved_at && <> • Completed on {formatDateTime(memoDetail.collection_approved_at)}</>}
+                      </TimelineStep>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Products */}
-              <Card>
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Products ({memoDetail.total_items_count})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product Code</TableHead>
-                          <TableHead>Product Name</TableHead>
-                          <TableHead>Pack Size</TableHead>
-                          <TableHead className="text-right">Quantity</TableHead>
-                          <TableHead className="text-right">Delivered</TableHead>
-                          <TableHead className="text-right">Returned</TableHead>
-                          <TableHead className="text-right">Unit Price</TableHead>
-                          <TableHead className="text-right">Total Price</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {memoDetail.items.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{item.product_code}</TableCell>
-                            <TableCell>{item.product_name}</TableCell>
-                            <TableCell>{item.pack_size || "N/A"}</TableCell>
-                            <TableCell className="text-right">{item.total_quantity}</TableCell>
-                            <TableCell className="text-right">
-                              {item.delivered_quantity !== null ? item.delivered_quantity : "N/A"}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {item.returned_quantity !== null ? item.returned_quantity : "N/A"}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(item.unit_price)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(item.total_price)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold bg-muted/50">
-                          <TableCell colSpan={7} className="text-right">Total Amount:</TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(memoDetail.total_amount)}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                <div className="overflow-hidden rounded-xl border border-[#E3EAF3] dark:border-[#2C3B50]">
+                  <div className="border-b border-[#E3EAF3] px-4 py-2.5 dark:border-[#2C3B50]">
+                    <p className="text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                      Products ({memoDetail.total_items_count})
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              Failed to load memo details
-            </div>
-          )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className={tableHeadClass}>Code</TableHead>
+                        <TableHead className={tableHeadClass}>Product</TableHead>
+                        <TableHead className={tableHeadClass}>Pack</TableHead>
+                        <TableHead className={cn(tableHeadClass, "text-right")}>Qty</TableHead>
+                        <TableHead className={cn(tableHeadClass, "text-right")}>Delivered</TableHead>
+                        <TableHead className={cn(tableHeadClass, "text-right")}>Returned</TableHead>
+                        <TableHead className={cn(tableHeadClass, "text-right")}>Unit price</TableHead>
+                        <TableHead className={cn(tableHeadClass, "text-right")}>Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {memoDetail.items.map((item, index) => (
+                        <TableRow key={index} className="hover:bg-[#F8FAFC] dark:hover:bg-[#1B283B]">
+                          <TableCell className="font-mono text-[13px] font-medium">{item.product_code}</TableCell>
+                          <TableCell className="text-[13px]">{item.product_name}</TableCell>
+                          <TableCell className="text-[13px] text-[#64748B]">{item.pack_size || "N/A"}</TableCell>
+                          <TableCell className="text-right tabular-nums text-[13px]">{item.total_quantity}</TableCell>
+                          <TableCell className="text-right tabular-nums text-[13px]">
+                            {item.delivered_quantity !== null ? item.delivered_quantity : "N/A"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-[13px]">
+                            {item.returned_quantity !== null ? item.returned_quantity : "N/A"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-[13px]">{formatCurrency(item.unit_price)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-[13px] font-semibold">{formatCurrency(item.total_price)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-[#F8FBFF] hover:bg-[#F8FBFF] dark:bg-[#1B283B] dark:hover:bg-[#1B283B]">
+                        <TableCell colSpan={7} className="text-right text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                          Total amount
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                          {formatCurrency(memoDetail.total_amount)}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-[#64748B]">Failed to load memo details</p>
+            )}
+          </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
-    </div>
+    </OrderPageShell>
   );
 }
 

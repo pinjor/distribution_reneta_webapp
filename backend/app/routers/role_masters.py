@@ -154,15 +154,18 @@ def get_role_masters(
     skip: int = 0,
     limit: int = 100,
     role_type: Optional[RoleTypeEnum] = None,
+    include_inactive: bool = False,
     db: Session = Depends(get_db)
 ):
     """Get all role masters with optional filtering"""
-    query = db.query(RoleMaster).filter(RoleMaster.is_active == True)
+    query = db.query(RoleMaster)
+    if not include_inactive:
+        query = query.filter(RoleMaster.is_active == True)
     
     if role_type:
         query = query.filter(RoleMaster.role_type == role_type)
     
-    roles = query.offset(skip).limit(limit).all()
+    roles = query.order_by(RoleMaster.role_type.asc(), RoleMaster.name.asc()).offset(skip).limit(limit).all()
     
     # Enrich with parent and employee names
     result = []

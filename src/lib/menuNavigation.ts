@@ -119,10 +119,9 @@ export const SIDEBAR_MENU = [
     title: "Billing",
     icon: Coins,
     subItems: [
-      { title: "Collection Deposits", icon: FileText, path: "/billing/deposits", description: "Manage collection deposits" },
-      { title: "Receive Remaining Cash", icon: Coins, path: "/billing/deposits/remaining-cash", description: "Document remaining cash from employees" },
+      { title: "Collection Deposits", icon: FileText, path: "/billing/deposits", description: "Manage daily collection deposits from your collection team." },
       { title: "Collection Reports", icon: BarChart3, path: "/billing/reports", description: "View collection reports and analytics" },
-      { title: "Reconciliation", icon: GitCompare, path: "/distribution/reconciliation", description: "Reconcile collections and deposits" },
+      { title: "Reconciliation", icon: GitCompare, path: "/distribution/reconciliation", description: "Post-delivery reconciliation from assignment loading numbers" },
     ],
   },
   {

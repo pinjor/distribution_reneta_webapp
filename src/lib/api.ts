@@ -167,6 +167,8 @@ export const apiEndpoints = {
     getAll: () => api.get('/depots'),
     getById: (id: number) => api.get(`/depots/${id}`),
     create: (data: any) => api.post('/depots', data),
+    update: (id: number, data: any) => api.put(`/depots/${id}`, data),
+    delete: (id: number) => api.delete(`/depots/${id}`),
   },
   
   employees: {
@@ -180,15 +182,35 @@ export const apiEndpoints = {
   customers: {
     getAll: () => api.get('/customers'),
     create: (data: any) => api.post('/customers', data),
+    update: (id: number, data: any) => api.put(`/customers/${id}`, data),
+    delete: (id: number) => api.delete(`/customers/${id}`),
   },
   
   vendors: {
     getAll: () => api.get('/vendors'),
     create: (data: any) => api.post('/vendors', data),
+    update: (id: number, data: any) => api.put(`/vendors/${id}`, data),
+    delete: (id: number) => api.delete(`/vendors/${id}`),
+  },
+
+  chemistShops: {
+    getAll: (params?: Record<string, any>) => api.get(`/chemist-shops${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/chemist-shops/${id}`),
+    create: (data: any) => api.post('/chemist-shops', data),
+    update: (id: number, data: any) => api.put(`/chemist-shops/${id}`, data),
+    delete: (id: number) => api.delete(`/chemist-shops/${id}`),
+  },
+
+  doctors: {
+    getAll: (params?: Record<string, any>) => api.get(`/doctors${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/doctors/${id}`),
+    create: (data: any) => api.post('/doctors', data),
+    update: (id: number, data: any) => api.put(`/doctors/${id}`, data),
+    delete: (id: number) => api.delete(`/doctors/${id}`),
   },
   
   products: {
-    getAll: () => api.get('/products'),
+    getAll: (params?: Record<string, any>) => api.get(`/products${buildQuery(params)}`),
     getById: (id: number) => api.get(`/products/${id}`),
     create: (data: any) => api.post('/products', data),
     update: (id: number, data: any) => api.put(`/products/${id}`, data),
@@ -211,7 +233,7 @@ export const apiEndpoints = {
   },
   
   uoms: {
-    getAll: () => api.get('/uoms'),
+    getAll: (params?: Record<string, any>) => api.get(`/uoms${buildQuery(params)}`),
     getById: (id: number) => api.get(`/uoms/${id}`),
     create: (data: any) => api.post('/uoms', data),
     update: (id: number, data: any) => api.put(`/uoms/${id}`, data),
@@ -219,7 +241,7 @@ export const apiEndpoints = {
   },
   
   primaryPackagings: {
-    getAll: () => api.get('/primary-packagings'),
+    getAll: (params?: Record<string, any>) => api.get(`/primary-packagings${buildQuery(params)}`),
     getById: (id: number) => api.get(`/primary-packagings/${id}`),
     create: (data: any) => api.post('/primary-packagings', data),
     update: (id: number, data: any) => api.put(`/primary-packagings/${id}`, data),
@@ -227,7 +249,7 @@ export const apiEndpoints = {
   },
   
   priceSetups: {
-    getAll: () => api.get('/price-setups'),
+    getAll: (params?: Record<string, any>) => api.get(`/price-setups${buildQuery(params)}`),
     getById: (id: number) => api.get(`/price-setups/${id}`),
     create: (data: any) => api.post('/price-setups', data),
     update: (id: number, data: any) => api.put(`/price-setups/${id}`, data),
@@ -235,7 +257,12 @@ export const apiEndpoints = {
   },
   
   roleMasters: {
-    getAll: (roleType?: string) => api.get(roleType ? `/role-masters/?role_type=${roleType}` : '/role-masters/'),
+    getAll: (roleTypeOrParams?: string | Record<string, any>) => {
+      if (typeof roleTypeOrParams === "string") {
+        return api.get(`/role-masters/${buildQuery({ role_type: roleTypeOrParams })}`);
+      }
+      return api.get(`/role-masters/${buildQuery(roleTypeOrParams)}`);
+    },
     getById: (id: number) => api.get(`/role-masters/${id}`),
     create: (data: any) => api.post('/role-masters/', data),
     update: (id: number, data: any) => api.put(`/role-masters/${id}`, data),
@@ -270,6 +297,8 @@ export const apiEndpoints = {
       api.post('/orders/assigned/from-barcodes', data),
     approveDelivery: (data: { loading_number: string; memos: Array<{ memo_number: string; delivered_quantity: number; returned_quantity: number }> }) => 
       api.post('/orders/assigned/approve-delivery', data),
+    rejectDelivery: (data: { loading_number: string; reason: string }) =>
+      api.post('/orders/assigned/reject-delivery', data),
     getMISReport: (params?: Record<string, any>) => api.get(`/orders/mis-report${buildQuery(params)}`),
     getMISReportDetail: (memoId: number | string) => api.get(`/orders/mis-report/${memoId}`),
     getRemainingCashList: (params?: Record<string, any>) => api.get(`/orders/remaining-cash-list${buildQuery(params)}`),
@@ -313,12 +342,17 @@ export const apiEndpoints = {
   },
   
   drivers: {
-    getAll: () => api.get('/drivers'),
+    getAll: (params?: Record<string, any>) => api.get(`/drivers${buildQuery(params)}`),
     create: (data: any) => api.post('/drivers', data),
+    update: (id: number, data: any) => api.put(`/drivers/${id}`, data),
+    delete: (id: number) => api.delete(`/drivers/${id}`),
   },
   
   routes: {
     getAll: () => api.get('/routes'),
+    create: (data: any) => api.post('/routes', data),
+    update: (id: number, data: any) => api.put(`/routes/${id}`, data),
+    delete: (id: number) => api.delete(`/routes/${id}`),
   },
 
   masterData: {
@@ -396,6 +430,7 @@ export const apiEndpoints = {
       create: (data: any) => api.post('/billing/deposits', data),
       update: (id: number, data: any) => api.put(`/billing/deposits/${id}`, data),
       approve: (id: number, approverId: number) => api.post(`/billing/deposits/${id}/approve?approver_id=${approverId}`, {}),
+      reject: (id: number) => api.post(`/billing/deposits/${id}/reject`, {}),
       receiveRemaining: (id: number, amount: number, receivedBy: number, notes?: string) => 
         api.post(`/billing/deposits/${id}/receive-remaining?received_amount=${amount}&received_by=${receivedBy}${notes ? `&receipt_notes=${encodeURIComponent(notes)}` : ''}`, {}),
     },

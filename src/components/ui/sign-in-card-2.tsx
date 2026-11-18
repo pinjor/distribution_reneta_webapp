@@ -322,8 +322,6 @@ export function SignInCard({
                   checked={rememberMe}
                   onClick={() => !isLoading && onRememberMeChange(!rememberMe)}
                   size={18}
-                  color={BRAND.deep}
-                  className="border border-[#E2E8F0] bg-white hover:bg-slate-50"
                 />
                 <label
                   htmlFor="remember-me"

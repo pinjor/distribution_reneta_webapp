@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { MainLayout } from "./components/layout/MainLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -20,7 +20,6 @@ import ApprovalForCollection from "./pages/orders/ApprovalForCollection";
 import MISReport from "./pages/orders/MISReport";
 import CollectionDeposits from "./pages/billing/CollectionDeposits";
 import CollectionReports from "./pages/billing/CollectionReports";
-import RemainingCashDeposit from "./pages/billing/RemainingCashDeposit";
 import RemainingCashList from "./pages/orders/RemainingCashList";
 import ReceiveFactory from "./pages/receive/ReceiveFactory";
 import ReceiveDepot from "./pages/receive/ReceiveDepot";
@@ -155,7 +154,7 @@ const App = () => (
               <Route path="/settings/chemist-shop" element={<MainLayout><ChemistShop /></MainLayout>} />
               <Route path="/settings/doctor" element={<MainLayout><Doctor /></MainLayout>} />
               <Route path="/billing/deposits" element={<MainLayout><CollectionDeposits /></MainLayout>} />
-              <Route path="/billing/deposits/remaining-cash" element={<MainLayout><RemainingCashDeposit /></MainLayout>} />
+              <Route path="/billing/deposits/remaining-cash" element={<Navigate to="/billing/deposits?receive=1" replace />} />
               <Route path="/billing/reports" element={<MainLayout><CollectionReports /></MainLayout>} />
               <Route path="/transport/vehicles" element={<MainLayout><VehicleManagement /></MainLayout>} />
               <Route path="/transport/drivers" element={<MainLayout><DriverManagement /></MainLayout>} />

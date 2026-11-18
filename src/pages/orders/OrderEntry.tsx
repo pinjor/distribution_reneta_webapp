@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -12,12 +11,32 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { masterData, type CustomerOption, type EmployeeOption, type ProductOption } from "@/lib/masterData";
 import { apiEndpoints } from "@/lib/api";
-import { CalendarIcon, Loader2, Trash2, ChevronsUpDown, Pencil, ClipboardList } from "lucide-react";
+import {
+  CalendarIcon,
+  Check,
+  ChevronsUpDown,
+  ClipboardList,
+  Hash,
+  Loader2,
+  MapPinned,
+  Package,
+  Pencil,
+  Search,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  OrderPageHeading,
+  OrderPageShell,
+  OrderPanel,
+  dialogContentClass,
+  fieldClass,
+  labelClass,
+  numberInputClass,
+} from "@/components/orders/orderMgmtUi";
 
 interface ComboboxOption {
   value: string;
@@ -25,6 +44,8 @@ interface ComboboxOption {
   description?: string;
   payload?: any;
 }
+
+type ComboboxKind = "person" | "route" | "product" | "batch" | "reference";
 
 interface SearchableComboboxProps {
   label: string;
@@ -35,7 +56,50 @@ interface SearchableComboboxProps {
   disabled?: boolean;
   emptyMessage?: string;
   error?: string;
+  kind?: ComboboxKind;
   hideDescriptionWhenSelected?: boolean;  // New prop to hide description when selected
+}
+
+function optionInitials(label: string) {
+  const parts = label
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function OptionGlyph({ kind, label, size = "md" }: { kind: ComboboxKind; label?: string; size?: "sm" | "md" }) {
+  const box = size === "sm" ? "h-6 w-6 text-[9px]" : "h-8 w-8 text-[11px]";
+  const icon = size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5";
+  if (kind === "person") {
+    const initials = label ? optionInitials(label) : "";
+    return (
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-full bg-[#0C4DA1]/10 font-semibold tracking-wide text-[#0C4DA1]",
+          box,
+        )}
+        aria-hidden
+      >
+        {initials || <UserRound className={icon} />}
+      </span>
+    );
+  }
+  const Icon = kind === "route" ? MapPinned : kind === "product" ? Package : kind === "batch" ? Hash : ClipboardList;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#0C4DA1] dark:bg-[#1B283B] dark:text-[#93C5FD]",
+        box,
+      )}
+      aria-hidden
+    >
+      <Icon className={icon} />
+    </span>
+  );
 }
 
 interface ApiOrderItem {
@@ -123,55 +187,80 @@ const formatDate = (value?: string) => {
   return parsed.toLocaleDateString();
 };
 
-function SearchableCombobox({ label, placeholder, options, value, onSelect, disabled, emptyMessage, error }: SearchableComboboxProps) {
+function SearchableCombobox({
+  label,
+  placeholder,
+  options,
+  value,
+  onSelect,
+  disabled,
+  emptyMessage,
+  error,
+  kind = "reference",
+}: SearchableComboboxProps) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
 
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-medium text-muted-foreground">{label}</Label>
+    <div className="min-w-0 space-y-1">
+      <Label className={cn(labelClass, "text-xs")}>{label}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild disabled={disabled}>
           <Button
-            variant="outline"
+            variant="ntSecondary"
             role="combobox"
-            className={cn("w-full justify-between", !selected && "text-muted-foreground", error && "border-destructive")}
-          >
-            {selected ? (
-              <span className="text-left flex-1">
-                <span className="block font-medium text-foreground">{selected.label}</span>
-                {selected.description && label !== "Product code" && (
-                  <span className="block text-xs text-muted-foreground">{selected.description}</span>
-                )}
-              </span>
-            ) : (
-              placeholder
+            title={selected ? [selected.label, selected.description].filter(Boolean).join(" · ") : undefined}
+            className={cn(
+              "h-9 w-full justify-between !rounded-lg px-2 font-normal",
+              !selected && "text-[#64748B]",
+              error && "border-[#DC2626]",
             )}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          >
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <OptionGlyph kind={kind} label={selected?.label} size="sm" />
+              <span className={cn("min-w-0 truncate text-left text-sm", selected && "font-medium text-foreground")}>
+                {selected ? selected.label : placeholder}
+              </span>
+            </span>
+            <ChevronsUpDown className="ml-1.5 h-3.5 w-3.5 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[320px] p-0" align="start">
+        <PopoverContent className="nt-select-panel z-[200] w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border p-0" align="start">
           <Command>
-            <CommandInput placeholder={`Search ${label?.toLowerCase() || 'item'}...`} />
+            <CommandInput placeholder={`Search ${label?.toLowerCase() || "item"}...`} />
             <CommandList>
-              <CommandEmpty>{emptyMessage || "No results found."}</CommandEmpty>
+              <CommandEmpty>
+                <span className="flex flex-col items-center gap-1.5 py-2 text-[#64748B]">
+                  <Search className="h-4 w-4" />
+                  <span>{emptyMessage || "No results found."}</span>
+                </span>
+              </CommandEmpty>
               <CommandGroup>
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={`${option.label} ${option.description ?? ""}`}
-                    onSelect={() => {
-                      onSelect(option);
-                      setOpen(false);
-                    }}
-                    className="flex flex-col items-start gap-1"
-                  >
-                    <span className="text-sm font-medium text-foreground">{option.label}</span>
-                    {option.description && (
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
-                    )}
-                  </CommandItem>
-                ))}
+                {options.map((option) => {
+                  const isActive = option.value === value;
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      value={`${option.label} ${option.description ?? ""}`}
+                      onSelect={() => {
+                        onSelect(option);
+                        setOpen(false);
+                      }}
+                      className="flex items-center gap-2.5 rounded-lg px-2 py-1.5"
+                    >
+                      <OptionGlyph kind={kind} label={option.label} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">{option.label}</span>
+                        {option.description && (
+                          <span className="block truncate text-[11px] text-[#64748B] dark:text-[#A9B8CC]">
+                            {option.description}
+                          </span>
+                        )}
+                      </span>
+                      <Check className={cn("h-4 w-4 shrink-0 text-[#0C4DA1]", isActive ? "opacity-100" : "opacity-0")} />
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -971,40 +1060,39 @@ export default function OrderEntry() {
   const isBusy = saving || loadingOrder;
 
   return (
-    <main className="p-6 space-y-6">
-      <OrderBreadcrumb />
-      <PageHeader
-        title="Order Management"
-        subtitle="Create a customer order without reference, add multiple items, and review the draft before saving."
+    <OrderPageShell>
+      <OrderPageHeading
+        title="Sales Order"
+        description="Create a customer order, add multiple items, and review the draft before saving."
         icon={ClipboardList}
-        variant="indigo"
       />
 
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Order type</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <OrderPanel className="p-4">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <h2 className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Order type</h2>
           <RadioGroup
             value={orderType}
             onValueChange={(value) => setOrderType(value as "without" | "with")}
-            className="flex gap-8"
+            className="flex gap-5"
           >
             <div className="flex items-center gap-2">
               <RadioGroupItem value="with" id="order-type-with" />
-              <Label htmlFor="order-type-with" className="text-sm text-muted-foreground">
+              <Label htmlFor="order-type-with" className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
                 With reference
               </Label>
             </div>
             <div className="flex items-center gap-2">
               <RadioGroupItem value="without" id="order-type-without" />
-              <Label htmlFor="order-type-without" className="text-sm font-medium text-foreground">
+              <Label htmlFor="order-type-without" className="text-sm font-medium text-[#172B4D] dark:text-[#F1F5F9]">
                 Without reference
               </Label>
             </div>
           </RadioGroup>
-          {orderType === "with" && (
+        </div>
+        {orderType === "with" && (
+          <div className="mt-3 max-w-xl">
             <SearchableCombobox
+              kind="reference"
               label="Reference order"
               placeholder={referenceLoading ? "Loading reference orders..." : "Select reference order"}
               options={referenceOptions}
@@ -1022,246 +1110,236 @@ export default function OrderEntry() {
               emptyMessage={referenceOrders.length ? "No matching order" : "No submitted/approved orders yet"}
               error={errors.reference}
             />
-          )}
-          <Separator />
-          <div className="grid gap-4 md:grid-cols-4">
-            <SearchableCombobox
-              label="Customer"
-              placeholder="Select customer"
-              options={customerOptions}
-              value={form.customerId}
-              onSelect={(option) => {
-                setForm((prev) => ({ ...prev, customerId: option.value }));
-                clearError("customerId");
-              }}
-              disabled={loadingMasters || loadingOrder}
-              error={errors.customerId}
-            />
-            <SearchableCombobox
-              label="PSO / Employee"
-              placeholder="Select employee"
-              options={employeeOptions}
-              value={form.psoId}
-              onSelect={(option) => {
-                setForm((prev) => ({ ...prev, psoId: option.value }));
-                clearError("psoId");
-              }}
-              disabled={loadingMasters || loadingOrder}
-              error={errors.psoId}
-            />
-            <SearchableCombobox
-              label="Route *"
-              placeholder="Select route (Required)"
-              options={routeOptions}
-              value={form.routeCode}
-              onSelect={(option) => {
-                setForm((prev) => ({ ...prev, routeCode: option.value }));
-                clearError("routeCode");
-              }}
-              emptyMessage={shippingPoints.length ? "No route matches" : "No routes available"}
-              disabled={loadingMasters || loadingOrder}
-              error={errors.routeCode}
-            />
-            <SearchableCombobox
-              label="Product code"
-              placeholder="Select product"
-              options={productOptions}
-              value={form.productCode}
-              onSelect={(option) => {
-                setForm((prev) => ({ ...prev, productCode: option.value }));
-                clearError("productCode");
-              }}
-              emptyMessage={products.length ? "No product matches" : "No products available"}
-              disabled={loadingMasters || loadingOrder}
-              error={errors.productCode}
+          </div>
+        )}
+        <Separator className="my-3" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 lg:grid-cols-3 xl:grid-cols-6">
+          <SearchableCombobox
+            kind="person"
+            label="Customer"
+            placeholder="Select customer"
+            options={customerOptions}
+            value={form.customerId}
+            onSelect={(option) => {
+              setForm((prev) => ({ ...prev, customerId: option.value }));
+              clearError("customerId");
+            }}
+            disabled={loadingMasters || loadingOrder}
+            error={errors.customerId}
+          />
+          <SearchableCombobox
+            kind="person"
+            label="PSO / Employee"
+            placeholder="Select employee"
+            options={employeeOptions}
+            value={form.psoId}
+            onSelect={(option) => {
+              setForm((prev) => ({ ...prev, psoId: option.value }));
+              clearError("psoId");
+            }}
+            disabled={loadingMasters || loadingOrder}
+            error={errors.psoId}
+          />
+          <SearchableCombobox
+            kind="route"
+            label="Route *"
+            placeholder="Select route (Required)"
+            options={routeOptions}
+            value={form.routeCode}
+            onSelect={(option) => {
+              setForm((prev) => ({ ...prev, routeCode: option.value }));
+              clearError("routeCode");
+            }}
+            emptyMessage={shippingPoints.length ? "No route matches" : "No routes available"}
+            disabled={loadingMasters || loadingOrder}
+            error={errors.routeCode}
+          />
+          <SearchableCombobox
+            kind="product"
+            label="Product code"
+            placeholder="Select product"
+            options={productOptions}
+            value={form.productCode}
+            onSelect={(option) => {
+              setForm((prev) => ({ ...prev, productCode: option.value }));
+              clearError("productCode");
+            }}
+            emptyMessage={products.length ? "No product matches" : "No products available"}
+            disabled={loadingMasters || loadingOrder}
+            error={errors.productCode}
+          />
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Product name</Label>
+            <Input value={form.productName} readOnly placeholder="Auto-filled" className={cn(fieldClass, "h-9 border-dashed bg-[#F8FAFC] dark:bg-[#1B283B]")} />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Pack size</Label>
+            <Input value={form.packSize} readOnly placeholder="Auto-filled" className={cn(fieldClass, "h-9 border-dashed bg-[#F8FAFC] dark:bg-[#1B283B]")} />
+          </div>
+          <SearchableCombobox
+            kind="batch"
+            label="Batch number *"
+            placeholder={!form.productCode ? "Select product first" : batchOptions.length === 0 ? "No numeric batches available" : "Select batch (FEFO - Numeric only)"}
+            options={batchOptions}
+            value={form.batchNumber}
+            onSelect={(option) => {
+              if (!/^\d+$/.test(option.value.trim())) {
+                toast({
+                  title: "Invalid batch number",
+                  description: "Batch numbers must be numeric only (digits only).",
+                  variant: "destructive",
+                });
+                return;
+              }
+              const selectedBatch = batches.find((b) => b.batch_number === option.value);
+              setForm((prev) => ({
+                ...prev,
+                batchNumber: option.value.trim(),
+                currentStock: selectedBatch ? String(selectedBatch.available_quantity || 0) : prev.currentStock
+              }));
+              clearError("batchNumber");
+            }}
+            emptyMessage={batchOptions.length ? "No batch matches" : form.productCode ? "No numeric batches with stock available for this product" : "Select a product first"}
+            disabled={loadingMasters || loadingOrder || !form.productCode}
+            error={errors.batchNumber}
+          />
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Available stock (Batch)</Label>
+            <Input
+              value={form.currentStock || "0"}
+              readOnly
+              placeholder="Select batch to see stock"
+              title={form.batchNumber && form.currentStock ? `Stock for batch ${form.batchNumber}` : undefined}
+              className={cn(fieldClass, "h-9 border-dashed bg-[#F8FAFC] dark:bg-[#1B283B]")}
+              disabled
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2 md:col-span-2">
-              <Label className="text-sm font-medium text-muted-foreground">Product name</Label>
-              <Input value={form.productName} readOnly placeholder="Auto-filled" className="border-dashed bg-muted" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Pack size</Label>
-              <Input value={form.packSize} readOnly placeholder="Auto-filled" className="border-dashed bg-muted" />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <SearchableCombobox
-                label="Batch number *"
-                placeholder={!form.productCode ? "Select product first" : batchOptions.length === 0 ? "No numeric batches available" : "Select batch (FEFO - Numeric only)"}
-                options={batchOptions}
-                value={form.batchNumber}
-                onSelect={(option) => {
-                  // Validate that selected batch number is numeric
-                  if (!/^\d+$/.test(option.value.trim())) {
-                    toast({
-                      title: "Invalid batch number",
-                      description: "Batch numbers must be numeric only (digits only).",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  const selectedBatch = batches.find((b) => b.batch_number === option.value);
-                  setForm((prev) => ({ 
-                    ...prev, 
-                    batchNumber: option.value.trim(),
-                    currentStock: selectedBatch ? String(selectedBatch.available_quantity || 0) : prev.currentStock
-                  }));
-                  clearError("batchNumber");
-                }}
-                emptyMessage={batchOptions.length ? "No batch matches" : form.productCode ? "No numeric batches with stock available for this product" : "Select a product first"}
-                disabled={loadingMasters || loadingOrder || !form.productCode}
-                error={errors.batchNumber}
-              />
-              {form.productCode && batchOptions.length === 0 && batches.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Note: Only numeric batch numbers are shown. This product has {batches.length} batch(s) but none are numeric.
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Available stock (Batch)</Label>
-              <Input 
-                value={form.currentStock || "0"} 
-                readOnly 
-                placeholder="Select batch to see stock" 
-                className="border-dashed bg-muted" 
-                disabled 
-              />
-              {form.batchNumber && form.currentStock && (
-                <p className="text-xs text-muted-foreground">
-                  Stock for batch {form.batchNumber}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Quantity *</Label>
-              <Input
-                type="number"
-                min={1}
-                max={Number(form.currentStock || 0)}
-                value={form.quantity}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  const numValue = Number(value);
-                  const maxStock = Number(form.currentStock || 0);
-                  
-                  // Prevent entering value greater than stock
-                  if (value && numValue > maxStock) {
-                    toast({
-                      title: "Quantity exceeds stock",
-                      description: `Maximum available stock is ${maxStock} for this batch.`,
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  
-                  setForm((prev) => ({ ...prev, quantity: value }));
-                  clearError("quantity");
-                }}
-                placeholder="Enter quantity"
-                className={errors.quantity ? "border-destructive" : undefined}
-              />
-              {errors.quantity && <p className="text-xs text-destructive">{errors.quantity}</p>}
-              {form.currentStock && form.quantity && Number(form.quantity) > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Max: {form.currentStock} (available stock for selected batch)
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Free goods</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.freeGoods}
-                onChange={(event) => setForm((prev) => ({ ...prev, freeGoods: event.target.value }))}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Unit Price</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.unitPrice}
-                onChange={(event) => setForm((prev) => ({ ...prev, unitPrice: event.target.value }))}
-                placeholder="Unit price"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Trade price</Label>
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={form.tradePrice}
-                onChange={(event) => setForm((prev) => ({ ...prev, tradePrice: event.target.value }))}
-                placeholder="Trade price"
-              />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Discount %</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                value={form.discountPercent}
-                onChange={(event) => setForm((prev) => ({ ...prev, discountPercent: event.target.value }))}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">Delivery date</Label>
-              <div className="relative">
-                <Input
-                  type="date"
-                  value={form.deliveryDate}
-                  onChange={(event) => setForm((prev) => ({ ...prev, deliveryDate: event.target.value }))}
-                />
-                <CalendarIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              </div>
-            </div>
-            <div className="flex items-end justify-end">
-              <Button onClick={handleAddItem} className="w-full md:w-auto" disabled={loadingMasters || isBusy}>
-                {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Add item
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Quantity *</Label>
+            <Input
+              type="number"
+              min={1}
+              max={Number(form.currentStock || 0)}
+              value={form.quantity}
+              onChange={(event) => {
+                const value = event.target.value;
+                const numValue = Number(value);
+                const maxStock = Number(form.currentStock || 0);
 
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Draft items ({items.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4 text-sm text-muted-foreground bg-muted/40 rounded-md p-4">
+                if (value && numValue > maxStock) {
+                  toast({
+                    title: "Quantity exceeds stock",
+                    description: `Maximum available stock is ${maxStock} for this batch.`,
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                setForm((prev) => ({ ...prev, quantity: value }));
+                clearError("quantity");
+              }}
+              placeholder="Enter quantity"
+              title={form.currentStock ? `Max: ${form.currentStock} (available stock for selected batch)` : undefined}
+              className={cn(fieldClass, numberInputClass, "h-9", errors.quantity && "border-[#DC2626]")}
+            />
+            {errors.quantity && <p className="text-xs text-destructive">{errors.quantity}</p>}
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Free goods</Label>
+            <Input
+              type="number"
+              min={0}
+              value={form.freeGoods}
+              onChange={(event) => setForm((prev) => ({ ...prev, freeGoods: event.target.value }))}
+              placeholder="0"
+              className={cn(fieldClass, numberInputClass, "h-9")}
+            />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Unit Price</Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.unitPrice}
+              onChange={(event) => setForm((prev) => ({ ...prev, unitPrice: event.target.value }))}
+              placeholder="Unit price"
+              className={cn(fieldClass, numberInputClass, "h-9")}
+            />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Trade price</Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.tradePrice}
+              onChange={(event) => setForm((prev) => ({ ...prev, tradePrice: event.target.value }))}
+              placeholder="Trade price"
+              className={cn(fieldClass, numberInputClass, "h-9")}
+            />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Discount %</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              value={form.discountPercent}
+              onChange={(event) => setForm((prev) => ({ ...prev, discountPercent: event.target.value }))}
+              placeholder="0"
+              className={cn(fieldClass, numberInputClass, "h-9")}
+            />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <Label className={cn(labelClass, "text-xs")}>Delivery date</Label>
+            <div className="relative">
+              <Input
+                type="date"
+                value={form.deliveryDate}
+                onChange={(event) => setForm((prev) => ({ ...prev, deliveryDate: event.target.value }))}
+                className={cn(fieldClass, "h-9")}
+              />
+              <CalendarIcon className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B]" />
+            </div>
+          </div>
+          <div className="col-span-2 flex items-end justify-end lg:col-span-1 xl:col-span-4">
+            <Button type="button" variant="ntPrimary" onClick={handleAddItem} className="h-9 w-full min-w-[8.5rem] xl:w-auto" disabled={loadingMasters || isBusy}>
+              {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Add item
+            </Button>
+          </div>
+        </div>
+        {form.productCode && batchOptions.length === 0 && batches.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Note: Only numeric batch numbers are shown. This product has {batches.length} batch(s) but none are numeric.
+          </p>
+        )}
+      </OrderPanel>
+
+      <OrderPanel className="p-5">
+        <h2 className="mb-3 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Draft items ({items.length})</h2>
+        <div className="space-y-4">
+          <div className="grid gap-4 rounded-lg bg-[#F8FAFC] p-4 text-sm text-[#64748B] dark:bg-[#1B283B] dark:text-[#A9B8CC] md:grid-cols-4">
             <div>
-              <span className="block font-medium text-foreground">Customer</span>
+              <span className="block font-medium text-[#172B4D] dark:text-[#F1F5F9]">Customer</span>
               <span>{selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.code})` : "—"}</span>
             </div>
             <div>
-              <span className="block font-medium text-foreground">PSO / Employee</span>
+              <span className="block font-medium text-[#172B4D] dark:text-[#F1F5F9]">PSO / Employee</span>
               <span>{selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.code})` : "—"}</span>
             </div>
             <div>
-              <span className="block font-medium text-foreground">Delivery date</span>
+              <span className="block font-medium text-[#172B4D] dark:text-[#F1F5F9]">Delivery date</span>
               <span>{form.deliveryDate || "—"}</span>
             </div>
           </div>
 
           <div className="border rounded-lg overflow-hidden">
             <Table>
-              <TableHeader className="bg-muted/60">
-                <TableRow className="uppercase text-xs text-muted-foreground tracking-wide">
+              <TableHeader className="bg-[#F8FAFC] dark:bg-[#1B283B]">
+                <TableRow className="uppercase text-[11px] tracking-wide text-[#64748B] dark:text-[#A9B8CC]">
                   <TableHead className="w-12">SL</TableHead>
                   <TableHead className="w-32">Product code</TableHead>
                   <TableHead className="w-24">Batch</TableHead>
@@ -1313,28 +1391,28 @@ export default function OrderEntry() {
               </TableBody>
             </Table>
           </div>
-          {errors.items && <p className="text-xs text-destructive">{errors.items}</p>}
+          {errors.items && <p className="text-xs text-[#DC2626]">{errors.items}</p>}
 
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center justify-between text-sm text-[#64748B] dark:text-[#A9B8CC]">
             <span>
-              Total quantity: <span className="font-semibold text-foreground">{items.reduce((sum, item) => sum + item.totalQuantity, 0)}</span>
+              Total quantity: <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{items.reduce((sum, item) => sum + item.totalQuantity, 0)}</span>
             </span>
             <span>
-              Total value: <span className="font-semibold text-foreground">৳{items.reduce((sum, item) => {
+              Total value: <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{items.reduce((sum, item) => {
                 const priceAfterDiscount = item.unitPrice * (1 - item.discountPercent / 100);
                 return sum + priceAfterDiscount * item.totalQuantity;
               }, 0).toFixed(2)}</span>
             </span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </OrderPanel>
 
       <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" disabled={!canSave || isBusy} onClick={() => handleSave(false)}>
+        <Button type="button" variant="ntSecondary" disabled={!canSave || isBusy} onClick={() => handleSave(false)}>
           {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Save draft
         </Button>
-        <Button onClick={() => handleSave(true)} disabled={!canSave || isBusy}>
+        <Button type="button" variant="ntPrimary" onClick={() => handleSave(true)} disabled={!canSave || isBusy}>
           {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Save & Continue
         </Button>
@@ -1342,7 +1420,7 @@ export default function OrderEntry() {
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && cancelEditItem()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={cn(dialogContentClass, "max-w-2xl")}>
           <DialogHeader>
             <DialogTitle>Edit Product Item</DialogTitle>
           </DialogHeader>
@@ -1478,14 +1556,14 @@ export default function OrderEntry() {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={cancelEditItem}>
+          <DialogFooter className="border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50]">
+            <Button type="button" variant="ntSecondary" onClick={cancelEditItem}>
               Cancel
             </Button>
-            <Button onClick={saveEditItem}>Save Changes</Button>
+            <Button type="button" variant="ntPrimary" onClick={saveEditItem}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main>
+    </OrderPageShell>
   );
 }

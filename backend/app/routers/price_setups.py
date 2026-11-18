@@ -39,8 +39,11 @@ def generate_price_setup_code(db: Session) -> str:
     return code
 
 @router.get("/", response_model=List[PriceSetupSchema])
-def get_price_setups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    setups = db.query(PriceSetup).filter(PriceSetup.is_active == True).offset(skip).limit(limit).all()
+def get_price_setups(skip: int = 0, limit: int = 100, include_inactive: bool = False, db: Session = Depends(get_db)):
+    query = db.query(PriceSetup)
+    if not include_inactive:
+        query = query.filter(PriceSetup.is_active == True)
+    setups = query.order_by(PriceSetup.code.asc()).offset(skip).limit(limit).all()
     return setups
 
 @router.get("/{setup_id}", response_model=PriceSetupSchema)

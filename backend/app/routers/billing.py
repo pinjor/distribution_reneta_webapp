@@ -68,7 +68,8 @@ def create_collection_deposit(
         remaining_amount=deposit_data.remaining_amount,
         total_collection_amount=deposit_data.total_collection_amount,
         notes=deposit_data.notes,
-        approved=False
+        approved=False,
+        rejected=False,
     )
     
     db.add(deposit)
@@ -89,6 +90,7 @@ def create_collection_deposit(
 def list_collection_deposits(
     collection_person_id: Optional[int] = Query(None),
     approved: Optional[bool] = Query(None),
+    rejected: Optional[bool] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
@@ -105,8 +107,15 @@ def list_collection_deposits(
     if collection_person_id:
         query = query.filter(models.CollectionDeposit.collection_person_id == collection_person_id)
     
-    if approved is not None:
-        query = query.filter(models.CollectionDeposit.approved == approved)
+    if rejected is True:
+        query = query.filter(models.CollectionDeposit.rejected == True)
+    elif approved is True:
+        query = query.filter(models.CollectionDeposit.approved == True)
+    elif approved is False:
+        query = query.filter(
+            models.CollectionDeposit.approved == False,
+            models.CollectionDeposit.rejected == False,
+        )
     
     if start_date:
         query = query.filter(models.CollectionDeposit.deposit_date >= start_date)
@@ -195,6 +204,12 @@ def update_collection_deposit(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot update approved deposit"
         )
+
+    if getattr(deposit, "rejected", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot update rejected deposit"
+        )
     
     # Update fields
     update_data = deposit_data.dict(exclude_unset=True)
@@ -246,6 +261,12 @@ def approve_collection_deposit(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Deposit already approved"
         )
+
+    if getattr(deposit, "rejected", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot approve a rejected deposit"
+        )
     
     deposit.approved = True
     deposit.approved_by = approver_id
@@ -269,6 +290,53 @@ def approve_collection_deposit(
         "approver_name": f"{approver.first_name} {approver.last_name or ''}".strip() if approver else ""
     }
     
+    return deposit_dict
+
+
+@router.post("/deposits/{deposit_id}/reject", response_model=schemas.CollectionDeposit)
+def reject_collection_deposit(
+    deposit_id: int,
+    db: Session = Depends(get_db)
+):
+    """Reject a pending collection deposit without removing it."""
+    deposit = db.query(models.CollectionDeposit).filter(
+        models.CollectionDeposit.id == deposit_id
+    ).first()
+
+    if not deposit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Deposit not found"
+        )
+
+    if deposit.approved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reject an approved deposit"
+        )
+
+    if getattr(deposit, "rejected", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deposit already rejected"
+        )
+
+    deposit.rejected = True
+    deposit.rejected_at = datetime.utcnow()
+    deposit.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(deposit)
+
+    collection_person = db.query(models.Employee).filter(
+        models.Employee.id == deposit.collection_person_id
+    ).first()
+
+    deposit_dict = {
+        **deposit.__dict__,
+        "collection_person_name": f"{collection_person.first_name} {collection_person.last_name or ''}".strip() if collection_person else "",
+        "approver_name": None
+    }
+
     return deposit_dict
 
 
@@ -527,6 +595,12 @@ def receive_remaining_cash(
             detail="Deposit not found"
         )
     
+    if getattr(deposit, "rejected", False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot receive remaining cash for a rejected deposit"
+        )
+
     if deposit.remaining_amount == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

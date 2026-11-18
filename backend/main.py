@@ -16,7 +16,7 @@ import app.models_platform  # noqa: F401
 
 from app.routers import (
     auth, companies, depots, employees, customers, vendors,
-    products, materials, shipping_points, route_shipping_points, uoms, primary_packagings, price_setups,
+    products, materials, shipping_points, route_shipping_points, uoms, primary_packagings, price_setups, chemist_shops, doctors,
     role_masters, orders, product_receipts, order_deliveries,
     vehicles, drivers, routes, picking_orders,
     stock_receipt, stock_issuance, vehicle_loading,
@@ -126,6 +126,8 @@ app.include_router(depots.router, prefix="/api/depots", tags=["Depots"], depende
 app.include_router(employees.router, prefix="/api/employees", tags=["Employees"], dependencies=PROTECTED)
 app.include_router(customers.router, prefix="/api/customers", tags=["Customers"], dependencies=PROTECTED)
 app.include_router(vendors.router, prefix="/api/vendors", tags=["Vendors"], dependencies=PROTECTED)
+app.include_router(chemist_shops.router, prefix="/api/chemist-shops", tags=["Chemist Shops"], dependencies=PROTECTED)
+app.include_router(doctors.router, prefix="/api/doctors", tags=["Doctors"], dependencies=PROTECTED)
 app.include_router(products.router, prefix="/api/products", tags=["Products"], dependencies=PROTECTED)
 app.include_router(materials.router, prefix="/api/materials", tags=["Materials"], dependencies=PROTECTED)
 app.include_router(shipping_points.router, prefix="/api/shipping-points", tags=["Shipping Points"], dependencies=PROTECTED)

@@ -7,6 +7,8 @@ from . import (
     employees,
     customers,
     vendors,
+    chemist_shops,
+    doctors,
     products,
     materials,
     shipping_points,

@@ -250,12 +250,9 @@ export default function ReceiveList() {
   return (
     <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-x-hidden">
-        <motion.div
-          {...sectionMotion}
-          className="nt-form shrink-0 rounded-2xl border border-[#E3EAF3] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-[#2C3B50] dark:bg-[#151F30]"
-        >
-          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <div className="min-w-0 space-y-1">
+        <motion.div {...sectionMotion} className="nt-form shrink-0">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+            <div className="w-[180px] max-w-full space-y-1">
               <Label className={labelClass}>Source</Label>
               <Select value={sourceFilter} onValueChange={setSourceFilter}>
                 <SelectTrigger className={cn("w-full", fieldClass)}>
@@ -277,7 +274,7 @@ export default function ReceiveList() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-0 space-y-1">
+            <div className="w-[160px] max-w-full space-y-1">
               <Label className={labelClass}>Status</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className={cn("w-full", fieldClass)}>
@@ -296,7 +293,7 @@ export default function ReceiveList() {
                 </SelectContent>
               </Select>
             </div>
-            <p className="pb-1 text-[13px] text-[#64748B]">
+            <p className="ml-auto pb-1 text-[13px] text-[#64748B]">
               Total quantity{" "}
               <span className="font-semibold tabular-nums text-[#172B4D] dark:text-[#F1F5F9]">{totalQuantity.toLocaleString()}</span>
             </p>

@@ -72,6 +72,7 @@ def seed_all_data():
     
     seed_scripts = [
         ("seed_master_data", "Seeding Master Data (Companies, Depots, Products, Customers, Employees)"),
+        ("seed_companies", "Seeding Company Master demo records"),
         ("seed_vehicles", "Seeding Vehicles"),
         ("seed_drivers", "Seeding Drivers"),
         ("seed_simple_routes", "Creating Basic Routes"),
@@ -80,7 +81,9 @@ def seed_all_data():
         ("seed_complete_orders", "Seeding Complete Orders"),
         ("seed_delivery_orders", "Seeding Delivery Orders"),
         ("seed_collection_data", "Seeding Collection Orders"),
+        ("seed_order_management", "Seeding Order Management demo orders"),
         ("seed_collection_deposits", "Seeding Collection Deposits (Billing)"),
+        ("seed_reconciliation", "Seeding Post-Delivery Reconciliation"),
         ("seed_transport_data", "Seeding Transport Trips and Expenses"),
         ("seed_demo_modules", "Seeding Demo Modules (Receipts, Deliveries, Picking, Stock)"),
         ("seed_depot_transfers", "Seeding Depot Transfers"),

@@ -202,6 +202,49 @@ def seed_collection_data():
                 "approved": True,
                 "cash_received_note": "[Remaining Cash Received] 2025-11-30 10:00:00: 15000 BDT received by employee ID 1."
             },
+            {
+                "number": f"DEP-{today.strftime('%Y%m%d')}-0017",
+                "person_idx": 0,
+                "method": "BRAC",
+                "total": Decimal("48000"),
+                "deposited": Decimal("28000"),
+                "remaining": Decimal("20000"),
+                "txn": f"BRAC{today.strftime('%Y%m%d')}017",
+                "approved": False,
+                "rejected": True,
+            },
+            {
+                "number": f"DEP-{today.strftime('%Y%m%d')}-0018",
+                "person_idx": 1 if len(employees) > 1 else 0,
+                "method": "bKash",
+                "total": Decimal("52000"),
+                "deposited": Decimal("32000"),
+                "remaining": Decimal("20000"),
+                "txn": f"BKASH{today.strftime('%Y%m%d')}018",
+                "approved": False,
+                "rejected": True,
+            },
+            {
+                "number": f"DEP-{today.strftime('%Y%m%d')}-0019",
+                "person_idx": 2 if len(employees) > 2 else 0,
+                "method": "Nagad",
+                "total": Decimal("41000"),
+                "deposited": Decimal("25000"),
+                "remaining": Decimal("16000"),
+                "txn": f"NAGAD{today.strftime('%Y%m%d')}019",
+                "approved": False,
+                "rejected": True,
+            },
+            {
+                "number": f"DEP-{today.strftime('%Y%m%d')}-0020",
+                "person_idx": 0,
+                "method": "BRAC",
+                "total": Decimal("36000"),
+                "deposited": Decimal("36000"),
+                "remaining": Decimal("0"),
+                "txn": f"BRAC{today.strftime('%Y%m%d')}020",
+                "approved": False,
+            },
         ]
         
         for deposit_data in today_deposits_data:
@@ -225,6 +268,8 @@ def seed_collection_data():
             if deposit_data.get("cash_received_note"):
                 base_notes += f"\n{deposit_data['cash_received_note']}"
             
+            is_approved = deposit_data.get("approved", True) and not deposit_data.get("rejected", False)
+            is_rejected = deposit_data.get("rejected", False)
             today_deposit = CollectionDeposit(
                 deposit_number=deposit_data["number"],
                 deposit_date=today,
@@ -235,10 +280,12 @@ def seed_collection_data():
                 attachment_url=f"/attachments/deposit_{deposit_data['number']}.jpg",
                 remaining_amount=deposit_data["remaining"],
                 total_collection_amount=deposit_data["total"],
-                notes=base_notes,
-                approved=deposit_data.get("approved", True),
-                approved_by=person.id if deposit_data.get("approved", True) else None,
-                approved_at=datetime.utcnow() if deposit_data.get("approved", True) else None
+                notes=base_notes if not is_rejected else f"{base_notes}\nRejected during review.",
+                approved=is_approved,
+                approved_by=person.id if is_approved else None,
+                approved_at=datetime.utcnow() if is_approved else None,
+                rejected=is_rejected,
+                rejected_at=datetime.utcnow() if is_rejected else None,
             )
             
             db.add(today_deposit)
@@ -280,10 +327,15 @@ def seed_collection_data():
                 attachment_url=f"/attachments/deposit_{deposit_number}.pdf",
                 remaining_amount=remaining_amount,
                 total_collection_amount=total_collection,
-                notes=f"Daily collection deposit for {deposit_date.strftime('%B %d, %Y')}",
-                approved=(day_offset <= 3),  # Approve deposits from last 3 days
+                notes=(
+                    f"Daily collection deposit for {deposit_date.strftime('%B %d, %Y')}"
+                    + (" (rejected in review)" if day_offset in (5, 6) else "")
+                ),
+                approved=(day_offset <= 3),
                 approved_by=collection_person.id if day_offset <= 3 else None,
-                approved_at=datetime.utcnow() if day_offset <= 3 else None
+                approved_at=datetime.utcnow() if day_offset <= 3 else None,
+                rejected=(day_offset in (5, 6)),
+                rejected_at=datetime.utcnow() if day_offset in (5, 6) else None,
             )
             
             db.add(deposit)
@@ -343,7 +395,7 @@ def seed_collection_data():
         print(f"  - Deposits from last 7 days")
         print(f"  - Various collection types (Fully Collected, Partial, Postponed)")
         print(f"  - Different deposit methods (BRAC, bKash, Nagad)")
-        print(f"  - Approved and pending deposits")
+        print(f"  - Approved, pending, and rejected deposits")
         
     except Exception as e:
         db.rollback()

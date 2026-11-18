@@ -1,468 +1,695 @@
-import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  AlertTriangle,
+  CheckCircle2,
+  ListFilter,
+  Loader2,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Warehouse,
+  XCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, ArrowLeft, MapPin, Layers } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { useToast } from "@/hooks/use-toast";
-import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
-import { getBadgeVariant } from "@/utils/badgeColors";
 import { apiEndpoints } from "@/lib/api";
+import { NAVY_TEAL_SCOPE_CLASS } from "@/lib/navyTealTheme";
+import { generateCode } from "@/utils/codeGenerator";
+import { cn } from "@/lib/utils";
+import {
+  ActionIconButton,
+  asList,
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  selectItemClass,
+  selectPanelClass,
+} from "@/components/transport/transportUi";
 
-interface Depot {
-  id: string;
-  code: string;
+interface CompanyRecord {
+  id: number;
   name: string;
-  location: string;
-  capacity: string;
-  status: "active" | "inactive";
-  warehouse?: string;
-  zone?: string;
-  storageType?: "General Store" | "Cold" | "Cool";
+  code: string;
 }
 
-const STORAGE_KEY = "depotMasterData";
+interface DepotRecord {
+  id: number;
+  name: string;
+  code: string;
+  company_id: number;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  is_active?: boolean;
+}
 
-const defaultDepots: Depot[] = [
-  {
-    id: "120",
-    code: "120",
-    name: "Kushtia Depot",
-    location: "Kushtia",
-    capacity: "45,000 sq ft",
-    status: "active",
-    warehouse: "Warehouse-KU",
-    zone: "Zone-01",
-    storageType: "General Store",
-  },
-  {
-    id: "107",
-    code: "107",
-    name: "Khulna Depot",
-    location: "Khulna",
-    capacity: "38,000 sq ft",
-    status: "active",
-    warehouse: "Warehouse-KH",
-    zone: "Zone-02",
-    storageType: "Cool",
-  },
-  {
-    id: "DEPT-0001",
-    code: "DEPT-0001",
-    name: "Main Warehouse",
-    location: "New York, NY",
-    capacity: "50,000 sq ft",
-    status: "active",
-    warehouse: "Warehouse-1",
-    zone: "Zone-1",
-    storageType: "General Store",
-  },
-];
+const emptyForm = {
+  company_id: "",
+  name: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
+  phone: "",
+  email: "",
+};
+
+function StatusFilterOption({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: typeof ListFilter;
+  label: string;
+  tone: "navy" | "green" | "red";
+}) {
+  const toneClass = {
+    navy: "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]",
+    green: "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]",
+    red: "bg-[#FEF2F2] text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]",
+  }[tone];
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md", toneClass)}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      {label}
+    </span>
+  );
+}
 
 export default function Depot() {
+  const reduceMotion = useReducedMotion();
   const { toast } = useToast();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedDepot, setSelectedDepot] = useState<Depot | null>(null);
-  const [warehouse, setWarehouse] = useState("");
-  const [zone, setZone] = useState("");
-  const [storageType, setStorageType] = useState<"General Store" | "Cold" | "Cool">("General Store");
-  const [companies, setCompanies] = useState<Array<{ id: number; name: string; code: string }>>([]);
-  const [companyId, setCompanyId] = useState<string>("");
-
-  const [formData, setFormData] = useState({
-    code: "",
-    name: "",
-    location: "",
-    capacity: "",
-  });
-
-  const [depots, setDepots] = useState<Depot[]>(() => {
-    if (typeof window === "undefined") {
-      return defaultDepots;
-    }
-
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Depot[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to parse depot master data from storage", error);
-    }
-
-    return defaultDepots;
-  });
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<DepotRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DepotRecord | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
-    document.title = "Depot Settings | Renata";
-    fetchCompanies();
+    document.title = "Depot | Renata";
   }, []);
 
-  const fetchCompanies = async () => {
-    try {
-      const data = await apiEndpoints.companies.getAll();
-      setCompanies(data);
-    } catch (error) {
-      console.error("Failed to fetch companies:", error);
-    }
-  };
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["depots"],
+    queryFn: async () => asList<DepotRecord>(await apiEndpoints.depots.getAll()),
+  });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(depots));
-      window.dispatchEvent(new Event("depot-data-updated"));
-    } catch (error) {
-      console.warn("Failed to persist depot master data", error);
-    }
+  const { data: companiesData } = useQuery({
+    queryKey: ["companies"],
+    queryFn: async () => asList<CompanyRecord>(await apiEndpoints.companies.getAll()),
+  });
+
+  const depots = data || [];
+  const companies = companiesData || [];
+  const companyById = useMemo(
+    () => new Map(companies.map((company) => [company.id, company])),
+    [companies],
+  );
+
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => apiEndpoints.depots.create(payload),
+    onSuccess: () => {
+      toast({ title: "Depot added", description: `${formData.name} has been created.` });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["depots"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
+      apiEndpoints.depots.update(id, payload),
+    onSuccess: () => {
+      toast({ title: "Depot updated", description: "Depot information has been updated successfully." });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["depots"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiEndpoints.depots.delete(id),
+    onSuccess: () => {
+      toast({ title: "Depot deleted", description: "The depot has been removed." });
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["depots"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const formBusy = createMutation.isPending || updateMutation.isPending;
+
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return depots.filter((depot) => {
+      const active = depot.is_active !== false;
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      if (!term) return true;
+      const company = companyById.get(depot.company_id);
+      return [
+        depot.name,
+        depot.code,
+        depot.email,
+        depot.phone,
+        depot.city,
+        depot.state,
+        company?.name,
+        company?.code,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [companyById, depots, searchTerm, statusFilter]);
+
+  const totals = useMemo(() => {
+    const active = depots.filter((depot) => depot.is_active !== false).length;
+    return { total: depots.length, active, inactive: depots.length - active };
   }, [depots]);
 
-  const resetForm = () => {
+  const openCreate = () => {
+    setEditTarget(null);
     setFormData({
-      code: "",
-      name: "",
-      location: "",
-      capacity: "",
+      ...emptyForm,
+      company_id: companies[0] ? String(companies[0].id) : "",
     });
-    setWarehouse("");
-    setZone("");
-    setStorageType("General Store");
-    setEditMode(false);
-    setSelectedDepot(null);
-    setShowAddForm(false);
+    setIsActive(true);
+    setGeneratedCode(generateCode("DEPOT", depots.map((depot) => depot.code)));
+    setShowForm(true);
   };
 
-  const handleChange = (field: "code" | "name" | "location" | "capacity", value: string) => {
+  const openEdit = (depot: DepotRecord) => {
+    setEditTarget(depot);
+    setGeneratedCode(depot.code);
+    setIsActive(depot.is_active !== false);
+    setFormData({
+      company_id: depot.company_id ? String(depot.company_id) : "",
+      name: depot.name || "",
+      address: depot.address || "",
+      city: depot.city || "",
+      state: depot.state || "",
+      pincode: depot.pincode || "",
+      phone: depot.phone || "",
+      email: depot.email || "",
+    });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setGeneratedCode("");
+    setIsActive(true);
+  };
+
+  const handleChange = (field: keyof typeof emptyForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const validateDepot = (): boolean => {
-    if (!formData.code.trim() || !formData.name.trim() || !formData.location.trim()) {
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!formData.name.trim() || formBusy) return;
+
+    if (editTarget) {
+      updateMutation.mutate({
+        id: editTarget.id,
+        payload: {
+          name: formData.name.trim(),
+          address: formData.address || undefined,
+          city: formData.city || undefined,
+          state: formData.state || undefined,
+          pincode: formData.pincode || undefined,
+          phone: formData.phone || undefined,
+          email: formData.email || undefined,
+          is_active: isActive,
+        },
+      });
+      return;
+    }
+
+    if (!formData.company_id) {
       toast({
-        title: "Missing information",
-        description: "Depot code, name, and location are required.",
+        title: "Company required",
+        description: "Select a company before creating a depot.",
         variant: "destructive",
       });
-      return false;
+      return;
     }
 
-    const duplicate = depots.some(
-      (depot) => depot.code.trim().toLowerCase() === formData.code.trim().toLowerCase() && depot.id !== selectedDepot?.id,
-    );
-
-    if (duplicate) {
-      toast({
-        title: "Duplicate depot code",
-        description: "This depot code already exists. Please provide a unique code.",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleAdd = () => {
-    if (!validateDepot()) return;
-
-    if (editMode && selectedDepot) {
-      setDepots((prev) =>
-        prev.map((depot) =>
-          depot.id === selectedDepot.id
-            ? {
-                ...depot,
-                code: formData.code.trim(),
-                name: formData.name,
-                location: formData.location,
-                capacity: formData.capacity,
-                warehouse,
-                zone,
-                storageType,
-              }
-            : depot,
-        ),
-      );
-      toast({
-        title: "Depot updated",
-        description: "Depot information has been updated successfully.",
-      });
-    } else {
-      const newDepot: Depot = {
-        id: formData.code.trim(),
-        code: formData.code.trim(),
-        name: formData.name,
-        location: formData.location,
-        capacity: formData.capacity,
-        status: "active",
-        warehouse,
-        zone,
-        storageType,
-      };
-      setDepots((prev) => [...prev, newDepot]);
-      toast({
-        title: "Depot added",
-        description: `New depot created with code ${newDepot.code}.`,
-      });
-    }
-
-    resetForm();
-  };
-
-  const handleEdit = (depot: Depot) => {
-    setSelectedDepot(depot);
-    setFormData({
-      code: depot.code,
-      name: depot.name,
-      location: depot.location,
-      capacity: depot.capacity,
-    });
-    setWarehouse(depot.warehouse || "");
-    setZone(depot.zone || "");
-    setStorageType(depot.storageType || "General Store");
-    setEditMode(true);
-    setShowAddForm(true);
-  };
-
-  const handleDelete = (depot: Depot) => {
-    setDepots((prev) => prev.filter((item) => item.id !== depot.id));
-    toast({
-      title: "Depot deleted",
-      description: "The depot has been removed.",
-      variant: "destructive",
+    createMutation.mutate({
+      name: formData.name.trim(),
+      code: generatedCode,
+      company_id: Number(formData.company_id),
+      address: formData.address || undefined,
+      city: formData.city || undefined,
+      state: formData.state || undefined,
+      pincode: formData.pincode || undefined,
+      phone: formData.phone || undefined,
+      email: formData.email || undefined,
+      is_active: true,
     });
   };
 
-  const handleCancel = () => {
-    resetForm();
-  };
-
-  const columns: ColumnDef<Depot>[] = useMemo(
-    () => [
-      {
-        key: "name",
-        header: "Depot Name",
-        render: (_, depot) => <span className="font-medium">{depot.name}</span>,
+  const columns: DataTableColumn<DepotRecord>[] = [
+    {
+      key: "code",
+      label: "Code",
+      className: "font-mono text-[13px]",
+    },
+    {
+      key: "name",
+      label: "Depot Name",
+      render: (val) => <span className="font-medium text-[#0C4DA1] dark:text-[#70ADFF]">{String(val || "—")}</span>,
+    },
+    {
+      key: "company_id",
+      label: "Company",
+      render: (_val, row) => {
+        const company = companyById.get(row.company_id);
+        return company ? (
+          <span>
+            {company.name}
+            <span className="text-[#64748B] dark:text-[#A9B8CC]"> · {company.code}</span>
+          </span>
+        ) : (
+          "—"
+        );
       },
-      {
-        key: "location",
-        header: "Location",
-        render: (_, depot) => (
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            {depot.location}
+    },
+    {
+      key: "email",
+      label: "Contact",
+      render: (_val, row) => (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <Mail className="h-3 w-3 text-[#64748B]" />
+            {row.email || "—"}
           </div>
+          <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] dark:text-[#A9B8CC]">
+            <Phone className="h-3 w-3" />
+            {row.phone || "—"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "city",
+      label: "Location",
+      render: (_val, row) => (
+        <div className="flex items-center gap-1.5 text-[13px]">
+          <MapPin className="h-3.5 w-3.5 text-[#64748B]" />
+          <span>
+            {row.city || "—"}
+            {row.state ? <span className="text-[#64748B] dark:text-[#A9B8CC]"> · {row.state}</span> : null}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (_val, row) =>
+        row.is_active === false ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+            Inactive
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]">
+            Active
+          </span>
         ),
-      },
-      {
-        key: "capacity",
-        header: "Capacity",
-      },
-      {
-        key: "warehouse",
-        header: "Warehouse",
-        render: (value) => value || "-",
-      },
-      {
-        key: "zone",
-        header: "Zone",
-        render: (value) => value || "-",
-      },
-      {
-        key: "storageType",
-        header: "Storage Type",
-        render: (value) => (
-          <Badge variant={getBadgeVariant(value)}>
-            {value || "-"}
-          </Badge>
-        ),
-      },
-    ],
-    [],
-  );
+    },
+    {
+      key: "id",
+      label: "Actions",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => (
+        <div className="flex justify-end gap-0.5">
+          <ActionIconButton
+            label="Edit depot"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => openEdit(row)}
+            className="text-[#0C4DA1] hover:bg-[#EAF2FC] hover:text-[#0A3F86]"
+          >
+            <Pencil className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            label="Delete depot"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => setDeleteTarget(row)}
+            className="text-[#DC2626] hover:bg-[#FEF2F2] hover:text-[#B91C1C]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </ActionIconButton>
+        </div>
+      ),
+    },
+  ];
 
-  if (showAddForm) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title={editMode ? "Edit Depot" : "Add New Depot"}
-          subtitle={editMode ? "Update depot information" : "Create a new depot or warehouse"}
-          icon={Warehouse}
-          variant="indigo"
-          actions={(
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancel}
-             
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          )}
-        />
+  const motionProps = {
+    initial: reduceMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: reduceMotion ? 0 : 0.18 },
+  };
 
-        <Card className="card-elevated">
-          <CardContent className="p-6">
-            <div className="space-y-6 max-w-4xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="depot-company">Company *</Label>
-                  <Select value={companyId} onValueChange={setCompanyId}>
-                    <SelectTrigger id="depot-company">
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companies.length > 0 ? (
-                        companies.map((company) => (
-                          <SelectItem key={company.id} value={String(company.id)}>
-                            {company.name} ({company.code})
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No companies available</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Select company from master data</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="depot-code">Depot Code *</Label>
-                  <Input
-                    id="depot-code"
-                    placeholder="e.g., 120"
-                    value={formData.code}
-                    onChange={(e) => handleChange("code", e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">Unique identifier used throughout the system.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="depot-name">Depot Name *</Label>
-                  <Input
-                    id="depot-name"
-                    placeholder="Kushtia Depot"
-                    value={formData.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="depot-location">Location *</Label>
-                  <Input
-                    id="depot-location"
-                    placeholder="City, Region"
-                    value={formData.location}
-                    onChange={(e) => handleChange("location", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="depot-capacity">Capacity</Label>
-                  <Input
-                    id="depot-capacity"
-                    placeholder="50,000 sq ft"
-                    value={formData.capacity}
-                    onChange={(e) => handleChange("capacity", e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="border-t pt-6 mt-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Layers className="h-5 w-5 text-primary" />
-                  <Label className="text-lg font-semibold text-primary">Hierarchical Structure</Label>
-                </div>
-
-                <div className="space-y-4 pl-4 border-l-2 border-primary/20">
-                  <div className="space-y-2">
-                    <Label htmlFor="depot-warehouse">Warehouse *</Label>
-                    <Input
-                      id="depot-warehouse"
-                      placeholder="e.g., Warehouse-1"
-                      value={warehouse}
-                      onChange={(e) => setWarehouse(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">The warehouse name under this depot</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="depot-zone">Zone *</Label>
-                    <Input
-                      id="depot-zone"
-                      placeholder="e.g., Zone-1"
-                      value={zone}
-                      onChange={(e) => setZone(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">The zone within the warehouse</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="depot-storage-type">Storage Type *</Label>
-                    <Select value={storageType} onValueChange={(value: "General Store" | "Cold" | "Cool") => setStorageType(value)}>
-                      <SelectTrigger id="depot-storage-type">
-                        <SelectValue placeholder="Select storage type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="General Store">General Store</SelectItem>
-                        <SelectItem value="Cold">Cold</SelectItem>
-                        <SelectItem value="Cool">Cool</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">The storage type for this zone (General Store, Cold, or Cool)</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAdd}>{editMode ? "Update Depot" : "Create Depot"}</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const selectedCompany = companyById.get(Number(formData.company_id));
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Depot Management"
-        subtitle="Manage warehouses, distribution centers, and storage facilities"
-        icon={Warehouse}
-        variant="indigo"
-      />
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Depots" value={totals.total} icon={Warehouse} accent="blue" />
+          <KpiCard title="Active" value={totals.active} icon={CheckCircle2} accent="green" />
+          <KpiCard title="Inactive" value={totals.inactive} icon={XCircle} accent="purple" />
+        </motion.div>
 
-      <MasterDataTable
-        title="All Depots"
-        description={`Total locations: ${depots.length}`}
-        data={depots}
-        columns={columns}
-        searchPlaceholder="Search depots..."
-        searchFields={["code", "name", "location", "warehouse", "zone"]}
-        itemsPerPage={10}
-        onAdd={() => setShowAddForm(true)}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        emptyMessage="No depots found"
-        showCode={true}
-        codeKey="code"
-      />
-    </div>
+        <motion.div {...motionProps} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Depot Master"
+            description="Manage warehouses, distribution centers, and storage facilities."
+            toolbarIcon={<Warehouse className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search depots...",
+            }}
+            toolbarFilters={
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className={cn("h-9 w-[180px]", fieldClass)} aria-label="Status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>
+                    <StatusFilterOption icon={ListFilter} label="All Status" tone="navy" />
+                  </SelectItem>
+                  <SelectItem value="active" className={selectItemClass}>
+                    <StatusFilterOption icon={CheckCircle2} label="Active" tone="green" />
+                  </SelectItem>
+                  <SelectItem value="inactive" className={selectItemClass}>
+                    <StatusFilterOption icon={XCircle} label="Inactive" tone="red" />
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+            toolbarActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Refresh
+                </Button>
+                <Button type="button" variant="ntPrimary" className="!h-8" onClick={openCreate}>
+                  <Plus className="h-3.5 w-3.5" />
+                  New Depot
+                </Button>
+              </div>
+            }
+            data={filtered}
+            columns={columns}
+            loading={isLoading}
+            error={isError ? (error instanceof Error ? error.message : "Unable to load depots") : undefined}
+            getRowId={(row) => row.id}
+            resetPageKey={`${statusFilter}|${searchTerm}|${filtered.length}`}
+            emptyMessage="No depots found"
+          />
+        </motion.div>
+      </div>
+
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!formBusy) {
+            if (open) setShowForm(true);
+            else closeForm();
+          }
+        }}
+      >
+        <DialogContent
+          className={dialogContentClass}
+          onPointerDownOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+        >
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <Warehouse className="h-4 w-4" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editTarget ? "Edit Depot" : "Add Depot"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {editTarget ? "Update depot information." : "Create a new depot location."}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Depot details</h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>Depot code</Label>
+                    <Input value={generatedCode} disabled className={cn(fieldClass, "font-mono")} />
+                    <p className="text-[11px] text-[#64748B]">Auto-generated and cannot be changed</p>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="depot-name">
+                      Depot name {requiredMark}
+                    </Label>
+                    <Input
+                      id="depot-name"
+                      value={formData.name}
+                      onChange={(event) => handleChange("name", event.target.value)}
+                      placeholder="Enter depot name"
+                      required
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="depot-company">
+                      Company {requiredMark}
+                    </Label>
+                    {editTarget ? (
+                      <Input
+                        value={selectedCompany ? `${selectedCompany.name} (${selectedCompany.code})` : "—"}
+                        disabled
+                        className={fieldClass}
+                      />
+                    ) : (
+                      <Select value={formData.company_id} onValueChange={(value) => handleChange("company_id", value)}>
+                        <SelectTrigger id="depot-company" className={fieldClass}>
+                          <SelectValue placeholder="Select company" />
+                        </SelectTrigger>
+                        <SelectContent className={selectPanelClass}>
+                          {companies.map((company) => (
+                            <SelectItem key={company.id} value={String(company.id)} className={selectItemClass}>
+                              {company.name} ({company.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="depot-email">
+                      Email
+                    </Label>
+                    <Input
+                      id="depot-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(event) => handleChange("email", event.target.value)}
+                      placeholder="depot@company.com"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="depot-phone">
+                      Phone
+                    </Label>
+                    <Input
+                      id="depot-phone"
+                      value={formData.phone}
+                      onChange={(event) => handleChange("phone", event.target.value)}
+                      placeholder="+880 ..."
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="depot-city">
+                      City
+                    </Label>
+                    <Input
+                      id="depot-city"
+                      value={formData.city}
+                      onChange={(event) => handleChange("city", event.target.value)}
+                      placeholder="City"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="depot-state">
+                      State
+                    </Label>
+                    <Input
+                      id="depot-state"
+                      value={formData.state}
+                      onChange={(event) => handleChange("state", event.target.value)}
+                      placeholder="State"
+                      className={fieldClass}
+                    />
+                  </div>
+                  {!editTarget ? (
+                    <div className={fieldWrapClass}>
+                      <Label className={labelClass} htmlFor="depot-pincode">
+                        Pincode
+                      </Label>
+                      <Input
+                        id="depot-pincode"
+                        value={formData.pincode}
+                        onChange={(event) => handleChange("pincode", event.target.value)}
+                        placeholder="Pincode"
+                        className={fieldClass}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                <div className={`${fieldWrapClass} mt-2.5`}>
+                  <Label className={labelClass} htmlFor="depot-address">
+                    Address
+                  </Label>
+                  <Textarea
+                    id="depot-address"
+                    value={formData.address}
+                    onChange={(event) => handleChange("address", event.target.value)}
+                    placeholder="Street address"
+                    rows={2}
+                    className="min-h-[64px] rounded-lg border border-[#CBD5E1] text-[13px] shadow-none focus-visible:border-[#0C4DA1] focus-visible:ring-2 focus-visible:ring-[#0C4DA1]/20 dark:border-[#2C3B50] dark:bg-[#151F30]"
+                  />
+                </div>
+              </section>
+            </div>
+            <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50] sm:justify-between">
+              {editTarget ? (
+                <label className="mr-auto flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-[12px] font-semibold",
+                      isActive ? "text-[#15803D] dark:text-[#4ADE80]" : "text-[#B91C1C] dark:text-[#FCA5A5]",
+                    )}
+                  >
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                    aria-label="Depot status"
+                    className="data-[state=checked]:bg-[#15803D] data-[state=unchecked]:bg-[#CBD5E1] dark:data-[state=unchecked]:bg-[#2C3B50]"
+                  />
+                </label>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ntSecondary" onClick={closeForm} disabled={formBusy}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="ntPrimary"
+                  disabled={formBusy || !formData.name.trim() || (!editTarget && !formData.company_id)}
+                >
+                  {formBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editTarget ? "Update Depot" : "Create Depot"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !deleteMutation.isPending && !open && setDeleteTarget(null)}>
+        <DialogContent
+          className={cn(
+            NAVY_TEAL_SCOPE_CLASS,
+            "max-w-[440px] gap-0 overflow-hidden rounded-[20px] border border-[#E3EAF3] p-0 shadow-[0_24px_48px_rgba(15,23,42,0.16)] dark:border-[#2C3B50] dark:bg-[#151F30]",
+          )}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-0 text-left">
+              <div className="flex items-start gap-3 pr-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#DC2626] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+                  <Trash2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                    Delete this depot?
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                    {deleteTarget ? `${deleteTarget.name} (${deleteTarget.code}) will be removed.` : ""}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+          <div className="flex items-start gap-2 px-5 py-3 text-xs text-[#B91C1C] dark:text-[#FCA5A5]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            This cannot be undone from this screen.
+          </div>
+          <DialogFooter className="gap-2 border-t border-[#E3EAF3] bg-[#F8FAFC] px-5 py-3 dark:border-[#2C3B50] dark:bg-[#1B283B] sm:space-x-0">
+            <Button type="button" variant="ntSecondary" disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="!h-9 rounded-lg border-0 bg-[#DC2626] text-white shadow-none hover:bg-[#B91C1C]"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete depot
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ThemeScope>
   );
 }

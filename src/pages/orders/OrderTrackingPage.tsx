@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiEndpoints } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Search, PackageSearch, MapPinned, FileText } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { OrderPageHeading, OrderPageShell, OrderPanel, fieldClass } from "@/components/orders/orderMgmtUi";
 import {
   OrderLifecyclePipeline3D,
   getCurrentLifecycleDef,
@@ -69,12 +69,11 @@ export default function OrderTrackingPage() {
   const completedSteps = tracking?.steps.filter((s) => s.status === "completed").length ?? 0;
 
   return (
-    <main className="p-6 space-y-6">
-      <PageHeader
+    <OrderPageShell>
+      <OrderPageHeading
         title="Order Lifecycle Tracker"
-        subtitle="Enter an order number to see where it sits in the 8-step distribution pipeline."
+        description="Enter an order number to see where it sits in the 8-step distribution pipeline."
         icon={PackageSearch}
-        variant="sky"
         actions={(
           <div className="flex gap-2 w-full sm:w-auto">
             <Input
@@ -82,9 +81,9 @@ export default function OrderTrackingPage() {
               value={orderInput}
               onChange={(e) => setOrderInput(e.target.value)}
               onKeyDown={onSearchKeyDown}
-              className="w-full sm:w-72"
+              className={`${fieldClass} w-full sm:w-72`}
             />
-            <Button onClick={handleFetch} disabled={loading}>
+            <Button type="button" variant="ntPrimary" onClick={handleFetch} disabled={loading}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
@@ -98,16 +97,13 @@ export default function OrderTrackingPage() {
 
       {/* Reference pipeline legend */}
       {!tracking && (
-        <Card className="card-tile border-2 border-brand-from/20 overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className={cn("text-base", brandLabelClasses)}>
+        <OrderPanel className="overflow-hidden p-5">
+          <h2 className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
               8-Step Distribution Lifecycle
-            </CardTitle>
-            <p className={cn("text-sm", brandMutedClasses)}>
+          </h2>
+            <p className="mb-3 text-sm text-[#64748B] dark:text-[#A9B8CC]">
               Same flow as Dashboard &amp; MIS — search an order above to highlight its current stage.
             </p>
-          </CardHeader>
-          <CardContent className="pb-8 pt-2">
             <OrderLifecyclePipeline3D
               steps={ORDER_LIFECYCLE_STEPS.map((s) => ({
                 key: s.key,
@@ -115,8 +111,7 @@ export default function OrderTrackingPage() {
                 status: "pending",
               }))}
             />
-          </CardContent>
-        </Card>
+        </OrderPanel>
       )}
 
       <AnimatePresence mode="wait">
@@ -175,20 +170,18 @@ export default function OrderTrackingPage() {
       </AnimatePresence>
 
       {!tracking && !loading && (
-        <Card className="card-tile">
-          <CardContent className="grid place-items-center gap-3 py-14 text-center">
-            <PackageSearch className="h-14 w-14 text-brand-from/50" />
+        <OrderPanel className="grid place-items-center gap-3 py-14 text-center">
+            <PackageSearch className="h-14 w-14 text-[#0C4DA1]/50" />
             <div className="space-y-1 max-w-md">
-              <p className={cn("text-sm font-semibold", brandLabelClasses)}>
+              <p className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
                 Track an order to view its lifecycle stage
               </p>
-              <p className={cn("text-xs", brandMutedClasses)}>
+              <p className="text-xs text-[#64748B] dark:text-[#A9B8CC]">
                 Use internal ID, order number, 8-digit memo number, or delivery reference.
               </p>
             </div>
-          </CardContent>
-        </Card>
+        </OrderPanel>
       )}
-    </main>
+    </OrderPageShell>
   );
 }

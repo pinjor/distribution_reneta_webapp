@@ -29,6 +29,7 @@ export function AppHeader() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const pageMeta = resolvePageTitle(pathname);
+  const hidePageTitle = pathname.startsWith("/orders");
   const reduceMotion = useReducedMotion();
   const titleTransition = reduceMotion
     ? { duration: 0 }
@@ -56,27 +57,29 @@ export function AppHeader() {
           <SidebarTrigger className="shrink-0" />
           <AppBrand variant="header" className="lg:hidden shrink-0" />
           <div className="relative min-w-0 flex-1 overflow-hidden">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={pathname}
-                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-                transition={titleTransition}
-              >
-                <h1
-                  className="truncate text-base sm:text-lg md:text-[1.25rem] font-semibold leading-tight tracking-tight text-foreground"
-                  title={pageMeta.title}
+            {!hidePageTitle && (
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={pathname}
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+                  transition={titleTransition}
                 >
-                  {pageMeta.title}
-                </h1>
-                {pageMeta.description ? (
-                  <p className="mt-0.5 hidden truncate text-xs leading-tight text-muted-foreground sm:block">
-                    {pageMeta.description}
-                  </p>
-                ) : null}
-              </motion.div>
-            </AnimatePresence>
+                  <h1
+                    className="truncate text-base sm:text-lg md:text-[1.25rem] font-semibold leading-tight tracking-tight text-foreground"
+                    title={pageMeta.title}
+                  >
+                    {pageMeta.title}
+                  </h1>
+                  {pageMeta.description ? (
+                    <p className="mt-0.5 hidden truncate text-xs leading-tight text-muted-foreground sm:block">
+                      {pageMeta.description}
+                    </p>
+                  ) : null}
+                </motion.div>
+              </AnimatePresence>
+            )}
           </div>
         </div>
 

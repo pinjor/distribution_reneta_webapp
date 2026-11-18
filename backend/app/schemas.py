@@ -86,6 +86,7 @@ class CompanyUpdate(BaseModel):
     state: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Company(CompanyBase):
     id: int
@@ -110,6 +111,16 @@ class DepotBase(BaseModel):
 
 class DepotCreate(DepotBase):
     pass
+
+class DepotUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Depot(DepotBase):
     id: int
@@ -196,11 +207,88 @@ class VendorBase(BaseModel):
 class VendorCreate(VendorBase):
     pass
 
+class VendorUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gstin: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class Vendor(VendorBase):
     id: int
     created_at: datetime
     updated_at: datetime
     
+    class Config:
+        from_attributes = True
+
+class ChemistShopBase(BaseModel):
+    name: str
+    code: str
+    owner_name: str
+    license_number: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: bool = True
+
+class ChemistShopCreate(ChemistShopBase):
+    pass
+
+class ChemistShopUpdate(BaseModel):
+    name: Optional[str] = None
+    owner_name: Optional[str] = None
+    license_number: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ChemistShop(ChemistShopBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class DoctorBase(BaseModel):
+    name: str
+    code: str
+    specialization: str
+    registration_number: str
+    qualification: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: bool = True
+
+class DoctorCreate(DoctorBase):
+    pass
+
+class DoctorUpdate(BaseModel):
+    name: Optional[str] = None
+    specialization: Optional[str] = None
+    registration_number: Optional[str] = None
+    qualification: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class Doctor(DoctorBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 
@@ -1096,6 +1184,8 @@ class CollectionDeposit(CollectionDepositBase):
     approved: bool
     approved_by: Optional[int] = None
     approved_at: Optional[datetime] = None
+    rejected: bool = False
+    rejected_at: Optional[datetime] = None
     collection_person_name: Optional[str] = None
     approver_name: Optional[str] = None
     created_at: datetime
@@ -1287,6 +1377,17 @@ class DeliveryApprovalResponse(BaseModel):
     orders_moved_to_collection: List[str]  # List of memo numbers
 
 
+class DeliveryRejectRequest(BaseModel):
+    loading_number: str
+    reason: str
+
+
+class DeliveryRejectResponse(BaseModel):
+    message: str
+    loading_number: str
+    rejected_count: int
+
+
 class CollectionMemoUpdate(BaseModel):
     memo_number: str
     collected_amount: float
@@ -1416,7 +1517,10 @@ class DriverBase(BaseModel):
     contact: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
+    vehicle_id: Optional[str] = None
+    route: Optional[str] = None
     status: str = "Available"
+    is_active: bool = True
 
 class DriverCreate(DriverBase):
     pass
@@ -1428,7 +1532,10 @@ class DriverUpdate(BaseModel):
     contact: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
+    vehicle_id: Optional[str] = None
+    route: Optional[str] = None
     status: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Driver(DriverBase):
     id: int

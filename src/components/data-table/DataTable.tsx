@@ -29,6 +29,8 @@ interface DataTableProps<T> {
   initialPageSize?: number;
   resetPageKey?: string | number;
   className?: string;
+  onRowClick?: (row: T) => void;
+  getRowClassName?: (row: T) => string;
 }
 
 export function DataTable<T>({
@@ -51,6 +53,8 @@ export function DataTable<T>({
   initialPageSize = 10,
   resetPageKey,
   className,
+  onRowClick,
+  getRowClassName,
 }: DataTableProps<T>) {
   const reduceMotion = useReducedMotion();
   const [page, setPage] = useState(1);
@@ -154,7 +158,23 @@ export function DataTable<T>({
               paged.rows.map((row, index) => (
                 <tr
                   key={getRowId ? String(getRowId(row, index)) : index}
-                  className="border-b border-[#E3EAF3] transition-colors duration-150 last:border-0 hover:bg-[#F4F8FD] dark:border-[#2C3B50] dark:hover:bg-[#1B304D]/50"
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={cn(
+                    "border-b border-[#E3EAF3] transition-colors duration-150 last:border-0 hover:bg-[#F4F8FD] dark:border-[#2C3B50] dark:hover:bg-[#1B304D]/50",
+                    onRowClick && "cursor-pointer",
+                    getRowClassName?.(row),
+                  )}
                 >
                   {columns.map((column) => (
                     <td

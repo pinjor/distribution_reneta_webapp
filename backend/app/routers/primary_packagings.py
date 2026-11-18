@@ -39,8 +39,11 @@ def generate_primary_packaging_code(db: Session) -> str:
     return code
 
 @router.get("/", response_model=List[PrimaryPackagingSchema])
-def get_primary_packagings(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    packagings = db.query(PrimaryPackaging).filter(PrimaryPackaging.is_active == True).offset(skip).limit(limit).all()
+def get_primary_packagings(skip: int = 0, limit: int = 100, include_inactive: bool = False, db: Session = Depends(get_db)):
+    query = db.query(PrimaryPackaging)
+    if not include_inactive:
+        query = query.filter(PrimaryPackaging.is_active == True)
+    packagings = query.order_by(PrimaryPackaging.name.asc(), PrimaryPackaging.code.asc()).offset(skip).limit(limit).all()
     return packagings
 
 @router.get("/{packaging_id}", response_model=PrimaryPackagingSchema)

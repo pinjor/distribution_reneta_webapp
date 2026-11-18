@@ -129,6 +129,39 @@ class Vendor(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class ChemistShop(Base):
+    __tablename__ = "chemist_shops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), unique=True, nullable=False)
+    owner_name = Column(String(255), nullable=False)
+    license_number = Column(String(100))
+    email = Column(String(255))
+    phone = Column(String(50))
+    address = Column(Text)
+    city = Column(String(100))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Doctor(Base):
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), unique=True, nullable=False)
+    specialization = Column(String(255), nullable=False)
+    registration_number = Column(String(100), nullable=False)
+    qualification = Column(String(255))
+    email = Column(String(255))
+    phone = Column(String(50))
+    address = Column(Text)
+    city = Column(String(100))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class Product(Base):
     __tablename__ = "products"
     
@@ -511,6 +544,9 @@ class Order(Base):
     mobile_accepted = Column(Boolean, default=False)  # Whether memo was accepted by mobile user
     mobile_accepted_by = Column(String(100), nullable=True)  # Mobile app user ID who accepted
     mobile_accepted_at = Column(DateTime, nullable=True)  # Timestamp when accepted
+    delivery_rejected = Column(Boolean, default=False)
+    delivery_rejected_at = Column(DateTime, nullable=True)
+    delivery_rejected_reason = Column(Text, nullable=True)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -883,6 +919,8 @@ class CollectionDeposit(Base):
     approved = Column(Boolean, default=False)
     approved_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
+    rejected = Column(Boolean, default=False)
+    rejected_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

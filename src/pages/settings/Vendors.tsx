@@ -1,333 +1,627 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ListFilter,
+  Loader2,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Users,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Users, ArrowLeft, Star, Mail, Phone } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { useToast } from "@/hooks/use-toast";
-import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
+import { apiEndpoints } from "@/lib/api";
+import { NAVY_TEAL_SCOPE_CLASS } from "@/lib/navyTealTheme";
 import { generateCode } from "@/utils/codeGenerator";
-import { getBadgeVariant } from "@/utils/badgeColors";
+import { cn } from "@/lib/utils";
+import {
+  ActionIconButton,
+  asList,
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  selectItemClass,
+  selectPanelClass,
+} from "@/components/transport/transportUi";
 
-interface Vendor {
-  id: string;
-  code: string;
+interface VendorRecord {
+  id: number;
   name: string;
-  category: string;
-  email: string;
-  phone: string;
-  rating: number;
-  status: "active" | "inactive" | "pending";
+  code: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  gstin?: string | null;
+  is_active?: boolean;
+}
+
+const emptyForm = {
+  name: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
+  phone: "",
+  email: "",
+  gstin: "",
+};
+
+function StatusFilterOption({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: typeof ListFilter;
+  label: string;
+  tone: "navy" | "green" | "red";
+}) {
+  const toneClass = {
+    navy: "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]",
+    green: "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]",
+    red: "bg-[#FEF2F2] text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]",
+  }[tone];
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md", toneClass)}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      {label}
+    </span>
+  );
 }
 
 export default function Vendors() {
+  const reduceMotion = useReducedMotion();
   const { toast } = useToast();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [newVendorCode, setNewVendorCode] = useState<string>("");
-  const [vendors, setVendors] = useState<Vendor[]>([
-    { id: "1", code: "VEND-0001", name: "Logistics Pro Inc", category: "Transportation", email: "sales@logisticspro.com", phone: "+1 555-2001", rating: 4.8, status: "active" },
-    { id: "2", code: "VEND-0002", name: "PackMasters Supply", category: "Packaging", email: "info@packmasters.com", phone: "+1 555-2002", rating: 4.5, status: "active" },
-    { id: "3", code: "VEND-0003", name: "Tech Equipment Co", category: "Equipment", email: "contact@techequip.com", phone: "+1 555-2003", rating: 4.2, status: "pending" },
-    { id: "4", code: "VEND-0004", name: "Global Freight", category: "Freight", email: "orders@globalfreight.com", phone: "+1 555-2004", rating: 3.9, status: "active" },
-  ]);
-
-  const [formData, setFormData] = useState({
-    name: "",
-    category: "",
-    email: "",
-    phone: "",
-    rating: "",
-  });
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<VendorRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<VendorRecord | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
     document.title = "Vendors | Renata";
   }, []);
 
-  const generateVendorCode = (): string => {
-    const existingCodes = vendors.map(v => v.code);
-    return generateCode("VEND", existingCodes);
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["vendors"],
+    queryFn: async () => asList<VendorRecord>(await apiEndpoints.vendors.getAll()),
+  });
+
+  const vendors = data || [];
+
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => apiEndpoints.vendors.create(payload),
+    onSuccess: () => {
+      toast({ title: "Vendor added", description: `${formData.name} has been created.` });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
+      apiEndpoints.vendors.update(id, payload),
+    onSuccess: () => {
+      toast({ title: "Vendor updated", description: "Vendor information has been updated successfully." });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiEndpoints.vendors.delete(id),
+    onSuccess: () => {
+      toast({ title: "Vendor deleted", description: "The vendor has been removed." });
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["vendors"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const formBusy = createMutation.isPending || updateMutation.isPending;
+
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return vendors.filter((vendor) => {
+      const active = vendor.is_active !== false;
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      if (!term) return true;
+      return [vendor.name, vendor.code, vendor.email, vendor.phone, vendor.city, vendor.state, vendor.gstin]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [searchTerm, statusFilter, vendors]);
+
+  const totals = useMemo(() => {
+    const active = vendors.filter((vendor) => vendor.is_active !== false).length;
+    return { total: vendors.length, active, inactive: vendors.length - active };
+  }, [vendors]);
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setIsActive(true);
+    setGeneratedCode(generateCode("VEND", vendors.map((vendor) => vendor.code)));
+    setShowForm(true);
   };
 
-  // Generate code when form opens for new vendor
-  useEffect(() => {
-    if (showAddForm && !editMode) {
-      setNewVendorCode(generateVendorCode());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAddForm, editMode]);
-
-  const handleAdd = () => {
-    if (editMode && selectedVendor) {
-      setVendors(prev => prev.map(v => 
-        v.id === selectedVendor.id 
-          ? { 
-              ...v, 
-              name: formData.name,
-              category: formData.category,
-              email: formData.email,
-              phone: formData.phone,
-              rating: formData.rating ? parseFloat(formData.rating) : v.rating,
-            }
-          : v
-      ));
-      toast({
-        title: "Vendor updated",
-        description: "Vendor information has been updated successfully.",
-      });
-    } else {
-      const newCode = generateVendorCode();
-      const newVendor: Vendor = {
-        id: Date.now().toString(),
-        code: newCode,
-        name: formData.name,
-        category: formData.category,
-        email: formData.email,
-        phone: formData.phone,
-        rating: formData.rating ? parseFloat(formData.rating) : 0,
-        status: "active",
-      };
-      setVendors(prev => [...prev, newVendor]);
-      toast({
-        title: "Vendor added",
-        description: `New vendor created with code ${newCode}.`,
-      });
-    }
-    resetForm();
-  };
-
-  const handleEdit = (vendor: Vendor) => {
-    setSelectedVendor(vendor);
+  const openEdit = (vendor: VendorRecord) => {
+    setEditTarget(vendor);
+    setGeneratedCode(vendor.code);
+    setIsActive(vendor.is_active !== false);
     setFormData({
-      name: vendor.name,
-      category: vendor.category,
-      email: vendor.email,
-      phone: vendor.phone,
-      rating: vendor.rating.toString(),
+      name: vendor.name || "",
+      address: vendor.address || "",
+      city: vendor.city || "",
+      state: vendor.state || "",
+      pincode: vendor.pincode || "",
+      phone: vendor.phone || "",
+      email: vendor.email || "",
+      gstin: vendor.gstin || "",
     });
-    setEditMode(true);
-    setShowAddForm(true);
+    setShowForm(true);
   };
 
-  const handleDelete = (vendor: Vendor) => {
-    setVendors(prev => prev.filter(v => v.id !== vendor.id));
-    toast({
-      title: "Vendor deleted",
-      description: "The vendor has been removed.",
-      variant: "destructive",
+  const closeForm = () => {
+    setShowForm(false);
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setGeneratedCode("");
+    setIsActive(true);
+  };
+
+  const handleChange = (field: keyof typeof emptyForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!formData.name.trim() || formBusy) return;
+
+    if (editTarget) {
+      updateMutation.mutate({
+        id: editTarget.id,
+        payload: {
+          name: formData.name.trim(),
+          address: formData.address || undefined,
+          city: formData.city || undefined,
+          state: formData.state || undefined,
+          pincode: formData.pincode || undefined,
+          phone: formData.phone || undefined,
+          email: formData.email || undefined,
+          gstin: formData.gstin || undefined,
+          is_active: isActive,
+        },
+      });
+      return;
+    }
+
+    createMutation.mutate({
+      name: formData.name.trim(),
+      code: generatedCode,
+      address: formData.address || undefined,
+      city: formData.city || undefined,
+      state: formData.state || undefined,
+      pincode: formData.pincode || undefined,
+      phone: formData.phone || undefined,
+      email: formData.email || undefined,
+      gstin: formData.gstin || undefined,
+      is_active: true,
     });
   };
 
-  const handleCancel = () => {
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      category: "",
-      email: "",
-      phone: "",
-      rating: "",
-    });
-    setNewVendorCode("");
-    setEditMode(false);
-    setSelectedVendor(null);
-    setShowAddForm(false);
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Define table columns
-  const columns: ColumnDef<Vendor>[] = [
+  const columns: DataTableColumn<VendorRecord>[] = [
     {
-      key: "name",
-      header: "Vendor Name",
-      render: (_, vendor) => (
-        <span className="font-medium">{vendor.name}</span>
-      ),
+      key: "code",
+      label: "Code",
+      className: "font-mono text-[13px]",
     },
     {
-      key: "category",
-      header: "Category",
+      key: "name",
+      label: "Vendor Name",
+      render: (val) => <span className="font-medium text-[#0C4DA1] dark:text-[#70ADFF]">{String(val || "—")}</span>,
     },
     {
       key: "email",
-      header: "Contact",
-      render: (_, vendor) => (
-        <div className="space-y-1 text-sm">
-          <div>{vendor.email}</div>
-          <div className="text-muted-foreground">{vendor.phone}</div>
+      label: "Contact",
+      render: (_val, row) => (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <Mail className="h-3 w-3 text-[#64748B]" />
+            {row.email || "—"}
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px] text-[#64748B] dark:text-[#A9B8CC]">
+            <Phone className="h-3 w-3" />
+            {row.phone || "—"}
+          </div>
         </div>
       ),
     },
     {
-      key: "rating",
-      header: "Rating",
-      render: (value) => (
-        <div className="flex items-center gap-1">
-          <Star className="h-4 w-4 fill-warning text-warning" />
-          <span className="font-medium">{Number(value)}</span>
+      key: "city",
+      label: "Location",
+      render: (_val, row) => (
+        <div className="flex items-center gap-1.5 text-[13px]">
+          <MapPin className="h-3.5 w-3.5 text-[#64748B]" />
+          <span>
+            {row.city || "—"}
+            {row.state ? <span className="text-[#64748B] dark:text-[#A9B8CC]"> · {row.state}</span> : null}
+          </span>
         </div>
       ),
     },
     {
-      key: "status",
-      header: "Status",
-      render: (value) => (
-        <Badge variant={getBadgeVariant(value)}>
-          {String(value)}
-        </Badge>
+      key: "gstin",
+      label: "GSTIN",
+      render: (val) => String(val || "—"),
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (_val, row) =>
+        row.is_active === false ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+            Inactive
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]">
+            Active
+          </span>
+        ),
+    },
+    {
+      key: "id",
+      label: "Actions",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => (
+        <div className="flex justify-end gap-0.5">
+          <ActionIconButton
+            label="Edit vendor"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => openEdit(row)}
+            className="text-[#0C4DA1] hover:bg-[#EAF2FC] hover:text-[#0A3F86]"
+          >
+            <Pencil className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            label="Delete vendor"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => setDeleteTarget(row)}
+            className="text-[#DC2626] hover:bg-[#FEF2F2] hover:text-[#B91C1C]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </ActionIconButton>
+        </div>
       ),
     },
   ];
 
-  // Show form page if showAddForm is true
-  if (showAddForm) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title={editMode ? "Edit Vendor" : "Add New Vendor"}
-          subtitle={editMode ? "Update vendor information" : "Onboard a new supplier or service provider"}
-          icon={Users}
-          variant="slate"
-          actions={(
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleCancel}
-             
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          )}
-        />
+  const motionProps = {
+    initial: reduceMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: reduceMotion ? 0 : 0.18 },
+  };
 
-        <Card className="card-elevated">
-          <CardContent className="p-6">
-            <div className="space-y-6 max-w-4xl">
-              {/* Code Field - Auto-generated */}
-              <div className="space-y-2">
-                <Label htmlFor="code">Vendor Code *</Label>
-                <Input
-                  id="code"
-                  value={editMode && selectedVendor?.code ? selectedVendor.code : newVendorCode}
-                  disabled
-                  className="bg-muted font-mono font-semibold"
-                  placeholder="Auto-generated"
-                />
-                <p className="text-xs text-muted-foreground">Auto-generated code (cannot be changed)</p>
-              </div>
+  return (
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Vendors" value={totals.total} icon={Users} accent="blue" />
+          <KpiCard title="Active" value={totals.active} icon={CheckCircle2} accent="green" />
+          <KpiCard title="Inactive" value={totals.inactive} icon={XCircle} accent="purple" />
+        </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vendor-name">Vendor Name *</Label>
-                  <Input
-                    id="vendor-name"
-                    value={formData.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                    placeholder="ABC Suppliers"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vendor-category">Category</Label>
-                  <Input
-                    id="vendor-category"
-                    value={formData.category}
-                    onChange={(e) => handleChange("category", e.target.value)}
-                    placeholder="Transportation, Equipment, etc."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vendor-email" className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    Email *
-                  </Label>
-                  <Input
-                    id="vendor-email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
-                    placeholder="contact@vendor.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vendor-phone" className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    Phone
-                  </Label>
-                  <Input
-                    id="vendor-phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    placeholder="+1 555-0000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vendor-rating" className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-muted-foreground" />
-                    Rating
-                  </Label>
-                  <Input
-                    id="vendor-rating"
-                    type="number"
-                    min="0"
-                    max="5"
-                    step="0.1"
-                    value={formData.rating}
-                    onChange={(e) => handleChange("rating", e.target.value)}
-                    placeholder="4.5"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel
+        <motion.div {...motionProps} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="Vendor Master"
+            description="Manage suppliers, contractors, and service providers."
+            toolbarIcon={<Users className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search vendors...",
+            }}
+            toolbarFilters={
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className={cn("h-9 w-[180px]", fieldClass)} aria-label="Status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>
+                    <StatusFilterOption icon={ListFilter} label="All Status" tone="navy" />
+                  </SelectItem>
+                  <SelectItem value="active" className={selectItemClass}>
+                    <StatusFilterOption icon={CheckCircle2} label="Active" tone="green" />
+                  </SelectItem>
+                  <SelectItem value="inactive" className={selectItemClass}>
+                    <StatusFilterOption icon={XCircle} label="Inactive" tone="red" />
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+            toolbarActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Refresh
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Vendor" : "Create Vendor"}
+                <Button type="button" variant="ntPrimary" className="!h-8" onClick={openCreate}>
+                  <Plus className="h-3.5 w-3.5" />
+                  New Vendor
                 </Button>
+              </div>
+            }
+            data={filtered}
+            columns={columns}
+            loading={isLoading}
+            error={isError ? (error instanceof Error ? error.message : "Unable to load vendors") : undefined}
+            getRowId={(row) => row.id}
+            resetPageKey={`${statusFilter}|${searchTerm}|${filtered.length}`}
+            emptyMessage="No vendors found"
+          />
+        </motion.div>
+      </div>
+
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!formBusy) {
+            if (open) setShowForm(true);
+            else closeForm();
+          }
+        }}
+      >
+        <DialogContent
+          className={dialogContentClass}
+          onPointerDownOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+        >
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <Users className="h-4 w-4" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editTarget ? "Edit Vendor" : "Add Vendor"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {editTarget ? "Update vendor information." : "Onboard a new supplier or service provider."}
+                </DialogDescription>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Vendor details</h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>Vendor code</Label>
+                    <Input value={generatedCode} disabled className={cn(fieldClass, "font-mono")} />
+                    <p className="text-[11px] text-[#64748B]">Auto-generated and cannot be changed</p>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-name">
+                      Vendor name {requiredMark}
+                    </Label>
+                    <Input
+                      id="vendor-name"
+                      value={formData.name}
+                      onChange={(event) => handleChange("name", event.target.value)}
+                      placeholder="Enter vendor name"
+                      required
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-email">
+                      Email
+                    </Label>
+                    <Input
+                      id="vendor-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(event) => handleChange("email", event.target.value)}
+                      placeholder="contact@vendor.com"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-phone">
+                      Phone
+                    </Label>
+                    <Input
+                      id="vendor-phone"
+                      value={formData.phone}
+                      onChange={(event) => handleChange("phone", event.target.value)}
+                      placeholder="+880 ..."
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-gstin">
+                      GSTIN
+                    </Label>
+                    <Input
+                      id="vendor-gstin"
+                      value={formData.gstin}
+                      onChange={(event) => handleChange("gstin", event.target.value)}
+                      placeholder="GSTIN"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-city">
+                      City
+                    </Label>
+                    <Input
+                      id="vendor-city"
+                      value={formData.city}
+                      onChange={(event) => handleChange("city", event.target.value)}
+                      placeholder="City"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-state">
+                      State
+                    </Label>
+                    <Input
+                      id="vendor-state"
+                      value={formData.state}
+                      onChange={(event) => handleChange("state", event.target.value)}
+                      placeholder="State"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="vendor-pincode">
+                      Pincode
+                    </Label>
+                    <Input
+                      id="vendor-pincode"
+                      value={formData.pincode}
+                      onChange={(event) => handleChange("pincode", event.target.value)}
+                      placeholder="Pincode"
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+                <div className={`${fieldWrapClass} mt-2.5`}>
+                  <Label className={labelClass} htmlFor="vendor-address">
+                    Address
+                  </Label>
+                  <Textarea
+                    id="vendor-address"
+                    value={formData.address}
+                    onChange={(event) => handleChange("address", event.target.value)}
+                    placeholder="Street address"
+                    rows={2}
+                    className="min-h-[64px] rounded-lg border border-[#CBD5E1] text-[13px] shadow-none focus-visible:border-[#0C4DA1] focus-visible:ring-2 focus-visible:ring-[#0C4DA1]/20 dark:border-[#2C3B50] dark:bg-[#151F30]"
+                  />
+                </div>
+              </section>
+            </div>
+            <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50] sm:justify-between">
+              {editTarget ? (
+                <label className="mr-auto flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-[12px] font-semibold",
+                      isActive ? "text-[#15803D] dark:text-[#4ADE80]" : "text-[#B91C1C] dark:text-[#FCA5A5]",
+                    )}
+                  >
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                    aria-label="Vendor status"
+                    className="data-[state=checked]:bg-[#15803D] data-[state=unchecked]:bg-[#CBD5E1] dark:data-[state=unchecked]:bg-[#2C3B50]"
+                  />
+                </label>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ntSecondary" onClick={closeForm} disabled={formBusy}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="ntPrimary" disabled={formBusy || !formData.name.trim()}>
+                  {formBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editTarget ? "Update Vendor" : "Create Vendor"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-  // Show list view
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Vendor Management"
-        subtitle="Manage suppliers, contractors, and service providers"
-        icon={Users}
-        variant="slate"
-      />
-
-      <MasterDataTable
-        title="All Vendors"
-        description={`Total suppliers: ${vendors.length}`}
-        data={vendors}
-        columns={columns}
-        searchPlaceholder="Search vendors..."
-        searchFields={["name", "code", "category", "email"]}
-        itemsPerPage={10}
-        onAdd={() => setShowAddForm(true)}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        emptyMessage="No vendors found"
-        showCode={true}
-        codeKey="code"
-      />
-    </div>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !deleteMutation.isPending && !open && setDeleteTarget(null)}>
+        <DialogContent
+          className={cn(
+            NAVY_TEAL_SCOPE_CLASS,
+            "max-w-[440px] gap-0 overflow-hidden rounded-[20px] border border-[#E3EAF3] p-0 shadow-[0_24px_48px_rgba(15,23,42,0.16)] dark:border-[#2C3B50] dark:bg-[#151F30]",
+          )}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-0 text-left">
+              <div className="flex items-start gap-3 pr-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#DC2626] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+                  <Trash2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                    Delete this vendor?
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                    {deleteTarget ? `${deleteTarget.name} (${deleteTarget.code}) will be removed.` : ""}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+          <div className="flex items-start gap-2 px-5 py-3 text-xs text-[#B91C1C] dark:text-[#FCA5A5]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            This cannot be undone from this screen.
+          </div>
+          <DialogFooter className="gap-2 border-t border-[#E3EAF3] bg-[#F8FAFC] px-5 py-3 dark:border-[#2C3B50] dark:bg-[#1B283B] sm:space-x-0">
+            <Button type="button" variant="ntSecondary" disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="!h-9 rounded-lg border-0 bg-[#DC2626] text-white shadow-none hover:bg-[#B91C1C]"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete vendor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ThemeScope>
   );
 }

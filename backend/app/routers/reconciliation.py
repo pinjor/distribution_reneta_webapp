@@ -44,6 +44,7 @@ def pending_reconciliations(
             ReconciliationStatusEnum.DRAFT,
             ReconciliationStatusEnum.PENDING_VERIFICATION,
             ReconciliationStatusEnum.PENDING_APPROVAL,
+            ReconciliationStatusEnum.REJECTED,
         ])
     )
     if (user.role or "").lower() != "admin" and user.depot_id:

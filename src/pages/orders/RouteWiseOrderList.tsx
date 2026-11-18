@@ -1,41 +1,42 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ClipboardList,
   Clock,
   Coins,
-  DollarSign,
   FileBarChart,
   FileText,
   Loader2,
   MapPinned,
   Package,
-  PlusCircle,
   Printer,
+  Pause,
   Search,
   Truck,
-  TruckIcon,
+  UserRound,
   Wrench,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { NavTileCard, StatTileCard } from "@/components/ui/tile-card";
+import { cn } from "@/lib/utils";
+import {
+  FilterSelect,
+  FilterStat,
+  OrderPageShell,
+  OrderPanel,
+  fieldClass,
+  panelClass,
+  tableHeadClass,
+} from "@/components/orders/orderMgmtUi";
 
 interface RouteWiseOrderItem {
   id: number;
@@ -668,477 +669,384 @@ export default function RouteWiseOrderList() {
   const navigate = useNavigate();
 
   return (
-    <main className="p-6 space-y-6">
-      <OrderBreadcrumb />
-      <PageHeader
-        title="Route Wise Memo List"
-        subtitle="Manage orders by route, print invoices, and assign to employees and vehicles."
-        icon={MapPinned}
-        variant="indigo"
-        actions={(
-          <Button
-            variant="headerAction"
-            size="sm"
-            onClick={() => navigate("/orders")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        )}
-      />
-
-      {/* Navigation Tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <NavTileCard
-          title="Delivery Order"
-          description="View all orders"
-          icon={ClipboardList}
-          onClick={() => navigate("/orders")}
-        />
-        <NavTileCard
-          title="Order Creation"
-          description="Create new order"
-          icon={PlusCircle}
-          onClick={() => navigate("/orders/new")}
-        />
-        <NavTileCard
-          title="Stock Management"
-          description="Manage inventory"
-          icon={Wrench}
-          onClick={() => navigate("/warehouse/maintenance")}
-        />
-        <NavTileCard
-          title="Assigned Order List"
-          description="View assigned orders"
-          icon={TruckIcon}
-          onClick={() => navigate("/orders/assigned")}
-        />
-        <NavTileCard
-          title="Collection Deposits"
-          description="Manage deposits"
-          icon={Coins}
-          onClick={() => navigate("/billing/deposits")}
-        />
-      </div>
-
-      {/* Overall Dashboard Counters */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <StatTileCard
-          label="Total Order"
-          value={overallStats.total_order}
-          icon={Package}
-        />
-        <StatTileCard
-          label="Validated"
+    <OrderPageShell>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <FilterStat title="Total Order" value={overallStats.total_order} icon={Package} />
+        <FilterStat
+          title="Validated"
           value={overallStats.validated}
           icon={CheckCircle2}
+          accent="green"
           onClick={() => handleTileClick("validated")}
           active={statusFilter === "all"}
         />
-        <StatTileCard
-          label="Pending Print"
+        <FilterStat
+          title="Pending Print"
           value={overallStats.pending_print}
           icon={FileText}
           onClick={() => handleTileClick("pending_print")}
           active={statusFilter === "pending_print"}
         />
-        <StatTileCard
-          label="Printed"
+        <FilterStat
+          title="Printed"
           value={overallStats.printed}
           icon={Printer}
           onClick={() => handleTileClick("printed")}
           active={statusFilter === "printed"}
         />
-        <StatTileCard
-          label="Assigned"
+        <FilterStat
+          title="Assigned"
           value={overallStats.loaded}
           icon={Truck}
           onClick={() => handleTileClick("assigned")}
         />
-        <StatTileCard
-          label="Postponed"
+        <FilterStat
+          title="Postponed"
           value={overallStats.postponed}
           icon={Clock}
+          accent="purple"
           onClick={() => handleTileClick("postponed")}
           active={statusFilter === "postponed"}
         />
       </div>
 
-      {/* Assignment Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Memo & Packing list</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Label htmlFor="employee">Assign DA (Employee)</Label>
-              <Select value={selectedEmployee} onValueChange={setSelectedEmployee} disabled={employeesLoading || assigning}>
-                <SelectTrigger id="employee">
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employeesLoading ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading employees...</div>
-                  ) : employees.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No employees available</div>
-                  ) : (
-                    employees
-                      .filter((emp) => emp.is_active !== false)
-                      .map((employee) => {
-                        const fullName = `${employee.first_name}${employee.last_name ? ` ${employee.last_name}` : ''}`.trim();
-                        return (
-                          <SelectItem key={employee.id} value={String(employee.id)}>
-                            {fullName} ({employee.employee_id})
-                          </SelectItem>
-                        );
-                      })
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="vehicle">Assign Vehicle</Label>
-              <Select value={selectedVehicle} onValueChange={setSelectedVehicle} disabled={vehiclesLoading || assigning}>
-                <SelectTrigger id="vehicle">
-                  <SelectValue placeholder="Select vehicle" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehiclesLoading ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading vehicles...</div>
-                  ) : vehicles.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No vehicles available</div>
-                  ) : (
-                    vehicles.map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={String(vehicle.id)}>
-                        {vehicle.registration_number} {(vehicle.vehicle_type || vehicle.model) ? `(${vehicle.vehicle_type || vehicle.model})` : ""}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handlePrint} disabled={selectedOrders.length === 0 || printing || ordersLoading}>
-                {printing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
-                Print
-              </Button>
-              <Button onClick={handleAssign} disabled={selectedOrders.length === 0 || !selectedEmployee || !selectedVehicle || assigning || ordersLoading}>
-                {assigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
-                Assign
-              </Button>
-            </div>
+      <OrderPanel className="p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="mr-1 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Memo & Packing list</h2>
+          <FilterSelect
+            id="employee"
+            label="Assign DA (Employee)"
+            value={selectedEmployee}
+            onValueChange={setSelectedEmployee}
+            placeholder="Assign DA"
+            icon={UserRound}
+            disabled={employeesLoading || assigning}
+            triggerClassName="w-[11.5rem] min-w-0"
+            emptyMessage={employeesLoading ? "Loading employees..." : "No employees available"}
+            items={employees
+              .filter((emp) => emp.is_active !== false)
+              .map((employee) => {
+                const fullName = `${employee.first_name}${employee.last_name ? ` ${employee.last_name}` : ""}`.trim();
+                return {
+                  value: String(employee.id),
+                  label: `${fullName} (${employee.employee_id})`,
+                  icon: UserRound,
+                };
+              })}
+          />
+          <FilterSelect
+            id="vehicle"
+            label="Assign Vehicle"
+            value={selectedVehicle}
+            onValueChange={setSelectedVehicle}
+            placeholder="Assign vehicle"
+            icon={Truck}
+            disabled={vehiclesLoading || assigning}
+            triggerClassName="w-[11.5rem] min-w-0"
+            emptyMessage={vehiclesLoading ? "Loading vehicles..." : "No vehicles available"}
+            items={vehicles.map((vehicle) => ({
+              value: String(vehicle.id),
+              label: `${vehicle.registration_number}${(vehicle.vehicle_type || vehicle.model) ? ` (${vehicle.vehicle_type || vehicle.model})` : ""}`,
+              icon: Truck,
+            }))}
+          />
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => navigate("/warehouse/maintenance")}>
+              <Wrench className="h-3.5 w-3.5" />
+              Stock Management
+            </Button>
+            <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => navigate("/billing/deposits")}>
+              <Coins className="h-3.5 w-3.5" />
+              Collection Deposits
+            </Button>
+            <Button type="button" variant="ntSecondary" className="!h-8" onClick={handlePrint} disabled={selectedOrders.length === 0 || printing || ordersLoading}>
+              {printing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+              Print
+            </Button>
+            <Button type="button" variant="ntPrimary" className="!h-8" onClick={handleAssign} disabled={selectedOrders.length === 0 || !selectedEmployee || !selectedVehicle || assigning || ordersLoading}>
+              {assigning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
+              Assign
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </OrderPanel>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by order number, customer, or route..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+      <OrderPanel className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {filteredRouteCards.length > 0 && (
+              <>
+                <Checkbox
+                  checked={(() => {
+                    const allFilteredOrderIds = filteredRouteCards.flatMap((route) =>
+                      route.orders.map((order) => order.orderId)
+                    );
+                    return allFilteredOrderIds.length > 0 && allFilteredOrderIds.every((id) => selectedOrders.includes(id));
+                  })()}
+                  onCheckedChange={handleSelectAllFiltered}
+                  disabled={ordersLoading || filteredRouteCards.flatMap((route) => route.orders).length === 0}
                 />
-              </div>
-            </div>
-            <div className="w-48">
-              <Label htmlFor="route">Route</Label>
-              <Select value={routeFilter} onValueChange={setRouteFilter}>
-                <SelectTrigger id="route">
-                  <SelectValue placeholder="All routes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All routes</SelectItem>
-                  {uniqueRoutes.map((route) => (
-                    <SelectItem key={route} value={route}>
-                      {route}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-48">
-              <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="pending_print">Pending Print</SelectItem>
-                  <SelectItem value="printed">Printed</SelectItem>
-                  <SelectItem value="loaded">Assigned</SelectItem>
-                  <SelectItem value="postponed">Postponed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Global Select All for Filtered Orders */}
-      {filteredRouteCards.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Checkbox
-                checked={(() => {
-                  const allFilteredOrderIds = filteredRouteCards.flatMap((route) => 
-                    route.orders.map((order) => order.orderId)
-                  );
-                  return allFilteredOrderIds.length > 0 && allFilteredOrderIds.every((id) => selectedOrders.includes(id));
-                })()}
-                onCheckedChange={handleSelectAllFiltered}
-                disabled={ordersLoading || filteredRouteCards.flatMap((route) => route.orders).length === 0}
+                <Label className="mr-1 whitespace-nowrap text-sm font-medium">
+                  Select All
+                  {selectedOrders.length > 0 && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      ({selectedOrders.length})
+                    </span>
+                  )}
+                </Label>
+              </>
+            )}
+            <div className="relative w-64 shrink-0">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B]" />
+              <Input
+                id="search"
+                aria-label="Search"
+                placeholder="Search order, customer, route..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={cn(fieldClass, "h-8 pl-8")}
               />
-              <Label className="text-sm font-medium">
-                Select All Filtered Orders
-                {selectedOrders.length > 0 && (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ({selectedOrders.length} selected)
-                  </span>
-                )}
-              </Label>
-              {statusFilter !== "all" && (
-                <span className="text-xs text-muted-foreground ml-auto">
-                  Filter: {statusFilter === "pending_print" ? "Pending Print" : statusFilter === "printed" ? "Printed" : statusFilter === "loaded" ? "Assigned" : statusFilter}
-                </span>
-              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <FilterSelect
+              id="route"
+              label="Route"
+              value={routeFilter}
+              onValueChange={setRouteFilter}
+              placeholder="All routes"
+              icon={MapPinned}
+              triggerClassName="w-[8.75rem] min-w-0"
+              items={[
+                { value: "all", label: "All routes", icon: MapPinned },
+                ...uniqueRoutes.map((route) => ({ value: route, label: route, icon: MapPinned })),
+              ]}
+            />
+            <FilterSelect
+              id="status"
+              label="Status"
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              placeholder="All statuses"
+              icon={Clock}
+              triggerClassName="w-[8.75rem] min-w-0"
+              items={[
+                { value: "all", label: "All statuses", icon: Clock },
+                { value: "pending_print", label: "Pending Print", icon: Clock },
+                { value: "printed", label: "Printed", icon: Printer },
+                { value: "loaded", label: "Assigned", icon: Truck },
+                { value: "postponed", label: "Postponed", icon: Pause },
+              ]}
+            />
+          </div>
+      </OrderPanel>
 
-      {/* Route Cards with Orders */}
-      <div className="space-y-4">
+      <div className="space-y-2">
         {ordersLoading ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Loading orders…</p>
-            </CardContent>
-          </Card>
+          <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#0C4DA1]" />
+            <p className="text-sm text-[#64748B]">Loading orders…</p>
+          </OrderPanel>
         ) : filteredRouteCards.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Package className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">No routes found.</p>
-            </CardContent>
-          </Card>
+          <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+            <Package className="h-8 w-8 text-[#94A3B8]" />
+            <p className="text-sm text-[#64748B]">No routes found.</p>
+          </OrderPanel>
         ) : (
           filteredRouteCards.map((route) => {
             const isRouteExpanded = expandedRoutes[route.routeCode];
             const routeOrders = route.orders;
             const allRouteOrdersSelected = routeOrders.length > 0 && routeOrders.every((o) => selectedOrders.includes(o.orderId));
-            
+
             return (
-              <Card key={route.routeCode} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <button
-                        onClick={() => toggleExpand(route.routeCode)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border bg-background text-muted-foreground transition hover:text-foreground"
-                        aria-label={isRouteExpanded ? "Collapse route" : "Expand route"}
+              <div key={route.routeCode} className={cn(panelClass, "overflow-hidden")}>
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(route.routeCode)}
+                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F8FAFC] dark:hover:bg-[#1B283B]"
+                  aria-expanded={isRouteExpanded}
+                  aria-label={isRouteExpanded ? "Collapse route" : "Expand route"}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#E3EAF3] text-[#64748B] dark:border-[#2C3B50]">
+                    {isRouteExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1]">
+                    <MapPinned className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{route.routeName}</span>
+                      <span className="rounded-md bg-[#EAF2FC] px-1.5 py-0.5 text-[11px] font-semibold text-[#0C4DA1]">
+                        {route.routeCode}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-md px-1.5 py-0.5 text-[11px] font-semibold",
+                          route.status === "Active"
+                            ? "bg-[#ECFDF5] text-[#047857]"
+                            : "bg-[#F1F5F9] text-[#64748B] dark:bg-[#1B283B] dark:text-[#A9B8CC]",
+                        )}
                       >
-                        {isRouteExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </button>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <CardTitle className="text-lg">{route.routeName}</CardTitle>
-                          <span className="inline-flex items-center rounded-full text-white font-bold shadow-lg px-3 py-1.5 text-xs" style={{ backgroundColor: '#4f46e5' }}>
-                            {route.routeCode}
-                          </span>
-                          <span className="inline-flex items-center rounded-full text-white font-bold shadow-lg px-3 py-1.5 text-xs" style={{ backgroundColor: route.status === "Active" ? '#10b981' : '#64748b' }}>
-                            {route.status}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-1">
-                          <span>Total Amount: <span className="font-semibold text-foreground">৳{formatPrice(route.totalAmount)}</span></span>
-                          <span>Orders: <span className="font-semibold text-foreground">{route.totalOrderCount}</span></span>
-                          <span>Validated: <span className="font-semibold text-foreground">{route.validatedCount}</span></span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
+                        {route.status}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="hidden shrink-0 items-center gap-4 text-[12px] text-[#64748B] sm:flex">
+                    <span>
+                      ৳<span className="font-semibold tabular-nums text-[#172B4D] dark:text-[#F1F5F9]">{formatPrice(route.totalAmount)}</span>
+                    </span>
+                    <span>
+                      Orders <span className="font-semibold tabular-nums text-[#172B4D] dark:text-[#F1F5F9]">{route.totalOrderCount}</span>
+                    </span>
+                    <span>
+                      Validated <span className="font-semibold tabular-nums text-[#172B4D] dark:text-[#F1F5F9]">{route.validatedCount}</span>
+                    </span>
+                  </span>
+                </button>
+                <div className="flex justify-end gap-4 px-3 pb-2 text-[12px] text-[#64748B] sm:hidden">
+                  <span>৳{formatPrice(route.totalAmount)}</span>
+                  <span>Orders {route.totalOrderCount}</span>
+                  <span>Validated {route.validatedCount}</span>
+                </div>
 
                 {isRouteExpanded && (
-                  <CardContent className="pt-0">
-                    <div className="space-y-3">
-                      {/* Select All Checkbox */}
-                      <div className="flex items-center gap-2 pb-2 border-b">
-                        <Checkbox
-                          checked={allRouteOrdersSelected}
-                          onCheckedChange={(checked) => handleSelectAll(Boolean(checked), routeOrders)}
-                          disabled={ordersLoading}
-                        />
-                        <Label className="text-sm font-medium">Select All Orders</Label>
-                      </div>
-                      
-                      {/* Order Cards */}
-                      {routeOrders.map((order) => {
-                        const isOrderExpanded = expandedOrders[order.orderId];
-                        const isSelected = selectedOrders.includes(order.orderId);
-                        return (
-                          <Card key={order.orderId} className={`border-2 ${isSelected ? 'border-primary bg-primary/5' : ''}`}>
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={(checked) => handleSelectOrder(order.orderId, Boolean(checked))}
-                                    className="mt-1"
-                                  />
-                                  <div className="flex-1">
-                                    <CardTitle className="text-base mb-1.5">
-                                      {order.memoNumber || `order-${order.orderId}`}
-                                    </CardTitle>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground text-[10px]">Customer:</span>
-                                        <span className="font-medium">{order.customerName}</span>
-                                        <span className="text-muted-foreground">({order.customerCode})</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground text-[10px]">Amount:</span>
-                                        <span className="font-semibold">৳{formatPrice(order.totalAmount)}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground text-[10px]">Discount:</span>
-                                        <span className="font-medium">৳{formatPrice(order.totalDiscount)}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground text-[10px]">Items:</span>
-                                        <span className="font-medium">{order.totalItems}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground text-[10px]">PSO:</span>
-                                        <span className="font-medium">{order.psoName}</span>
-                                        <span className="text-muted-foreground">({order.psoCode})</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground text-[10px]">Order:</span>
-                                        <span className="font-medium">{order.orderNumber || `order-${order.orderId}`}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col items-end gap-2">
-                                    <div className="flex flex-wrap gap-1.5 justify-end">
-                                      {order.postponed && (
-                                        <span className="inline-flex items-center rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1 shadow-lg ring-2 ring-rose-400/60" style={{ backgroundColor: '#e11d48' }}>
-                                          Postponed
-                                        </span>
-                                      )}
-                                      {order.printed && (
-                                        <span className="inline-flex items-center rounded-full bg-teal-500 hover:bg-teal-600 text-white font-bold text-xs px-3 py-1 shadow-lg ring-2 ring-teal-300/60" style={{ backgroundColor: '#14b8a6' }}>
-                                          Printed
-                                        </span>
-                                      )}
-                                      {order.loaded && (
-                                        <span className="inline-flex items-center rounded-full bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs px-3 py-1 shadow-lg ring-2 ring-violet-400/60" style={{ backgroundColor: '#7c3aed' }}>
-                                          Assigned
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              onClick={() => navigate(`/orders/mis-report?memo_id=${order.orderId}`)}
-                                              className="h-8 w-8"
-                                            >
-                                              <FileBarChart className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>View in MIS Report</TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                      <button
-                                        onClick={() => toggleOrderExpand(order.orderId)}
-                                        className="flex h-8 w-8 items-center justify-center rounded border bg-background text-muted-foreground transition hover:text-foreground"
-                                        aria-label={isOrderExpanded ? "Collapse order" : "Expand order"}
-                                      >
-                                        {isOrderExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardHeader>
-                              {isOrderExpanded && (
-                                <CardContent className="pt-0">
-                                  <div className="border rounded-lg overflow-hidden">
-                                    <Table>
-                                      <TableHeader className="bg-muted/50">
-                                        <TableRow className="uppercase text-xs text-muted-foreground tracking-wide">
-                                          <TableHead className="w-[120px]">Product Code</TableHead>
-                                          <TableHead className="w-[80px]">Size</TableHead>
-                                          <TableHead className="text-right w-[100px]">Free Goods</TableHead>
-                                          <TableHead className="text-right w-[100px]">Total Qty</TableHead>
-                                          <TableHead className="text-right w-[110px]">Unit Price</TableHead>
-                                          <TableHead className="text-right w-[130px]">Price - Dis.%</TableHead>
-                                          <TableHead className="text-right w-[120px]">Total Price</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {order.items.map((item) => {
-                                          const parsePrice = (value: any): number => {
-                                            if (value === null || value === undefined || value === '') return 0;
-                                            if (typeof value === 'number') {
-                                              return (!isNaN(value) && isFinite(value) && value >= 0) ? value : 0;
-                                            }
-                                            const num = Number(value);
-                                            return (!isNaN(num) && isFinite(num) && num >= 0) ? num : 0;
-                                          };
-                                          
-                                          const unitPrice = parsePrice(item.unit_price);
-                                          const discountPercent = parsePrice(item.discount_percent);
-                                          const totalPrice = parsePrice(item.total_price);
-                                          const priceAfterDiscount = Number(unitPrice) * (1 - Number(discountPercent) / 100);
-                                          
-                                          return (
-                                            <TableRow key={item.id} className="text-sm">
-                                              <TableCell className="font-mono text-xs">{item.product_code}</TableCell>
-                                              <TableCell>{item.size || "—"}</TableCell>
-                                              <TableCell className="text-right">{Number(item.free_goods || 0).toLocaleString()}</TableCell>
-                                              <TableCell className="text-right">{Number(item.total_quantity || 0).toLocaleString()}</TableCell>
-                                              <TableCell className="text-right">৳{formatPrice(unitPrice)}</TableCell>
-                                              <TableCell className="text-right">৳{formatPrice(priceAfterDiscount)} ({discountPercent}%)</TableCell>
-                                              <TableCell className="text-right font-medium">৳{formatPrice(totalPrice)}</TableCell>
-                                            </TableRow>
-                                          );
-                                        })}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                </CardContent>
-                              )}
-                            </Card>
-                          );
-                        })}
+                  <div className="space-y-2 border-t border-[#E3EAF3] px-3 py-2.5 dark:border-[#2C3B50]">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={allRouteOrdersSelected}
+                        onCheckedChange={(checked) => handleSelectAll(Boolean(checked), routeOrders)}
+                        disabled={ordersLoading}
+                      />
+                      <Label className="text-sm font-medium">Select All Orders</Label>
                     </div>
-                  </CardContent>
+
+                    {routeOrders.map((order) => {
+                      const isOrderExpanded = expandedOrders[order.orderId];
+                      const isSelected = selectedOrders.includes(order.orderId);
+                      return (
+                        <div
+                          key={order.orderId}
+                          className={cn(
+                            "rounded-lg border px-3 py-2",
+                            isSelected
+                              ? "border-[#0C4DA1] bg-[#EAF2FC]/70 dark:bg-[#1B304D]/40"
+                              : "border-[#E3EAF3] dark:border-[#2C3B50]",
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleSelectOrder(order.orderId, Boolean(checked))}
+                              className="mt-1"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                                {order.memoNumber || `order-${order.orderId}`}
+                              </p>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#64748B]">
+                                <span>
+                                  {order.customerName}{" "}
+                                  <span className="text-[#94A3B8]">({order.customerCode})</span>
+                                </span>
+                                <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{formatPrice(order.totalAmount)}</span>
+                                <span>Disc. ৳{formatPrice(order.totalDiscount)}</span>
+                                <span>{order.totalItems} items</span>
+                                <span>
+                                  {order.psoName} <span className="text-[#94A3B8]">({order.psoCode})</span>
+                                </span>
+                                <span>{order.orderNumber || `order-${order.orderId}`}</span>
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {order.postponed && (
+                                <span className="rounded-md bg-[#FEE2E2] px-1.5 py-0.5 text-[11px] font-semibold text-[#B91C1C]">Postponed</span>
+                              )}
+                              {order.printed && (
+                                <span className="rounded-md bg-[#CCFBF1] px-1.5 py-0.5 text-[11px] font-semibold text-[#0F766E]">Printed</span>
+                              )}
+                              {order.loaded && (
+                                <span className="rounded-md bg-[#EDE9FE] px-1.5 py-0.5 text-[11px] font-semibold text-[#6D28D9]">Assigned</span>
+                              )}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => navigate(`/orders/mis-report?memo_id=${order.orderId}`)}
+                                      className="h-7 w-7"
+                                    >
+                                      <FileBarChart className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>View in MIS Report</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <button
+                                type="button"
+                                onClick={() => toggleOrderExpand(order.orderId)}
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-[#E3EAF3] text-[#64748B] hover:text-[#172B4D] dark:border-[#2C3B50]"
+                                aria-label={isOrderExpanded ? "Collapse order" : "Expand order"}
+                              >
+                                {isOrderExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+                          {isOrderExpanded && (
+                            <div className="mt-2 overflow-hidden rounded-lg border border-[#E3EAF3] dark:border-[#2C3B50]">
+                              <Table>
+                                <TableHeader className={tableHeadClass}>
+                                  <TableRow>
+                                    <TableHead className="w-[120px]">Product Code</TableHead>
+                                    <TableHead className="w-[80px]">Size</TableHead>
+                                    <TableHead className="w-[100px] text-right">Free Goods</TableHead>
+                                    <TableHead className="w-[100px] text-right">Total Qty</TableHead>
+                                    <TableHead className="w-[110px] text-right">Unit Price</TableHead>
+                                    <TableHead className="w-[130px] text-right">Price - Dis.%</TableHead>
+                                    <TableHead className="w-[120px] text-right">Total Price</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {order.items.map((item) => {
+                                    const parsePrice = (value: any): number => {
+                                      if (value === null || value === undefined || value === "") return 0;
+                                      if (typeof value === "number") {
+                                        return !isNaN(value) && isFinite(value) && value >= 0 ? value : 0;
+                                      }
+                                      const num = Number(value);
+                                      return !isNaN(num) && isFinite(num) && num >= 0 ? num : 0;
+                                    };
+
+                                    const unitPrice = parsePrice(item.unit_price);
+                                    const discountPercent = parsePrice(item.discount_percent);
+                                    const totalPrice = parsePrice(item.total_price);
+                                    const priceAfterDiscount = Number(unitPrice) * (1 - Number(discountPercent) / 100);
+
+                                    return (
+                                      <TableRow key={item.id} className="text-sm">
+                                        <TableCell className="font-mono text-xs">{item.product_code}</TableCell>
+                                        <TableCell>{item.size || "—"}</TableCell>
+                                        <TableCell className="text-right">{Number(item.free_goods || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">{Number(item.total_quantity || 0).toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">৳{formatPrice(unitPrice)}</TableCell>
+                                        <TableCell className="text-right">
+                                          ৳{formatPrice(priceAfterDiscount)} ({discountPercent}%)
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">৳{formatPrice(totalPrice)}</TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-              </Card>
+              </div>
             );
           })
         )}
       </div>
-    </main>
+    </OrderPageShell>
   );
 }

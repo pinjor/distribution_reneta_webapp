@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { masterData } from "@/lib/masterData";
@@ -25,10 +21,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, Filter, X, PlusCircle, Package, MapPinned, TruckIcon, Loader2, Trash2, FileBarChart } from "lucide-react";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { NavTileCard } from "@/components/ui/tile-card";
+import { ChevronDown, ChevronRight, Pencil, ClipboardList, Truck, X, Package, Loader2, Trash2, FileBarChart, Store, UserRound } from "lucide-react";
+import { FilterSelect, OrderPageShell, OrderPanel } from "@/components/orders/orderMgmtUi";
+import { NtDateField } from "@/components/theme/NtDateField";
 
 interface ApiOrderItem {
   id: number;
@@ -216,11 +211,6 @@ export default function OrderListPage() {
       return true;
     });
   }, [orders, filterPSO, filterCustomer, filterDate]);
-
-  const totalItems = useMemo(
-    () => filteredOrders.reduce((sum, order) => sum + order.items.length, 0),
-    [filteredOrders],
-  );
 
   const clearFilters = () => {
     setFilterPSO("");
@@ -485,61 +475,75 @@ export default function OrderListPage() {
 
 
   return (
-    <main className="p-6 space-y-6">
-      <OrderBreadcrumb />
-      {/* Navigation Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <NavTileCard
-          title="Order Creation"
-          description="New Order"
-          icon={PlusCircle}
-          onClick={() => navigate("/orders/new")}
-        />
-        <NavTileCard
-          title="Route Wise Memo List"
-          description="Route View"
-          icon={MapPinned}
-          onClick={() => navigate("/orders/route-wise")}
-        />
-        <NavTileCard
-          title="Stock Management"
-          description="Manage Stock"
-          icon={Package}
-          onClick={() => navigate("/warehouse/maintenance")}
-        />
-        <NavTileCard
-          title="Assigned Order List"
-          description="View Assignments"
-          icon={TruckIcon}
-          onClick={() => navigate("/orders/assigned")}
-        />
-      </div>
+    <OrderPageShell>
+      <OrderPanel className="p-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect
+              id="filter-pso"
+              label="PSO"
+              value={filterPSO || "all"}
+              onValueChange={(value) => setFilterPSO(value === "all" ? "" : value)}
+              placeholder="All PSOs"
+              icon={UserRound}
+              disabled={loadingMasterData}
+              triggerClassName="w-[10.75rem] min-w-0"
+              items={[
+                { value: "all", label: "All PSOs", icon: UserRound },
+                ...psoList.map((pso) => ({
+                  value: pso.id,
+                  label: `${pso.name}${pso.code ? ` (${pso.code})` : ""}`,
+                  icon: UserRound,
+                })),
+              ]}
+            />
 
-      <PageHeader
-        title="Delivery Order"
-        subtitle="Review orders and manage delivery assignments."
-        icon={ClipboardList}
-        variant="indigo"
-      />
+            <FilterSelect
+              id="filter-customer"
+              label="Customer"
+              value={filterCustomer || "all"}
+              onValueChange={(value) => setFilterCustomer(value === "all" ? "" : value)}
+              placeholder="All Customers"
+              icon={Store}
+              disabled={loadingMasterData}
+              triggerClassName="w-[10.75rem] min-w-0"
+              items={[
+                { value: "all", label: "All Customers", icon: Store },
+                ...customerList.map((customer) => ({
+                  value: customer.id,
+                  label: `${customer.name}${customer.code ? ` (${customer.code})` : ""}`,
+                  icon: Store,
+                })),
+              ]}
+            />
 
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">
-                {filteredOrders.length} order{filteredOrders.length === 1 ? "" : "s"} • {totalItems} line item{totalItems === 1 ? "" : "s"}
-                {hasActiveFilters && ` (filtered from ${orders.length} total)`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Use the checkboxes to control which line items flow into the validated order number.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+            <NtDateField
+              id="filter-date"
+              value={filterDate}
+              onChange={setFilterDate}
+              placeholder="Delivery date"
+              className="w-[10.75rem]"
+            />
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-8 px-2 text-[#64748B]"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear
+              </Button>
+            )}
+
+            <div className="ml-auto flex flex-wrap items-center gap-2">
               {selectedOrders.length > 0 && (
                   <Button 
+                  type="button"
+                  variant="ntPrimary"
                   onClick={handleValidateAll} 
                   disabled={loading || validatingOrders.size > 0}
-                  size="sm"
+                  className="!h-8"
                 >
                   {loading && validatingOrders.size > 0 ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -549,80 +553,15 @@ export default function OrderListPage() {
                   Validate All ({selectedOrders.length})
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={() => navigate("/orders/new")}>
+              <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => navigate("/orders/new")}>
                 Create new order
               </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Filters Section */}
-          <div className="flex flex-wrap items-end gap-4 p-4 bg-muted/30 rounded-lg border">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filters:</span>
-            </div>
-            
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="filter-pso" className="text-xs text-muted-foreground">PSO</Label>
-              <Select value={filterPSO || "all"} onValueChange={(value) => setFilterPSO(value === "all" ? "" : value)} disabled={loadingMasterData}>
-                <SelectTrigger id="filter-pso" className="h-9">
-                  <SelectValue placeholder="All PSOs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All PSOs</SelectItem>
-                  {psoList.map((pso) => (
-                    <SelectItem key={pso.id} value={pso.id}>
-                      {pso.name} {pso.code ? `(${pso.code})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="filter-customer" className="text-xs text-muted-foreground">Customer</Label>
-              <Select value={filterCustomer || "all"} onValueChange={(value) => setFilterCustomer(value === "all" ? "" : value)} disabled={loadingMasterData}>
-                <SelectTrigger id="filter-customer" className="h-9">
-                  <SelectValue placeholder="All Customers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  {customerList.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name} {customer.code ? `(${customer.code})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[180px]">
-              <Label htmlFor="filter-date" className="text-xs text-muted-foreground">Delivery Date</Label>
-              <Input
-                id="filter-date"
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="h-9"
-              />
-            </div>
-
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-9"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear
+              <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => navigate("/warehouse/maintenance")}>
+                <Package className="h-3.5 w-3.5" />
+                Stock Management
               </Button>
-            )}
+            </div>
           </div>
-
-          <Separator />
 
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
@@ -671,7 +610,7 @@ export default function OrderListPage() {
                 const allItemsValidated = false; // Will be true after validation, but order will disappear from list
 
                 return (
-                  <div key={order.id} className={`rounded-xl border bg-card shadow-sm ${selectedOrders.includes(order.id) ? 'border-primary bg-primary/5' : ''}`}>
+                  <div key={order.id} className={`rounded-xl border border-[#E3EAF3] bg-white dark:border-[#2C3B50] dark:bg-[#151F30] ${selectedOrders.includes(order.id) ? 'border-[#0C4DA1] bg-[#EAF2FC]/50 dark:bg-[#1B304D]/40' : ''}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Checkbox
@@ -898,8 +837,7 @@ export default function OrderListPage() {
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </main>
+      </OrderPanel>
+    </OrderPageShell>
   );
 }

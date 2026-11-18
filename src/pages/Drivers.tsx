@@ -1,437 +1,713 @@
-import { useMemo, useState } from "react";
-import { User, Phone, Calendar, MapPin, Plus } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  IdCard,
+  ListFilter,
+  Loader2,
+  MapPin,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Truck,
+  User,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiEndpoints } from "@/lib/api";
+import { ThemeScope } from "@/components/theme/ThemeScope";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { useToast } from "@/hooks/use-toast";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { apiEndpoints } from "@/lib/api";
+import { NAVY_TEAL_SCOPE_CLASS } from "@/lib/navyTealTheme";
+import { generateCode } from "@/utils/codeGenerator";
+import { cn } from "@/lib/utils";
+import {
+  ActionIconButton,
+  asList,
+  dialogContentClass,
+  fieldClass,
+  fieldWrapClass,
+  KpiCard,
+  labelClass,
+  requiredMark,
+  selectItemClass,
+  selectPanelClass,
+} from "@/components/transport/transportUi";
+
+interface DriverRecord {
+  id: number;
+  driver_id: string;
+  first_name: string;
+  last_name?: string | null;
+  license_number: string;
+  license_expiry?: string | null;
+  contact?: string | null;
+  email?: string | null;
+  address?: string | null;
+  vehicle_id?: string | null;
+  route?: string | null;
+  status?: string | null;
+  is_active: boolean;
+}
+
+const DUTY_STATUSES = ["Available", "On Route", "On Trip", "On Leave", "Off Duty", "Inactive"] as const;
+
+const emptyForm = {
+  first_name: "",
+  last_name: "",
+  contact: "",
+  email: "",
+  license_number: "",
+  license_expiry: "",
+  vehicle_id: "",
+  route: "",
+  address: "",
+  status: "Available",
+};
+
+function formatDateInput(value?: string | null) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+function driverName(driver: Pick<DriverRecord, "first_name" | "last_name">) {
+  return `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "—";
+}
+
+function dutyTone(status?: string | null) {
+  if (status === "Available") return "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]";
+  if (status === "On Route" || status === "On Trip") return "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]";
+  if (status === "Inactive") return "bg-[#FEF2F2] text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]";
+  return "bg-[#F1F5F9] text-[#475569] dark:bg-[#1B283B] dark:text-[#A9B8CC]";
+}
+
+function StatusFilterOption({
+  icon: Icon,
+  label,
+  tone,
+}: {
+  icon: typeof ListFilter;
+  label: string;
+  tone: "navy" | "green" | "red";
+}) {
+  const toneClass = {
+    navy: "bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]",
+    green: "bg-[#ECFDF5] text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]",
+    red: "bg-[#FEF2F2] text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]",
+  }[tone];
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md", toneClass)}>
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      {label}
+    </span>
+  );
+}
 
 export default function Drivers() {
-  const { data: drivers = [], isLoading } = useQuery({
-    queryKey: ['drivers'],
-    queryFn: apiEndpoints.drivers.getAll,
-  });
-  const queryClient = useQueryClient();
+  const reduceMotion = useReducedMotion();
   const { toast } = useToast();
-  const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const [showPanel, setShowPanel] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [formData, setFormData] = useState({
-    driverId: "",
-    firstName: "",
-    lastName: "",
-    contact: "",
-    licenseNumber: "",
-    licenseExpiry: "",
-    route: "",
-    vehicleId: "",
-    status: "Available",
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState<DriverRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DriverRecord | null>(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    document.title = "Driver | Renata";
+  }, []);
+
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
+    queryKey: ["drivers", { include_inactive: true }],
+    queryFn: async () => asList<DriverRecord>(await apiEndpoints.drivers.getAll({ include_inactive: true })),
   });
 
-  const [optimisticDrivers, setOptimisticDrivers] = useState<any[]>([]);
+  const drivers = data || [];
 
-  const displayDrivers = useMemo(() => {
-    if (Array.isArray(drivers) && drivers.length > 0) return drivers;
-    if (optimisticDrivers.length > 0) return optimisticDrivers;
-    return [
-      {
-        id: "DRV-0001",
-        driver_id: "DRV-0001",
-        first_name: "Tariq",
-        last_name: "Hasan",
-        contact: "01711-223344",
-        license_number: "LIC-9845123",
-        license_expiry: "2026-04-30",
-        vehicle_id: "VH-0001",
-        route: "Dhaka North",
-        status: "Available",
-      },
-      {
-        id: "DRV-0002",
-        driver_id: "DRV-0002",
-        first_name: "Manik",
-        last_name: "Khan",
-        contact: "01721-889944",
-        license_number: "LIC-9845789",
-        license_expiry: "2025-12-10",
-        vehicle_id: "VH-0002",
-        route: "Dhaka West",
-        status: "On Route",
-      },
-      {
-        id: "DRV-0003",
-        driver_id: "DRV-0003",
-        first_name: "Saidur",
-        last_name: "Rahman",
-        contact: "01781-112233",
-        license_number: "LIC-9845321",
-        license_expiry: "2024-11-15",
-        vehicle_id: "VH-0003",
-        route: "Gazipur",
-        status: "On Leave",
-      },
-    ];
-  }, [drivers, optimisticDrivers]);
-
-  const createDriver = useMutation({
-    mutationFn: (payload: any) => apiEndpoints.drivers.create(payload),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      toast({ title: "Driver added", description: "Driver has been created successfully." });
-      if (!Array.isArray(drivers) || drivers.length === 0) {
-        setOptimisticDrivers((prev) => {
-          const id = variables.driver_id || variables.driverId;
-          const remaining = prev.filter((entry) => (entry.driver_id || entry.id) !== id);
-          return [
-            {
-              ...variables,
-              id,
-              driver_id: id,
-            },
-            ...remaining,
-          ];
-        });
-      }
-      setShowCreateDialog(false);
-      setFormData({
-        driverId: "",
-        firstName: "",
-        lastName: "",
-        contact: "",
-        licenseNumber: "",
-        licenseExpiry: "",
-        route: "",
-        vehicleId: "",
-        status: "Available",
-      });
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => apiEndpoints.drivers.create(payload),
+    onSuccess: () => {
+      toast({ title: "Driver added", description: `New driver created with ID ${generatedCode}.` });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
     },
-    onError: (error: any, variables) => {
-      setOptimisticDrivers((prev) => {
-        const id = variables.driver_id || variables.driverId;
-        const remaining = prev.filter((entry) => (entry.driver_id || entry.id) !== id);
-        return [
-          {
-            ...variables,
-            id,
-            driver_id: id,
-            status: variables.status || "Available",
-          },
-          ...remaining,
-        ];
-      });
-      toast({
-        title: "Unable to add driver",
-        description: error?.message || "Something went wrong while saving the driver.",
-        variant: "destructive",
-      });
-    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const handleViewProfile = (driver: typeof drivers[0]) => {
-    setSelectedDriver(driver);
-    setShowPanel(true);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
+      apiEndpoints.drivers.update(id, payload),
+    onSuccess: () => {
+      toast({ title: "Driver updated", description: "Driver information has been updated successfully." });
+      closeForm();
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiEndpoints.drivers.delete(id),
+    onSuccess: () => {
+      toast({ title: "Driver deleted", description: "The driver has been removed." });
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const formBusy = createMutation.isPending || updateMutation.isPending;
+
+  const filtered = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return drivers.filter((driver) => {
+      if (statusFilter === "active" && !driver.is_active) return false;
+      if (statusFilter === "inactive" && driver.is_active) return false;
+      if (!term) return true;
+      return [
+        driver.driver_id,
+        driver.first_name,
+        driver.last_name,
+        driver.contact,
+        driver.email,
+        driver.license_number,
+        driver.vehicle_id,
+        driver.route,
+        driver.status,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [drivers, searchTerm, statusFilter]);
+
+  const totals = useMemo(() => {
+    const active = drivers.filter((driver) => driver.is_active).length;
+    return { total: drivers.length, active, inactive: drivers.length - active };
+  }, [drivers]);
+
+  const openCreate = () => {
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setIsActive(true);
+    setGeneratedCode(generateCode("DRV", drivers.map((driver) => driver.driver_id)));
+    setShowForm(true);
   };
 
-  const handleCreateDriver = async () => {
-    if (!formData.driverId || !formData.firstName || !formData.licenseNumber) {
-      toast({
-        title: "Missing information",
-        description: "Driver ID, first name, and license number are required.",
-        variant: "destructive",
+  const openEdit = (driver: DriverRecord) => {
+    setEditTarget(driver);
+    setGeneratedCode(driver.driver_id);
+    setIsActive(driver.is_active !== false);
+    setFormData({
+      first_name: driver.first_name || "",
+      last_name: driver.last_name || "",
+      contact: driver.contact || "",
+      email: driver.email || "",
+      license_number: driver.license_number || "",
+      license_expiry: formatDateInput(driver.license_expiry),
+      vehicle_id: driver.vehicle_id || "",
+      route: driver.route || "",
+      address: driver.address || "",
+      status: driver.status || "Available",
+    });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditTarget(null);
+    setFormData(emptyForm);
+    setGeneratedCode("");
+    setIsActive(true);
+  };
+
+  const handleChange = (field: keyof typeof emptyForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const canSubmit = Boolean(formData.first_name.trim() && formData.license_number.trim());
+
+  const buildPayload = () => ({
+    first_name: formData.first_name.trim(),
+    last_name: formData.last_name.trim() || null,
+    contact: formData.contact.trim() || null,
+    email: formData.email.trim() || null,
+    license_number: formData.license_number.trim(),
+    license_expiry: formData.license_expiry || null,
+    route: formData.route.trim() || null,
+    vehicle_id: formData.vehicle_id.trim() || null,
+    address: formData.address.trim() || null,
+    status: formData.status,
+  });
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!canSubmit || formBusy) return;
+
+    if (editTarget) {
+      updateMutation.mutate({
+        id: editTarget.id,
+        payload: { ...buildPayload(), is_active: isActive },
       });
       return;
     }
 
-    const payload = {
-      driver_id: formData.driverId,
-      first_name: formData.firstName,
-      last_name: formData.lastName || null,
-      contact: formData.contact || null,
-      license_number: formData.licenseNumber,
-      license_expiry: formData.licenseExpiry || null,
-      route: formData.route || null,
-      vehicle_id: formData.vehicleId || null,
-      status: formData.status,
-    };
-
-    try {
-      await createDriver.mutateAsync(payload);
-    } catch (error) {
-      console.error("Failed to create driver", error);
-    }
+    createMutation.mutate({
+      ...buildPayload(),
+      driver_id: generatedCode,
+      is_active: true,
+    });
   };
 
+  const columns: DataTableColumn<DriverRecord>[] = [
+    {
+      key: "driver_id",
+      label: "Driver ID",
+      className: "font-mono text-[13px]",
+    },
+    {
+      key: "first_name",
+      label: "Driver Name",
+      render: (_val, row) => <span className="font-medium text-[#0C4DA1] dark:text-[#70ADFF]">{driverName(row)}</span>,
+    },
+    {
+      key: "contact",
+      label: "Contact",
+      render: (_val, row) => (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-[13px]">
+            <Phone className="h-3 w-3 text-[#64748B]" />
+            {row.contact || "—"}
+          </div>
+          {row.email ? <div className="text-[12px] text-[#64748B] dark:text-[#A9B8CC]">{row.email}</div> : null}
+        </div>
+      ),
+    },
+    {
+      key: "license_number",
+      label: "License",
+      render: (_val, row) => (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5">
+            <IdCard className="h-3.5 w-3.5 text-[#64748B]" />
+            {row.license_number || "—"}
+          </div>
+          <div className="text-[12px] text-[#64748B] dark:text-[#A9B8CC]">
+            Exp: {row.license_expiry ? formatDateInput(row.license_expiry) : "—"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "vehicle_id",
+      label: "Vehicle",
+      render: (val) => String(val || "—"),
+    },
+    {
+      key: "route",
+      label: "Route",
+      render: (val) => (
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-[#64748B]" />
+          {String(val || "—")}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      label: "Duty",
+      render: (val) => (
+        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold", dutyTone(String(val || "")))}>
+          {String(val || "—")}
+        </span>
+      ),
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (_val, row) =>
+        row.is_active ? (
+          <span className="inline-flex rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:bg-[#052E1C] dark:text-[#4ADE80]">
+            Active
+          </span>
+        ) : (
+          <span className="inline-flex rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[11px] font-semibold text-[#B91C1C] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+            Inactive
+          </span>
+        ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      align: "right",
+      headerClassName: "text-right",
+      render: (_val, row) => (
+        <div className="flex justify-end gap-0.5">
+          <ActionIconButton
+            label="Edit driver"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => openEdit(row)}
+            className="text-[#0C4DA1] hover:bg-[#EAF2FC] hover:text-[#0A3F86]"
+          >
+            <Pencil className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            label="Delete driver"
+            disabled={formBusy || deleteMutation.isPending}
+            onClick={() => setDeleteTarget(row)}
+            className="text-[#DC2626] hover:bg-[#FEF2F2] hover:text-[#B91C1C]"
+          >
+            <Trash2 className="h-4 w-4" />
+          </ActionIconButton>
+        </div>
+      ),
+    },
+  ];
+
+  const motionProps = {
+    initial: reduceMotion ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: reduceMotion ? 0 : 0.18 },
+  };
+
+  const statusOptions = useMemo(() => {
+    const extra = drivers
+      .map((driver) => driver.status)
+      .filter((status): status is string => Boolean(status) && !DUTY_STATUSES.includes(status as (typeof DUTY_STATUSES)[number]));
+    return [...DUTY_STATUSES, ...Array.from(new Set(extra))];
+  }, [drivers]);
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Driver Management"
-        subtitle="Manage driver assignments and profiles"
-        icon={User}
-        variant="emerald"
-        actions={(
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Add Driver
-          </Button>
-        )}
-      />
+    <ThemeScope className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-hidden">
+        <motion.div {...motionProps} className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard title="Drivers" value={totals.total} icon={User} accent="blue" />
+          <KpiCard title="Active" value={totals.active} icon={CheckCircle2} accent="green" />
+          <KpiCard title="Inactive" value={totals.inactive} icon={XCircle} accent="purple" />
+        </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Total Drivers</p>
-          <p className="text-2xl font-semibold">{isLoading ? "..." : displayDrivers.length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Active</p>
-          <p className="text-2xl font-semibold text-success">{isLoading ? "..." : displayDrivers.filter((d: any) => d.status === "On Route" || d.status === "Available").length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">On Duty</p>
-          <p className="text-2xl font-semibold">{isLoading ? "..." : displayDrivers.filter((d: any) => d.status === "On Route").length}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground mb-1">Available</p>
-          <p className="text-2xl font-semibold">{isLoading ? "..." : displayDrivers.filter((d: any) => d.status === "Available").length}</p>
-        </Card>
-      </div>
-
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Driver Directory</h2>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Driver ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>License Expiry</TableHead>
-              <TableHead>Assigned Vehicle</TableHead>
-              <TableHead>Route</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">Loading...</TableCell>
-              </TableRow>
-            ) : displayDrivers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">No drivers found</TableCell>
-              </TableRow>
-            ) : (
-              displayDrivers.map((driver: any) => (
-                <TableRow key={driver.id}>
-                  <TableCell className="font-medium">{driver.driver_id || driver.id}</TableCell>
-                  <TableCell>{`${driver.first_name} ${driver.last_name || ''}`.trim()}</TableCell>
-                  <TableCell>{driver.contact}</TableCell>
-                  <TableCell>{driver.license_expiry}</TableCell>
-                  <TableCell>{driver.vehicle_id}</TableCell>
-                  <TableCell>{driver.route}</TableCell>
-                  <TableCell>
-                    {(driver.status === "On Route" || driver.status === "Available") ? (
-                      <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
-                    ) : (
-                      <Badge variant="outline">Inactive</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" variant="outline" onClick={() => handleViewProfile(driver)}>
-                      View Profile
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <Sheet open={showPanel} onOpenChange={setShowPanel}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Driver Profile</SheetTitle>
-            <SheetDescription>View and manage driver details</SheetDescription>
-          </SheetHeader>
-
-          {selectedDriver && (
-            <div className="space-y-6 mt-6">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-8 w-8 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">{`${selectedDriver.first_name} ${selectedDriver.last_name || ''}`.trim()}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedDriver.driver_id || selectedDriver.id}</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Phone className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Contact</p>
-                    <p className="text-sm font-medium">{selectedDriver.contact}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">License</p>
-                    <p className="text-sm font-medium">{selectedDriver.license_number}</p>
-                    <p className="text-xs text-muted-foreground">Expires: {selectedDriver.license_expiry}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Assigned Route</p>
-                    <p className="text-sm font-medium">{selectedDriver.route}</p>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-muted/30">
-                  <p className="text-xs text-muted-foreground mb-1">Assigned Vehicle</p>
-                  <p className="text-sm font-medium">{selectedDriver.vehicle_id}</p>
-                </div>
-
-                <div className="p-3 rounded-lg bg-muted/30">
-                  <p className="text-xs text-muted-foreground mb-1">Status</p>
-                  {(selectedDriver.status === "On Route" || selectedDriver.status === "Available") ? (
-                    <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
-                  ) : (
-                    <Badge variant="outline">Inactive</Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-4">
-                <Button className="w-full">Reassign Vehicle</Button>
-                <Button className="w-full" variant="outline">Reassign Route</Button>
-                <Button className="w-full" variant="outline">Update Details</Button>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Add Driver</DialogTitle>
-            <DialogDescription>Capture the primary information for a new driver.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 md:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-id">Driver ID *</Label>
-              <Input
-                id="driver-id"
-                placeholder="DRV-0001"
-                value={formData.driverId}
-                onChange={(e) => setFormData((prev) => ({ ...prev, driverId: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-first-name">First name *</Label>
-              <Input
-                id="driver-first-name"
-                placeholder="First name"
-                value={formData.firstName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, firstName: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-last-name">Last name</Label>
-              <Input
-                id="driver-last-name"
-                placeholder="Last name"
-                value={formData.lastName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, lastName: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-contact">Contact</Label>
-              <Input
-                id="driver-contact"
-                placeholder="Phone number"
-                value={formData.contact}
-                onChange={(e) => setFormData((prev) => ({ ...prev, contact: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-license">License number *</Label>
-              <Input
-                id="driver-license"
-                placeholder="License number"
-                value={formData.licenseNumber}
-                onChange={(e) => setFormData((prev) => ({ ...prev, licenseNumber: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-license-expiry">License expiry</Label>
-              <Input
-                id="driver-license-expiry"
-                type="date"
-                value={formData.licenseExpiry}
-                onChange={(e) => setFormData((prev) => ({ ...prev, licenseExpiry: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-vehicle">Assigned vehicle</Label>
-              <Input
-                id="driver-vehicle"
-                placeholder="Vehicle ID"
-                value={formData.vehicleId}
-                onChange={(e) => setFormData((prev) => ({ ...prev, vehicleId: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="driver-route">Route</Label>
-              <Input
-                id="driver-route"
-                placeholder="Route / region"
-                value={formData.route}
-                onChange={(e) => setFormData((prev) => ({ ...prev, route: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
+        <motion.div {...motionProps} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <DataTable
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            title="All Drivers"
+            description="Manage driver profiles, licenses, and assignments."
+            toolbarIcon={<Truck className="h-4 w-4" />}
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: "Search drivers...",
+            }}
+            toolbarFilters={
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className={cn("h-9 w-[180px]", fieldClass)} aria-label="Status">
+                  <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Available">Available</SelectItem>
-                  <SelectItem value="On Route">On Route</SelectItem>
-                  <SelectItem value="On Leave">On Leave</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
+                <SelectContent className={selectPanelClass}>
+                  <SelectItem value="all" className={selectItemClass}>
+                    <StatusFilterOption icon={ListFilter} label="All Status" tone="navy" />
+                  </SelectItem>
+                  <SelectItem value="active" className={selectItemClass}>
+                    <StatusFilterOption icon={CheckCircle2} label="Active" tone="green" />
+                  </SelectItem>
+                  <SelectItem value="inactive" className={selectItemClass}>
+                    <StatusFilterOption icon={XCircle} label="Inactive" tone="red" />
+                  </SelectItem>
                 </SelectContent>
               </Select>
+            }
+            toolbarActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ntSecondary" className="!h-8" onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Refresh
+                </Button>
+                <Button type="button" variant="ntPrimary" className="!h-8" onClick={openCreate}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Driver
+                </Button>
+              </div>
+            }
+            data={filtered}
+            columns={columns}
+            loading={isLoading}
+            error={isError ? (error instanceof Error ? error.message : "Unable to load drivers") : undefined}
+            getRowId={(row) => row.id}
+            resetPageKey={`${statusFilter}|${searchTerm}|${filtered.length}`}
+            emptyMessage="No drivers found"
+          />
+        </motion.div>
+      </div>
+
+      <Dialog
+        open={showForm}
+        onOpenChange={(open) => {
+          if (!formBusy) {
+            if (open) setShowForm(true);
+            else closeForm();
+          }
+        }}
+      >
+        <DialogContent
+          className={dialogContentClass}
+          onPointerDownOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (formBusy) event.preventDefault();
+          }}
+        >
+          <DialogHeader className="shrink-0 space-y-0.5 border-b border-[#E3EAF3] px-5 py-3 text-left dark:border-[#2C3B50]">
+            <div className="flex items-start gap-3 pr-6">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#EAF2FC] text-[#0C4DA1] dark:bg-[#1B304D] dark:text-[#70ADFF]">
+                <User className="h-4 w-4" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                  {editTarget ? "Edit Driver" : "Add New Driver"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                  {editTarget ? "Update driver information." : "Create a new driver profile."}
+                </DialogDescription>
+              </div>
             </div>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="nt-form nt-form-compact min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">Driver details</h3>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-id">
+                      Driver ID {requiredMark}
+                    </Label>
+                    <Input id="drv-id" value={generatedCode} disabled className={cn(fieldClass, "font-mono")} />
+                    <p className="text-[11px] text-[#64748B]">Auto-generated ID (cannot be changed)</p>
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-first">
+                      First name {requiredMark}
+                    </Label>
+                    <Input
+                      id="drv-first"
+                      value={formData.first_name}
+                      onChange={(event) => handleChange("first_name", event.target.value)}
+                      placeholder="First name"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-last">
+                      Last name
+                    </Label>
+                    <Input
+                      id="drv-last"
+                      value={formData.last_name}
+                      onChange={(event) => handleChange("last_name", event.target.value)}
+                      placeholder="Last name"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-contact">
+                      Contact
+                    </Label>
+                    <Input
+                      id="drv-contact"
+                      type="tel"
+                      value={formData.contact}
+                      onChange={(event) => handleChange("contact", event.target.value)}
+                      placeholder="Phone number"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-email">
+                      Email
+                    </Label>
+                    <Input
+                      id="drv-email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(event) => handleChange("email", event.target.value)}
+                      placeholder="driver@example.com"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-license">
+                      License number {requiredMark}
+                    </Label>
+                    <Input
+                      id="drv-license"
+                      value={formData.license_number}
+                      onChange={(event) => handleChange("license_number", event.target.value)}
+                      placeholder="License number"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-expiry">
+                      License expiry
+                    </Label>
+                    <Input
+                      id="drv-expiry"
+                      type="date"
+                      value={formData.license_expiry}
+                      onChange={(event) => handleChange("license_expiry", event.target.value)}
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-vehicle">
+                      Assigned vehicle
+                    </Label>
+                    <Input
+                      id="drv-vehicle"
+                      value={formData.vehicle_id}
+                      onChange={(event) => handleChange("vehicle_id", event.target.value)}
+                      placeholder="Vehicle ID"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass} htmlFor="drv-route">
+                      Route
+                    </Label>
+                    <Input
+                      id="drv-route"
+                      value={formData.route}
+                      onChange={(event) => handleChange("route", event.target.value)}
+                      placeholder="Route / region"
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>Duty status</Label>
+                    <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
+                      <SelectTrigger className={cn("h-9", fieldClass)} aria-label="Duty status">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        {statusOptions.map((status) => (
+                          <SelectItem key={status} value={status} className={selectItemClass}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className={`${fieldWrapClass} sm:col-span-2`}>
+                    <Label className={labelClass} htmlFor="drv-address">
+                      Address
+                    </Label>
+                    <Textarea
+                      id="drv-address"
+                      value={formData.address}
+                      onChange={(event) => handleChange("address", event.target.value)}
+                      placeholder="Address"
+                      rows={2}
+                      className={cn(fieldClass, "h-auto min-h-[64px] py-2")}
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+            <DialogFooter className="shrink-0 gap-2 border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50] sm:justify-between">
+              {editTarget ? (
+                <label className="mr-auto flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "text-[12px] font-semibold",
+                      isActive ? "text-[#15803D] dark:text-[#4ADE80]" : "text-[#B91C1C] dark:text-[#FCA5A5]",
+                    )}
+                  >
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                    aria-label="Driver status"
+                    className="data-[state=checked]:bg-[#15803D] data-[state=unchecked]:bg-[#CBD5E1] dark:data-[state=unchecked]:bg-[#2C3B50]"
+                  />
+                </label>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ntSecondary" onClick={closeForm} disabled={formBusy}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="ntPrimary" disabled={formBusy || !canSubmit}>
+                  {formBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editTarget ? "Update Driver" : "Create Driver"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !deleteMutation.isPending && !open && setDeleteTarget(null)}>
+        <DialogContent
+          className={cn(
+            NAVY_TEAL_SCOPE_CLASS,
+            "max-w-[440px] gap-0 overflow-hidden rounded-[20px] border border-[#E3EAF3] p-0 shadow-[0_24px_48px_rgba(15,23,42,0.16)] dark:border-[#2C3B50] dark:bg-[#151F30]",
+          )}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-0 text-left">
+              <div className="flex items-start gap-3 pr-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#DC2626] dark:bg-[#3B1212] dark:text-[#FCA5A5]">
+                  <Trash2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                    Delete this driver?
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-sm text-[#64748B] dark:text-[#A9B8CC]">
+                    {deleteTarget ? `${deleteTarget.driver_id} - ${driverName(deleteTarget)} will be removed.` : ""}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={createDriver.isLoading}>
+          <div className="flex items-start gap-2 px-5 py-3 text-xs text-[#B91C1C] dark:text-[#FCA5A5]">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            This cannot be undone from this screen.
+          </div>
+          <DialogFooter className="gap-2 border-t border-[#E3EAF3] bg-[#F8FAFC] px-5 py-3 dark:border-[#2C3B50] dark:bg-[#1B283B] sm:space-x-0">
+            <Button type="button" variant="ntSecondary" disabled={deleteMutation.isPending} onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateDriver} disabled={createDriver.isLoading}>
-              {createDriver.isLoading ? "Saving..." : "Save driver"}
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              className="!h-9 rounded-lg border-0 bg-[#DC2626] text-white shadow-none hover:bg-[#B91C1C]"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete driver
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ThemeScope>
   );
 }

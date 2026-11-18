@@ -78,12 +78,120 @@ DATA_COMPANIES = [
     {
         "name": "Swift Distribution Pvt Ltd",
         "code": "SWIFT-DISTRO-001",
+        "address": "House 12, Road 5, Dhanmondi",
         "city": "Dhaka",
         "state": "Dhaka",
         "country": "Bangladesh",
+        "pincode": "1209",
         "phone": "+880 9611-000000",
         "email": "info@swiftdistro.com",
-    }
+        "gstin": "BD-SWIFT-001",
+        "is_active": True,
+    },
+    {
+        "name": "Renata Pharmaceuticals Limited",
+        "code": "COMP-0001",
+        "address": "Plot 1, Road 2, Section 7, Mirpur",
+        "city": "Dhaka",
+        "state": "Dhaka",
+        "country": "Bangladesh",
+        "pincode": "1216",
+        "phone": "+880 2-55012345",
+        "email": "info@renata-ltd.com",
+        "gstin": "BD-RENATA-001",
+        "is_active": True,
+    },
+    {
+        "name": "Square Pharmaceuticals Ltd",
+        "code": "COMP-0002",
+        "address": "Square Centre, 48 Mohakhali C/A",
+        "city": "Dhaka",
+        "state": "Dhaka",
+        "country": "Bangladesh",
+        "pincode": "1212",
+        "phone": "+880 2-9859007",
+        "email": "info@squarepharma.com.bd",
+        "gstin": "BD-SQUARE-002",
+        "is_active": True,
+    },
+    {
+        "name": "Beximco Pharmaceuticals Ltd",
+        "code": "COMP-0003",
+        "address": "17 Dhanmondi R/A, Road 2",
+        "city": "Dhaka",
+        "state": "Dhaka",
+        "country": "Bangladesh",
+        "pincode": "1205",
+        "phone": "+880 2-8619151",
+        "email": "info@beximcopharma.com",
+        "gstin": "BD-BEXIMCO-003",
+        "is_active": True,
+    },
+    {
+        "name": "ACI Limited",
+        "code": "COMP-0004",
+        "address": "ACI Centre, 245 Tejgaon I/A",
+        "city": "Chattogram",
+        "state": "Chattogram",
+        "country": "Bangladesh",
+        "pincode": "4000",
+        "phone": "+880 31-2520000",
+        "email": "info@aci-bd.com",
+        "gstin": "BD-ACI-004",
+        "is_active": True,
+    },
+    {
+        "name": "Incepta Pharmaceuticals Ltd",
+        "code": "COMP-0005",
+        "address": "40 Shahid Tajuddin Ahmed Sarani, Tejgaon",
+        "city": "Gazipur",
+        "state": "Dhaka",
+        "country": "Bangladesh",
+        "pincode": "1700",
+        "phone": "+880 2-8891688",
+        "email": "info@inceptapharma.com",
+        "gstin": "BD-INCEPTA-005",
+        "is_active": True,
+    },
+    {
+        "name": "Healthcare Pharmaceuticals Ltd",
+        "code": "COMP-0006",
+        "address": "Nasirabad I/A, Bayezid",
+        "city": "Sylhet",
+        "state": "Sylhet",
+        "country": "Bangladesh",
+        "pincode": "3100",
+        "phone": "+880 821-710000",
+        "email": "contact@healthcarepharma.com",
+        "gstin": "BD-HEALTH-006",
+        "is_active": False,
+    },
+    {
+        "name": "Eskayef Pharmaceuticals Ltd",
+        "code": "COMP-0007",
+        "address": "SKF Road, Khalishpur",
+        "city": "Khulna",
+        "state": "Khulna",
+        "country": "Bangladesh",
+        "pincode": "9000",
+        "phone": "+880 41-720500",
+        "email": "info@skf-bd.com",
+        "gstin": "BD-SKF-007",
+        "is_active": True,
+    },
+    {
+        "name": "Aristopharma Ltd",
+        "code": "COMP-0008",
+        "address": "7/2 Iqbal Road, Mohammadpur",
+        "city": "Rajshahi",
+        "state": "Rajshahi",
+        "country": "Bangladesh",
+        "pincode": "6000",
+        "phone": "+880 721-770100",
+        "email": "info@aristopharma.com",
+        "gstin": "BD-ARISTO-008",
+        "is_active": True,
+    },
 ]
 
 
@@ -350,10 +458,16 @@ def main():
 
     session = SessionLocal()
     try:
-        company_record = session.query(models.Company).filter(models.Company.code == DATA_COMPANIES[0]["code"]).first()
+        company_record = None
+        for company_payload in DATA_COMPANIES:
+            record = upsert_company(session, company_payload)
+            if company_payload["code"] == DATA_COMPANIES[0]["code"]:
+                company_record = record
+        session.flush()
         if not company_record:
-            company_record = upsert_company(session, DATA_COMPANIES[0])
-            session.flush()
+            company_record = session.query(models.Company).filter(
+                models.Company.code == DATA_COMPANIES[0]["code"]
+            ).first()
 
         for depot in DATA_DEPOTS:
             depot_payload = {**depot, "company_id": company_record.id}

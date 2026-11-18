@@ -87,9 +87,7 @@ def list_orders(
     return [order for order in orders if order.items and len(order.items) > 0 and order.route_code]
 
 
-# IMPORTANT: /collection-approval route MUST be defined BEFORE /{order_id} route
-# FastAPI matches routes in order, so specific routes must come before parameterized routes
-@router.get("/collection-approval")
+# IMPORTANT: specific list routes MUST be defined BEFORE /{order_id}
 @router.get("/remaining-cash-list")
 def get_remaining_cash_list(
     status_filter: Optional[str] = Query(None),
@@ -185,9 +183,11 @@ def get_remaining_cash_list(
         )
 
 
+@router.get("/collection-approval")
 def get_collection_approval_list(
     status_filter: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get list of orders that need collection approval from mobile app.
@@ -205,6 +205,7 @@ def get_collection_approval_list(
             models.Order.collection_source == "Mobile App",  # Only mobile app collections need approval
             models.Order.collection_approved == False  # Only show orders that need approval
         )
+        query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
         
         if status_filter and status_filter != "all":
             query = query.filter(models.Order.collection_status == status_filter)
@@ -332,7 +333,9 @@ def get_assigned_orders(
             
             # Determine status
             order_status = "Pending"
-            if order.loaded:
+            if getattr(order, "delivery_rejected", False):
+                order_status = "Rejected"
+            elif order.loaded:
                 order_status = "Out for Delivery"
             # In a real system, you'd check delivery status from a separate table
             
@@ -340,6 +343,17 @@ def get_assigned_orders(
             assignment_dt = order.assignment_date or order.loaded_at or (order.created_at if order.created_at else datetime.utcnow())
             if assignment_dt is None:
                 assignment_dt = datetime.utcnow()
+
+            delivery_status = None
+            if getattr(order, "delivery_rejected", False):
+                delivery_status = "Rejected"
+            elif order.loaded:
+                if order.collection_status == "Fully Collected":
+                    delivery_status = "Fully Delivered"
+                elif order.collection_status == "Partially Collected":
+                    delivery_status = "Partial Delivered"
+                elif order.postponed or order.collection_status == "Postponed":
+                    delivery_status = "Postponed"
             
             order_response = {
                 "id": order.id,
@@ -361,8 +375,20 @@ def get_assigned_orders(
                 "loading_date": order.loading_date.isoformat() if order.loading_date else None,
                 "area": order.area,
                 "status": order_status,
+                "delivery_status": delivery_status,
+                "mobile_accepted": bool(order.mobile_accepted),
+                "delivery_rejected": bool(getattr(order, "delivery_rejected", False)),
+                "delivery_rejected_reason": getattr(order, "delivery_rejected_reason", None),
                 "items_count": len(order.items),
                 "total_value": float(total_value),
+                "items": [
+                    {
+                        "product_code": item.product_code,
+                        "product_name": item.product_name,
+                        "total_quantity": float(item.total_quantity or (item.quantity or 0) + (item.free_goods or 0)),
+                    }
+                    for item in order.items
+                ],
             }
             result.append(order_response)
         
@@ -2612,6 +2638,12 @@ def approve_delivery(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No orders found for loading number {payload.loading_number}"
         )
+
+    if any(getattr(order, "delivery_rejected", False) for order in orders):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Loading {payload.loading_number} has already been rejected"
+        )
     
     # Create a map of memo_number to approval data
     memo_map = {memo.memo_number: memo for memo in payload.memos}
@@ -2689,6 +2721,59 @@ def approve_delivery(
         "loading_number": payload.loading_number,
         "approved_count": approved_count,
         "orders_moved_to_collection": orders_moved_to_collection
+    }
+
+
+@router.post("/assigned/reject-delivery", status_code=status.HTTP_200_OK, response_model=schemas.DeliveryRejectResponse)
+def reject_delivery(
+    payload: schemas.DeliveryRejectRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    """Reject an accepted loading so it cannot be approved into collection."""
+    reason = (payload.reason or "").strip()
+    if not reason:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A rejection reason is required")
+
+    orders = (
+        db.query(models.Order)
+        .filter(models.Order.loading_number == payload.loading_number)
+        .all()
+    )
+
+    if not orders:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No orders found for loading number {payload.loading_number}",
+        )
+
+    if any(order.collection_approved for order in orders):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reject a loading after collection has been approved",
+        )
+
+    if all(getattr(order, "delivery_rejected", False) for order in orders):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Loading {payload.loading_number} is already rejected",
+        )
+
+    now = datetime.utcnow()
+    rejected_count = 0
+    for order in orders:
+        order.delivery_rejected = True
+        order.delivery_rejected_at = now
+        order.delivery_rejected_reason = reason
+        rejected_count += 1
+
+    AuditService.log_rejection(db, "loading", payload.loading_number, user, reason)
+    db.commit()
+
+    return {
+        "message": f"Delivery rejected for loading {payload.loading_number}.",
+        "loading_number": payload.loading_number,
+        "rejected_count": rejected_count,
     }
 
 

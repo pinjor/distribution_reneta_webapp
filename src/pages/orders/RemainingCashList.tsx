@@ -1,15 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
-  ArrowLeft, 
   Search, 
   RefreshCw,
   ChevronDown,
@@ -18,18 +14,33 @@ import {
   User,
   Package,
   FileBarChart,
-  Calendar,
   CheckCircle2,
+  Clock,
   Loader2,
   Coins,
+  Pause,
 } from "lucide-react";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
 import { format } from "date-fns";
-import { TAG_COLORS } from "@/lib/tagColors";
+import { cn } from "@/lib/utils";
+import { FilterSelect, OrderPageShell, OrderPanel, dialogContentClass, fieldClass, numberInputClass, panelClass, tableHeadClass } from "@/components/orders/orderMgmtUi";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/layout/PageHeader";
+
+
+const collectionBadgeClass = (status: string) => {
+  switch (status) {
+    case "Fully Collected":
+      return "bg-[#ECFDF5] text-[#047857]";
+    case "Partially Collected":
+      return "bg-[#FFEDD5] text-[#C2410C]";
+    case "Postponed":
+      return "bg-[#FEE2E2] text-[#B91C1C]";
+    case "Pending":
+      return "bg-[#EAF2FC] text-[#0C4DA1]";
+    default:
+      return "bg-[#F1F5F9] text-[#475569]";
+  }
+};
 
 interface RemainingCashOrder {
   id: number;
@@ -162,18 +173,11 @@ export default function RemainingCashList() {
     setExpandedLoadingNumbers((prev) => ({ ...prev, [loadingNumber]: !prev[loadingNumber] }));
   };
 
-  const getStatusBadge = (status: string) => {
-    const colorConfig = TAG_COLORS[status as keyof typeof TAG_COLORS] || TAG_COLORS["Pending"];
-    
-    return (
-      <span 
-        className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2"
-        style={{ backgroundColor: colorConfig.bg }}
-      >
-        {status}
-      </span>
-    );
-  };
+  const getStatusBadge = (status: string) => (
+    <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-semibold", collectionBadgeClass(status))}>
+      {status}
+    </span>
+  );
 
   const handleCollectClick = (group: LoadingGroup) => {
     // Check if all orders are fully collected (Pending with no pending amount)
@@ -336,313 +340,225 @@ export default function RemainingCashList() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <OrderBreadcrumb />
-      <PageHeader
-        title="Remaining Cash and Collection"
-        subtitle="Orders after delivery approval, grouped by loading number. Shows fully collected, partially collected, and cancelled/postponed memos."
-        icon={Coins}
-        variant="amber"
-        actions={(
-          <>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate("/orders/distribution-cockpit")}
-             
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <Button onClick={() => refetch()} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </>
-        )}
-      />
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by memo number, customer, loading number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Fully Collected">Fully Collected</SelectItem>
-                  <SelectItem value="Partially Collected">Partially Collected</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Postponed">Cancelled/Postponed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <OrderPageShell>
+      <OrderPanel className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-64 shrink-0">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B]" />
+            <Input
+              aria-label="Search"
+              placeholder="Search by memo number, customer, loading number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={cn(fieldClass, "h-8 pl-8")}
+            />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Loading Groups */}
-      {loading ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">Loading remaining cash list...</p>
-          </CardContent>
-        </Card>
-      ) : loadingGroups.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No orders found in remaining cash and collection list.</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Orders will appear here after approval from Assigned Order List.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {loadingGroups.map((group) => {
-            const isExpanded = expandedLoadingNumbers[group.loading_number];
-            
-            return (
-              <Card key={group.loading_number} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => toggleExpand(group.loading_number)}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <CardTitle className="text-lg">
-                            Loading: {group.loading_number}
-                          </CardTitle>
-                          {group.loading_date && (
-                            <Badge variant="outline" className="font-normal">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              {format(new Date(group.loading_date), "MMM dd, yyyy")}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                          {group.employee_name && (
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {group.employee_name} ({group.employee_code})
-                            </span>
-                          )}
-                          {group.vehicle_registration && (
-                            <span className="flex items-center gap-1">
-                              <Truck className="h-3 w-3" />
-                              {group.vehicle_registration}
-                            </span>
-                          )}
-                          {group.area && (
-                            <span>Area: {group.area}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Orders</div>
-                        <div className="text-lg font-semibold">{group.total_orders}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Total Amount</div>
-                        <div className="text-lg font-semibold">৳{group.total_amount.toFixed(2)}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Collected</div>
-                        <div className="text-lg font-semibold text-green-600">৳{group.total_collected.toFixed(2)}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Pending</div>
-                        <div className="text-lg font-semibold text-orange-600">৳{group.total_pending.toFixed(2)}</div>
-                      </div>
-                      {group.orders.some(o => !o.collection_approved) ? (
-                        <Button
-                          onClick={() => handleCollectClick(group)}
-                          size="sm"
-                          className="flex items-center gap-2 whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
-                          disabled={isCollecting && collectingLoadingNumber === group.loading_number}
-                        >
-                          {isCollecting && collectingLoadingNumber === group.loading_number ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Collecting...
-                            </>
-                          ) : (
-                            <>
-                              <Coins className="h-4 w-4" />
-                              Collect
-                            </>
-                          )}
-                        </Button>
-                      ) : (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Collected
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                {isExpanded && (
-                  <CardContent className="pt-0">
-                    <div className="space-y-2">
-                      {group.orders.map((order) => (
-                        <Card key={order.id} className="bg-muted/30">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <span className="font-semibold">
-                                    {order.order_number || `order-${order.id}`}
-                                  </span>
-                                  {order.memo_number && (
-                                    <Badge variant="outline" className="font-mono text-xs">
-                                      {order.memo_number}
-                                    </Badge>
-                                  )}
-                                  {getStatusBadge(order.collection_status)}
-                                  {order.collection_approved && (
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                      Approved
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                  <div>
-                                    <span className="text-muted-foreground">Customer:</span>
-                                    <div className="font-medium">{order.customer_name}</div>
-                                    {order.customer_code && (
-                                      <div className="text-xs text-muted-foreground">{order.customer_code}</div>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">PSO:</span>
-                                    <div className="font-medium">{order.pso_name}</div>
-                                    {order.pso_code && (
-                                      <div className="text-xs text-muted-foreground">{order.pso_code}</div>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Amounts:</span>
-                                    <div className="font-medium">Total: ৳{order.total_amount.toFixed(2)}</div>
-                                    <div className="text-xs text-green-600">Collected: ৳{order.collected_amount.toFixed(2)}</div>
-                                    <div className="text-xs text-orange-600">Pending: ৳{order.pending_amount.toFixed(2)}</div>
-                                  </div>
-                                  {order.delivery_date && (
-                                    <div>
-                                      <span className="text-muted-foreground">Delivery Date:</span>
-                                      <div className="font-medium">{format(new Date(order.delivery_date), "MMM dd, yyyy")}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => navigate(`/orders/mis-report?memo_id=${order.id}`)}
-                                className="ml-4"
-                              >
-                                <FileBarChart className="h-4 w-4 mr-2" />
-                                View in MIS Report
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
+          <FilterSelect
+            label="Status"
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            placeholder="All statuses"
+            icon={Coins}
+            triggerClassName="w-[10.5rem] min-w-0"
+            items={[
+              { value: "all", label: "All statuses", icon: Coins },
+              { value: "Fully Collected", label: "Fully Collected", icon: CheckCircle2 },
+              { value: "Partially Collected", label: "Partially Collected", icon: Coins },
+              { value: "Pending", label: "Pending", icon: Clock },
+              { value: "Postponed", label: "Cancelled/Postponed", icon: Pause },
+            ]}
+          />
+          <Button type="button" variant="ntSecondary" className="!h-8 ml-auto" onClick={() => refetch()}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
         </div>
-      )}
+      </OrderPanel>
 
-      {/* Collect Dialog */}
-      <Dialog open={showCollectDialog} onOpenChange={setShowCollectDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Collect Remaining Cash</DialogTitle>
-            <DialogDescription>
-              Review and adjust collection amounts for loading {selectedLoadingGroup?.loading_number}. 
-              Fully collected orders will have remaining amount = 0.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-semibold mb-2">Loading Details</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Loading Number:</span>{" "}
-                  <span className="font-medium">{selectedLoadingGroup?.loading_number}</span>
+      <div className="space-y-2">
+        {loading ? (
+          <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#0C4DA1]" />
+            <p className="text-sm text-[#64748B]">Loading remaining cash list…</p>
+          </OrderPanel>
+        ) : loadingGroups.length === 0 ? (
+          <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+            <Package className="h-8 w-8 text-[#94A3B8]" />
+            <p className="text-sm text-[#64748B]">No remaining cash orders found.</p>
+          </OrderPanel>
+        ) : (
+          loadingGroups.map((group) => {
+            const isExpanded = expandedLoadingNumbers[group.loading_number];
+            const canCollect = group.orders.some((order) => !order.collection_approved);
+            return (
+              <div key={group.loading_number} className={cn(panelClass, "overflow-hidden")}>
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(group.loading_number)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-90"
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? "Collapse loading" : "Expand loading"}
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#E3EAF3] text-[#64748B] dark:border-[#2C3B50]">
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{group.loading_number}</span>
+                        {group.area && (
+                          <span className="rounded-md bg-[#EAF2FC] px-1.5 py-0.5 text-[11px] font-semibold text-[#0C4DA1]">{group.area}</span>
+                        )}
+                        {!canCollect && (
+                          <span className="rounded-md bg-[#ECFDF5] px-1.5 py-0.5 text-[11px] font-semibold text-[#047857]">Collected</span>
+                        )}
+                      </span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#64748B]">
+                        <span>{formatDate(group.loading_date)}</span>
+                        {group.employee_name && (
+                          <span className="inline-flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {group.employee_name} {group.employee_code ? `(${group.employee_code})` : ""}
+                          </span>
+                        )}
+                        {group.vehicle_registration && (
+                          <span className="inline-flex items-center gap-1">
+                            <Truck className="h-3 w-3" />
+                            {group.vehicle_registration}
+                          </span>
+                        )}
+                        <span>{group.total_orders} orders</span>
+                        <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{group.total_amount.toFixed(2)}</span>
+                        <span className="font-semibold text-[#047857]">৳{group.total_collected.toFixed(2)}</span>
+                        <span className="font-semibold text-[#C2410C]">৳{group.total_pending.toFixed(2)}</span>
+                      </span>
+                    </span>
+                  </button>
+                  {canCollect ? (
+                    <Button
+                      type="button"
+                      variant="ntPrimary"
+                      className="!h-8 shrink-0"
+                      onClick={() => handleCollectClick(group)}
+                      disabled={isCollecting && collectingLoadingNumber === group.loading_number}
+                    >
+                      {isCollecting && collectingLoadingNumber === group.loading_number ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Coins className="h-3.5 w-3.5" />
+                      )}
+                      {isCollecting && collectingLoadingNumber === group.loading_number ? "Collecting..." : "Collect"}
+                    </Button>
+                  ) : null}
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Date:</span>{" "}
-                  <span className="font-medium">{formatDate(selectedLoadingGroup?.loading_date)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Employee:</span>{" "}
-                  <span className="font-medium">{selectedLoadingGroup?.employee_name}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Vehicle:</span>{" "}
-                  <span className="font-medium">{selectedLoadingGroup?.vehicle_registration}</span>
-                </div>
+
+                {isExpanded && (
+                  <div className="space-y-2 border-t border-[#E3EAF3] px-3 py-2.5 dark:border-[#2C3B50]">
+                    <p className="text-xs font-medium text-[#64748B]">Memos ({group.orders.length})</p>
+                    {group.orders.map((order) => (
+                      <div key={order.id} className="flex items-center gap-3 rounded-lg border border-[#E3EAF3] px-3 py-2 dark:border-[#2C3B50]">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                              {order.memo_number || order.order_number || `order-${order.id}`}
+                            </span>
+                            {getStatusBadge(order.collection_status)}
+                            {order.collection_approved && (
+                              <span className="rounded-md bg-[#ECFDF5] px-1.5 py-0.5 text-[11px] font-semibold text-[#047857]">Approved</span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-[#64748B]">
+                            <span>{order.customer_name} {order.customer_code ? `(${order.customer_code})` : ""}</span>
+                            <span>{order.pso_name}{order.pso_code ? ` (${order.pso_code})` : ""}</span>
+                            <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{order.total_amount.toFixed(2)}</span>
+                            <span className="font-semibold text-[#047857]">৳{order.collected_amount.toFixed(2)}</span>
+                            <span className="font-semibold text-[#C2410C]">৳{order.pending_amount.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ntSecondary"
+                          className="!h-8 shrink-0"
+                          onClick={() => navigate(`/orders/mis-report?memo_id=${order.id}`)}
+                        >
+                          <FileBarChart className="h-3.5 w-3.5" />
+                          View in MIS
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <Dialog
+        open={showCollectDialog}
+        onOpenChange={(open) => {
+          if (isCollecting) return;
+          setShowCollectDialog(open);
+        }}
+      >
+        <DialogContent
+          className={cn(dialogContentClass, "max-w-[920px]")}
+          onPointerDownOutside={(event) => {
+            if (isCollecting) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (isCollecting) event.preventDefault();
+          }}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-1 pr-6 text-left">
+              <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                Collect remaining cash
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-[#64748B]">
+                Adjust amounts for {selectedLoadingGroup?.loading_number}. A money receipt prints after collect.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-[#E3EAF3] bg-[#F8FBFF] px-4 py-3 text-[13px] dark:border-[#2C3B50] dark:bg-[#1B283B] sm:grid-cols-4">
+              <div>
+                <p className="text-[11px] text-[#64748B]">Loading</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{selectedLoadingGroup?.loading_number}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#64748B]">Date</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{formatDate(selectedLoadingGroup?.loading_date)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#64748B]">Employee</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{selectedLoadingGroup?.employee_name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#64748B]">Vehicle</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{selectedLoadingGroup?.vehicle_registration || "—"}</p>
               </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-[#E3EAF3] dark:border-[#2C3B50]">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Memo Number</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead className="text-right">Collected Cash</TableHead>
-                    <TableHead className="text-right">Remaining Cash</TableHead>
-                    <TableHead className="text-right">Deposited Cash</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className={tableHeadClass}>Memo</TableHead>
+                    <TableHead className={tableHeadClass}>Status</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Total</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Collected</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Remaining</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Deposited</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {collectionMemos.map((memo, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-mono text-sm font-medium">{memo.memo_number}</TableCell>
-                      <TableCell>
-                        {getStatusBadge(memo.collection_status)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">৳{memo.total_amount.toFixed(2)}</TableCell>
+                  {collectionMemos.map((memo) => (
+                    <TableRow key={memo.memo_number} className="hover:bg-[#F8FAFC] dark:hover:bg-[#1B283B]">
+                      <TableCell className="font-mono text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{memo.memo_number}</TableCell>
+                      <TableCell>{getStatusBadge(memo.collection_status)}</TableCell>
+                      <TableCell className="text-right text-[13px] font-medium tabular-nums">৳{memo.total_amount.toFixed(2)}</TableCell>
                       <TableCell className="text-right">
                         <Input
                           type="number"
@@ -652,14 +568,15 @@ export default function RemainingCashList() {
                           value={memo.collected_amount}
                           onChange={(e) => {
                             const value = parseFloat(e.target.value) || 0;
-                            updateCollectionMemo(memo.memo_number, 'collected_amount', value);
+                            updateCollectionMemo(memo.memo_number, "collected_amount", value);
                           }}
-                          className="w-32 ml-auto text-right"
+                          className={cn(fieldClass, numberInputClass, "ml-auto h-8 w-28 text-right")}
+                          disabled={isCollecting}
                         />
                       </TableCell>
                       <TableCell className="text-right">
                         {memo.collection_status === "Pending" && memo.remaining_amount === 0 ? (
-                          <span className="font-medium">0</span>
+                          <span className="text-[13px] font-medium tabular-nums">0</span>
                         ) : (
                           <Input
                             type="number"
@@ -669,9 +586,10 @@ export default function RemainingCashList() {
                             value={memo.remaining_amount}
                             onChange={(e) => {
                               const value = parseFloat(e.target.value) || 0;
-                              updateCollectionMemo(memo.memo_number, 'remaining_amount', value);
+                              updateCollectionMemo(memo.memo_number, "remaining_amount", value);
                             }}
-                            className="w-32 ml-auto text-right"
+                            className={cn(fieldClass, numberInputClass, "ml-auto h-8 w-28 text-right")}
+                            disabled={isCollecting}
                           />
                         )}
                       </TableCell>
@@ -684,9 +602,10 @@ export default function RemainingCashList() {
                           value={memo.deposited_amount}
                           onChange={(e) => {
                             const value = parseFloat(e.target.value) || 0;
-                            updateCollectionMemo(memo.memo_number, 'deposited_amount', value);
+                            updateCollectionMemo(memo.memo_number, "deposited_amount", value);
                           }}
-                          className="w-32 ml-auto text-right"
+                          className={cn(fieldClass, numberInputClass, "ml-auto h-8 w-28 text-right")}
+                          disabled={isCollecting}
                         />
                       </TableCell>
                     </TableRow>
@@ -694,40 +613,23 @@ export default function RemainingCashList() {
                 </TableBody>
               </Table>
             </div>
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> All amounts are editable. For fully collected orders, remaining cash will be set to 0. 
-                After approval, a money receipt will be automatically printed.
-              </p>
-            </div>
+            <p className="text-[12px] text-[#64748B]">
+              Amounts are editable. Fully collected memos keep remaining cash at 0.
+            </p>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCollectDialog(false)} disabled={isCollecting}>
+          <DialogFooter className="border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50]">
+            <Button type="button" variant="ntSecondary" onClick={() => setShowCollectDialog(false)} disabled={isCollecting}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleCollectWithDialog} 
-              disabled={isCollecting}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isCollecting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Collecting...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Collect Cash
-                </>
-              )}
+            <Button type="button" variant="ntPrimary" onClick={handleCollectWithDialog} disabled={isCollecting}>
+              {isCollecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              {isCollecting ? "Collecting..." : "Collect Cash"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </OrderPageShell>
   );
 }
 

@@ -17,7 +17,6 @@ import {
   Package, 
   Loader2,
   Search,
-  Filter,
   FileText,
   Download,
   ArrowLeft,
@@ -25,12 +24,19 @@ import {
   X,
   ScanLine,
   CheckCircle2,
+  Clock,
   FileBarChart,
+  MapPinned,
+  Pause,
+  XCircle,
+  UserRound,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { OrderBreadcrumb } from "@/components/layout/OrderBreadcrumb";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { FilterSelect, OrderPageShell, OrderPanel, dialogContentClass, fieldClass, labelClass, numberInputClass, panelClass, requiredMark, selectItemClass, selectPanelClass, tableHeadClass } from "@/components/orders/orderMgmtUi";
+
 
 interface AssignedOrder {
   id: number;
@@ -51,8 +57,10 @@ interface AssignedOrder {
   loading_number?: string | null;
   loading_date?: string | null;
   area?: string | null;
-  status: "Out for Delivery" | "Delivered" | "Pending";
-  delivery_status?: "Fully Delivered" | "Partial Delivered" | "Postponed" | null;
+  status: "Out for Delivery" | "Delivered" | "Pending" | "Rejected";
+  delivery_status?: "Fully Delivered" | "Partial Delivered" | "Postponed" | "Rejected" | null;
+  delivery_rejected?: boolean;
+  delivery_rejected_reason?: string | null;
   items_count: number;
   total_value: number;
   items?: Array<{
@@ -73,8 +81,15 @@ interface LoadingGroup {
   orders: AssignedOrder[];
   total_orders: number;
   total_value: number;
-  status?: "Out for Delivery" | "Accepted"; // Status for the loading group
+  status?: "Out for Delivery" | "Accepted" | "Rejected";
 }
+
+const personInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+};
 
 const formatDate = (value?: string | null) => {
   if (!value) return "—";
@@ -124,6 +139,8 @@ export default function AssignedOrderList() {
     returned_quantity: number;
   }>>([]);
   const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   // Load routes for filter
   const { data: routesData } = useQuery({
@@ -151,7 +168,7 @@ export default function AssignedOrderList() {
     queryKey: ['assigned-orders', statusFilter, routeFilter],
     queryFn: async () => {
       const params: Record<string, any> = {};
-      if (statusFilter && statusFilter !== "all") {
+      if (statusFilter && statusFilter !== "all" && statusFilter !== "Accepted" && statusFilter !== "Rejected") {
         params.status_filter = statusFilter;
       }
       if (routeFilter && routeFilter !== "all") {
@@ -223,6 +240,11 @@ export default function AssignedOrderList() {
     
     // Determine status for each group after sorting (for demo purposes)
     sortedGroups.forEach((group, index) => {
+      if (group.orders.some((order) => order.delivery_rejected)) {
+        group.status = "Rejected";
+        return;
+      }
+
       // For demo: Show "Accepted" on some groups, rest as "Out for Delivery"
       // Use a combination of index and loading number to ensure variety
       // Show "Accepted" on odd indices (1, 3, 5...), "Out for Delivery" on even indices (0, 2, 4...)
@@ -230,7 +252,7 @@ export default function AssignedOrderList() {
       
       // Determine status: every other group shows "Accepted"
       if (index % 2 === 1) {
-        (group as any).status = "Accepted";
+        group.status = "Accepted";
         
         // Add demo delivery statuses to orders in Accepted groups
         // Mix of Fully Delivered, Partial Delivered, and Postponed to test all scenarios
@@ -252,26 +274,28 @@ export default function AssignedOrderList() {
             }
           }
           
-          // Add demo items if not available
-          const items = order.items || [
-            { product_code: "PROD001", product_name: "Product A", total_quantity: 100 },
-            { product_code: "PROD002", product_name: "Product B", total_quantity: 50 },
-            { product_code: "PROD003", product_name: "Product C", total_quantity: 75 },
-          ];
-          
           return {
             ...order,
             delivery_status: deliveryStatus,
-            items: items,
           };
         });
       } else {
-        (group as any).status = "Out for Delivery";
+        group.status = "Out for Delivery";
       }
     });
     
     return sortedGroups;
   }, [filteredOrders]);
+
+  const visibleLoadingGroups = useMemo(() => {
+    if (statusFilter === "Accepted") {
+      return loadingGroups.filter((group) => group.status === "Accepted");
+    }
+    if (statusFilter === "Rejected") {
+      return loadingGroups.filter((group) => group.status === "Rejected");
+    }
+    return loadingGroups;
+  }, [loadingGroups, statusFilter]);
 
   const toggleExpand = (loadingNumber: string) => {
     setExpandedLoadingNumbers((prev) => ({ ...prev, [loadingNumber]: !prev[loadingNumber] }));
@@ -347,10 +371,19 @@ export default function AssignedOrderList() {
       handleApproveDelivery(group);
     } else {
       // Show popup for partial/postponed deliveries
-      setSelectedLoadingGroup(group);
-      prepareApprovalMemos(group);
-      setShowApprovalDialog(true);
+      openReviewDialog(group);
     }
+  };
+
+  const handleRejectClick = (group: LoadingGroup) => {
+    openReviewDialog(group);
+  };
+
+  const openReviewDialog = (group: LoadingGroup) => {
+    setSelectedLoadingGroup(group);
+    prepareApprovalMemos(group);
+    setRejectReason("");
+    setShowApprovalDialog(true);
   };
 
   const prepareApprovalMemos = (group: LoadingGroup) => {
@@ -358,12 +391,7 @@ export default function AssignedOrderList() {
     const memoList = group.orders.map((order) => {
       const memoNumber = order.memo_number || order.order_number || `order-${order.order_id}`;
       
-      // Calculate total quantity from items
-      const items = order.items || [
-        { product_code: "PROD001", product_name: "Product 1", total_quantity: 100 },
-        { product_code: "PROD002", product_name: "Product 2", total_quantity: 50 },
-        { product_code: "PROD003", product_name: "Product 3", total_quantity: 75 },
-      ];
+      const items = order.items || [];
       
       const loadingQuantity = items.reduce((sum, item) => sum + item.total_quantity, 0);
       let deliveredQuantity = 0;
@@ -486,6 +514,45 @@ export default function AssignedOrderList() {
     }
   };
 
+  const handleRejectDelivery = async () => {
+    if (!selectedLoadingGroup) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      toast({
+        title: "Reason required",
+        description: "Enter why this loading is being rejected.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRejecting(true);
+    try {
+      await apiEndpoints.orders.rejectDelivery({
+        loading_number: selectedLoadingGroup.loading_number,
+        reason,
+      });
+      toast({
+        title: "Delivery rejected",
+        description: `Loading ${selectedLoadingGroup.loading_number} has been rejected.`,
+      });
+      setShowApprovalDialog(false);
+      setSelectedLoadingGroup(null);
+      setApprovalMemos([]);
+      setRejectReason("");
+      await refetchOrders();
+    } catch (error: any) {
+      console.error("Failed to reject delivery", error);
+      toast({
+        title: "Rejection failed",
+        description: error?.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   const updateApprovalMemo = (memoNumber: string, deliveredValue: number) => {
     setApprovalMemos((prev) =>
       prev.map((memo) => {
@@ -588,347 +655,360 @@ export default function AssignedOrderList() {
   };
 
   return (
-    <main className="p-6 space-y-6">
-      <OrderBreadcrumb />
-      <PageHeader
-        title="Assigned Order List"
-        subtitle="View and manage orders that have been assigned to employees and vehicles."
-        icon={Truck}
-        variant="indigo"
-        actions={(
-          <>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate("/orders/route-wise")}
-             
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <Button onClick={() => setShowCreateForm(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create New Assigned Order List
-            </Button>
-          </>
-        )}
-      />
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by order number, customer, employee, or vehicle..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+    <OrderPageShell>
+      <OrderPanel className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-64 shrink-0">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#64748B]" />
+              <Input
+                id="search"
+                aria-label="Search"
+                placeholder="Search order, customer, employee, vehicle..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={cn(fieldClass, "h-8 pl-8")}
+              />
             </div>
-            <div className="w-48">
-              <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Out for Delivery">Out for Delivery</SelectItem>
-                  <SelectItem value="Delivered">Delivered</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-48">
-              <Label htmlFor="route">Route</Label>
-              <Select value={routeFilter} onValueChange={setRouteFilter}>
-                <SelectTrigger id="route">
-                  <SelectValue placeholder="All routes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All routes</SelectItem>
-                  {routes.map((route: any) => (
-                    <SelectItem key={route.id} value={route.code}>
-                      {route.name} ({route.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <FilterSelect
+              id="status"
+              label="Status"
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              placeholder="All statuses"
+              icon={Clock}
+              triggerClassName="w-[8.75rem] min-w-0"
+              items={[
+                { value: "all", label: "All statuses", icon: Clock },
+                { value: "Pending", label: "Pending", icon: Pause },
+                { value: "Out for Delivery", label: "Out for Delivery", icon: Truck },
+                { value: "Accepted", label: "Accepted", icon: CheckCircle2 },
+                { value: "Rejected", label: "Rejected", icon: XCircle },
+                { value: "Delivered", label: "Delivered", icon: Package },
+              ]}
+            />
+            <FilterSelect
+              id="route"
+              label="Route"
+              value={routeFilter}
+              onValueChange={setRouteFilter}
+              placeholder="All routes"
+              icon={MapPinned}
+              triggerClassName="w-[8.75rem] min-w-0"
+              items={[
+                { value: "all", label: "All routes", icon: MapPinned },
+                ...routes.map((route: any) => ({
+                  value: route.code,
+                  label: `${route.name} (${route.code})`,
+                  icon: MapPinned,
+                })),
+              ]}
+            />
+            <div className="ml-auto">
+              <Button type="button" variant="ntPrimary" className="!h-8" onClick={() => setShowCreateForm(true)}>
+                <PlusCircle className="h-3.5 w-3.5" />
+                Create New Assigned Order List
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </OrderPanel>
 
-      {/* Loading Groups List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Loading Reports ({loadingGroups.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="space-y-2">
           {ordersLoading ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
-              <Loader2 className="h-10 w-10 animate-spin" />
-              <p className="text-sm">Loading orders…</p>
-            </div>
-          ) : loadingGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-muted-foreground">
-              <Package className="h-10 w-10" />
-              <p className="text-sm">No assigned orders found.</p>
-            </div>
+            <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-[#0C4DA1]" />
+              <p className="text-sm text-[#64748B]">Loading orders…</p>
+            </OrderPanel>
+          ) : visibleLoadingGroups.length === 0 ? (
+            <OrderPanel className="flex flex-col items-center gap-2 py-10 text-center">
+              <Package className="h-8 w-8 text-[#94A3B8]" />
+              <p className="text-sm text-[#64748B]">No assigned orders found.</p>
+            </OrderPanel>
           ) : (
-            <div className="space-y-4">
-              {loadingGroups.map((group) => {
+            visibleLoadingGroups.map((group) => {
                 const isExpanded = expandedLoadingNumbers[group.loading_number];
                 return (
-                  <div key={group.loading_number} className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-card">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <button
-                          onClick={() => toggleExpand(group.loading_number)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground transition hover:text-foreground hover:bg-muted"
-                          aria-label={isExpanded ? "Collapse loading" : "Expand loading"}
-                        >
+                  <div key={group.loading_number} className={cn(panelClass, "overflow-hidden")}>
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(group.loading_number)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left hover:opacity-90"
+                        aria-expanded={isExpanded}
+                        aria-label={isExpanded ? "Collapse loading" : "Expand loading"}
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#E3EAF3] text-[#64748B] dark:border-[#2C3B50]">
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-lg font-semibold text-foreground">
-                              Loading No: {group.loading_number}
-                              {(group as any).route_codes && Array.isArray((group as any).route_codes) && (group as any).route_codes.length > 1 && (
-                                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                                  ({((group as any).route_codes as string[]).join(', ')})
-                                </span>
-                              )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                              {group.loading_number}
                             </span>
-                            {/* Status Tags */}
-                            {(group as any).status === "Out for Delivery" && (
-                              <span 
-                                className="inline-flex items-center rounded-full text-white px-3 py-1 text-xs font-bold shadow-lg ring-2 ring-orange-300/60"
-                                style={{ backgroundColor: '#f97316' }}
-                              >
+                            {(group as any).route_codes && Array.isArray((group as any).route_codes) && (group as any).route_codes.length > 1 && (
+                              <span className="text-[12px] font-normal text-[#64748B]">
+                                ({((group as any).route_codes as string[]).join(", ")})
+                              </span>
+                            )}
+                            {group.status === "Out for Delivery" && (
+                              <span className="rounded-md bg-[#FFEDD5] px-1.5 py-0.5 text-[11px] font-semibold text-[#C2410C]">
                                 Out for Delivery
                               </span>
                             )}
-                            {(group as any).status === "Accepted" && (
-                              <span 
-                                className="inline-flex items-center rounded-full text-white px-3 py-1 text-xs font-bold shadow-lg ring-2 ring-emerald-300/60"
-                                style={{ backgroundColor: '#10b981' }}
-                              >
+                            {group.status === "Accepted" && (
+                              <span className="rounded-md bg-[#ECFDF5] px-1.5 py-0.5 text-[11px] font-semibold text-[#047857]">
                                 Accepted
                               </span>
                             )}
-                            {(!(group as any).route_codes || !Array.isArray((group as any).route_codes) || (group as any).route_codes.length <= 1) && group.area && (
-                              <Badge variant="outline">{group.area}</Badge>
+                            {group.status === "Rejected" && (
+                              <span className="rounded-md bg-[#FEE2E2] px-1.5 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
+                                Rejected
+                              </span>
                             )}
-                          </div>
-                          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mt-1">
-                            <span>Date: {formatDate(group.loading_date)}</span>
-                            <span className="flex items-center gap-1">
+                            {(!(group as any).route_codes || !Array.isArray((group as any).route_codes) || (group as any).route_codes.length <= 1) && group.area && (
+                              <span className="rounded-md bg-[#EAF2FC] px-1.5 py-0.5 text-[11px] font-semibold text-[#0C4DA1]">
+                                {group.area}
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-[#64748B]">
+                            <span>{formatDate(group.loading_date)}</span>
+                            <span className="inline-flex items-center gap-1">
                               <User className="h-3 w-3" />
                               {group.employee_name} {group.employee_code ? `(${group.employee_code})` : ""}
                             </span>
-                            <span className="flex items-center gap-1">
+                            <span className="inline-flex items-center gap-1">
                               <Truck className="h-3 w-3" />
                               {group.vehicle_registration} {group.vehicle_model ? `(${group.vehicle_model})` : ""}
                             </span>
-                            <span>Orders: {group.total_orders}</span>
-                            <span>Total Value: ৳{group.total_value.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          onClick={() => handleDownloadReport(group.loading_number)}
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-2 whitespace-nowrap"
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span>Report</span>
-                        </Button>
-                        {(group as any).status === "Accepted" && (
-                          <Button
-                            onClick={() => handleApproveClick(group)}
-                            size="sm"
-                            className="flex items-center gap-2 whitespace-nowrap bg-green-600 hover:bg-green-700 text-white"
-                            disabled={isApproving}
-                          >
-                            {isApproving ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Approving...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-4 w-4" />
-                                <span>Approve</span>
-                              </>
+                            <span>{group.total_orders} orders</span>
+                            <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{group.total_value.toFixed(2)}</span>
+                            {group.status === "Rejected" && group.orders[0]?.delivery_rejected_reason && (
+                              <span className="text-[#B91C1C]">{group.orders[0].delivery_rejected_reason}</span>
                             )}
-                          </Button>
+                          </span>
+                        </span>
+                      </button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadReport(group.loading_number)}
+                          variant="ntSecondary"
+                          className="!h-8"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Report
+                        </Button>
+                        {group.status === "Accepted" && (
+                          <>
+                            <Button
+                              type="button"
+                              onClick={() => handleRejectClick(group)}
+                              variant="ntSecondary"
+                              className="!h-8 border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] hover:text-[#991B1B]"
+                              disabled={isApproving || isRejecting}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Reject
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={() => handleApproveClick(group)}
+                              variant="ntPrimary"
+                              className="!h-8"
+                              disabled={isApproving || isRejecting}
+                            >
+                              {isApproving ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                              )}
+                              {isApproving ? "Approving..." : "Approve"}
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="px-4 pb-4 border-t bg-muted/30">
-                        <div className="pt-4">
-                          <h4 className="text-sm font-semibold mb-3 text-foreground">
+                      <div className="space-y-2 border-t border-[#E3EAF3] px-3 py-2.5 dark:border-[#2C3B50]">
+                          <p className="text-xs font-medium text-[#64748B]">
                             Invoices/Memos ({group.orders.length})
-                          </h4>
+                          </p>
                           {group.orders.length === 0 ? (
-                            <div className="text-sm text-muted-foreground py-4 text-center">
+                            <p className="py-3 text-center text-sm text-[#64748B]">
                               No orders found in this loading group.
-                            </div>
+                            </p>
                           ) : (
-                            <div className="space-y-2">
-                              {group.orders.map((order) => (
-                                <div key={order.id} className="rounded-lg border bg-background p-3 shadow-sm">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                        <span className="font-medium text-foreground">
+                            group.orders.map((order) => (
+                                <div key={order.id} className="flex items-center gap-3 rounded-lg border border-[#E3EAF3] px-3 py-2 dark:border-[#2C3B50]">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-sm font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
                                           {order.memo_number || order.order_number || `order-${order.order_id}`}
                                         </span>
-                                        {/* Delivery Status Tags */}
                                         {order.delivery_status === "Fully Delivered" && (
-                                          <span className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2 ring-green-400/60" style={{ backgroundColor: '#059669' }}>
+                                          <span className="rounded-md bg-[#ECFDF5] px-1.5 py-0.5 text-[11px] font-semibold text-[#047857]">
                                             Fully Delivered
                                           </span>
                                         )}
                                         {order.delivery_status === "Partial Delivered" && (
-                                          <span className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2 ring-orange-400/60" style={{ backgroundColor: '#ea580c' }}>
+                                          <span className="rounded-md bg-[#FFEDD5] px-1.5 py-0.5 text-[11px] font-semibold text-[#C2410C]">
                                             Partial Delivered
                                           </span>
                                         )}
                                         {order.delivery_status === "Postponed" && (
-                                          <span className="inline-flex items-center rounded-full text-white font-bold text-xs px-2.5 py-1 shadow-lg ring-2 ring-pink-400/60" style={{ backgroundColor: '#dc2626' }}>
+                                          <span className="rounded-md bg-[#FEE2E2] px-1.5 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
                                             Postponed
                                           </span>
                                         )}
                                       </div>
-                                      <div className="text-xs text-muted-foreground space-x-4">
-                                        <span>Customer: <span className="font-medium text-foreground">{order.customer_name}</span> {order.customer_code ? `(${order.customer_code})` : ''}</span>
-                                        <span>Items: <span className="font-medium text-foreground">{order.items_count}</span></span>
-                                        <span>Value: <span className="font-medium text-foreground">৳{order.total_value.toFixed(2)}</span></span>
+                                      <div className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-[#64748B]">
+                                        <span>{order.customer_name} {order.customer_code ? `(${order.customer_code})` : ""}</span>
+                                        <span>{order.items_count} items</span>
+                                        <span className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">৳{order.total_value.toFixed(2)}</span>
                                       </div>
                                     </div>
                                     <Button
-                                      variant="outline"
-                                      size="sm"
+                                      type="button"
+                                      variant="ntSecondary"
+                                      className="!h-8 shrink-0"
                                       onClick={() => navigate(`/orders/mis-report?memo_id=${order.order_id}`)}
-                                      className="flex items-center gap-2"
                                     >
-                                      <FileBarChart className="h-4 w-4" />
-                                      <span>View in MIS</span>
+                                      <FileBarChart className="h-3.5 w-3.5" />
+                                      View in MIS
                                     </Button>
-                                  </div>
                                 </div>
-                              ))}
-                            </div>
+                            ))
                           )}
-                        </div>
                       </div>
                     )}
                   </div>
                 );
-              })}
-            </div>
+              })
           )}
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* Create New Assigned Order List Dialog */}
-      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create New Assigned Order List</DialogTitle>
-            <DialogDescription>
-              Scan multiple memo barcodes and assign them to an employee and vehicle. A new loading number will be generated.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Employee Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="employee-select">Assign DA (Employee) *</Label>
-              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                <SelectTrigger id="employee-select">
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.filter((emp: any) => emp.is_active !== false).map((employee: any) => {
-                    const fullName = `${employee.first_name}${employee.last_name ? ` ${employee.last_name}` : ''}`.trim();
-                    return (
-                      <SelectItem key={employee.id} value={String(employee.id)}>
-                        {fullName} ({employee.employee_id})
+      <Dialog
+        open={showCreateForm}
+        onOpenChange={(open) => {
+          if (isCreating) return;
+          setShowCreateForm(open);
+        }}
+      >
+        <DialogContent
+          className={cn(dialogContentClass, "max-w-[560px]")}
+          onPointerDownOutside={(event) => {
+            if (isCreating) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (isCreating) event.preventDefault();
+          }}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-1 pr-6 text-left">
+              <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                Create assigned list
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-[#64748B]">
+                Assign a DA and vehicle, then scan memo barcodes. A loading number is generated on create.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="employee-select" className={labelClass}>
+                  Assign DA {requiredMark}
+                </Label>
+                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId} disabled={isCreating}>
+                  <SelectTrigger id="employee-select" className={cn(fieldClass, "h-10")}>
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent className={selectPanelClass}>
+                    {employees.filter((emp: any) => emp.is_active !== false).map((employee: any) => {
+                      const fullName = `${employee.first_name}${employee.last_name ? ` ${employee.last_name}` : ""}`.trim();
+                      const initials = personInitials(fullName);
+                      return (
+                        <SelectItem key={employee.id} value={String(employee.id)} className={selectItemClass}>
+                          <span className="flex items-center gap-2">
+                            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0C4DA1]/10 text-[9px] font-semibold text-[#0C4DA1]">
+                              {initials || <UserRound className="h-3 w-3" />}
+                            </span>
+                            <span className="truncate">
+                              {fullName} ({employee.employee_id})
+                            </span>
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="vehicle-select" className={labelClass}>
+                  Assign vehicle {requiredMark}
+                </Label>
+                <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId} disabled={isCreating}>
+                  <SelectTrigger id="vehicle-select" className={cn(fieldClass, "h-10")}>
+                    <SelectValue placeholder="Select vehicle" />
+                  </SelectTrigger>
+                  <SelectContent className={selectPanelClass}>
+                    {vehicles.map((vehicle: any) => (
+                      <SelectItem key={vehicle.id} value={String(vehicle.id)} className={selectItemClass}>
+                        <span className="flex items-center gap-2">
+                          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[#0C4DA1] dark:bg-[#1B283B]">
+                            <Truck className="h-3 w-3" />
+                          </span>
+                          <span className="truncate">
+                            {vehicle.registration_number} {(vehicle.vehicle_type || vehicle.model) ? `(${vehicle.vehicle_type || vehicle.model})` : ""}
+                          </span>
+                        </span>
                       </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+          </div>
 
-            {/* Vehicle Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="vehicle-select">Assign Vehicle *</Label>
-              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                <SelectTrigger id="vehicle-select">
-                  <SelectValue placeholder="Select vehicle" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((vehicle: any) => (
-                    <SelectItem key={vehicle.id} value={String(vehicle.id)}>
-                      {vehicle.registration_number} {(vehicle.vehicle_type || vehicle.model) ? `(${vehicle.vehicle_type || vehicle.model})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Barcode Scanner Input */}
-            <div className="space-y-2">
-              <Label htmlFor="barcode-input">Scan Memo Barcode</Label>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 pb-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="barcode-input" className={labelClass}>Scan memo barcode</Label>
               <div className="relative">
-                <ScanLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <ScanLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0C4DA1]" />
                 <Input
                   id="barcode-input"
                   placeholder="Scan or type memo number and press Enter"
                   value={currentBarcodeInput}
                   onChange={(e) => setCurrentBarcodeInput(e.target.value)}
                   onKeyDown={handleBarcodeScan}
-                  className="pl-9"
+                  className={cn(fieldClass, "h-10 pl-9")}
+                  disabled={isCreating}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Type or scan memo number and press Enter to add it to the list
+              <p className="text-[12px] text-[#64748B]">
+                Press Enter after each scan to add it to the list.
               </p>
             </div>
 
-            {/* Scanned Memos List */}
             {scannedMemos.length > 0 && (
-              <div className="space-y-2">
-                <Label>Scanned Memos ({scannedMemos.length})</Label>
-                <div className="border rounded-lg p-4 space-y-2 max-h-60 overflow-y-auto">
-                  {scannedMemos.map((memo, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <span className="font-mono text-sm">{memo}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
+              <div className="space-y-1.5">
+                <p className="text-[13px] font-medium text-[#172B4D] dark:text-[#F1F5F9]">
+                  Scanned memos ({scannedMemos.length})
+                </p>
+                <div className="max-h-52 space-y-1.5 overflow-y-auto rounded-xl border border-[#E3EAF3] p-2 dark:border-[#2C3B50]">
+                  {scannedMemos.map((memo) => (
+                    <div key={memo} className="flex items-center justify-between rounded-lg bg-[#F8FBFF] px-2.5 py-1.5 dark:bg-[#1B283B]">
+                      <span className="font-mono text-[13px] font-medium text-[#172B4D] dark:text-[#F1F5F9]">{memo}</span>
+                      <button
+                        type="button"
                         onClick={() => removeMemo(memo)}
-                        className="h-6 w-6"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-[#64748B] hover:bg-white hover:text-[#B91C1C] dark:hover:bg-[#151F30]"
+                        aria-label={`Remove ${memo}`}
+                        disabled={isCreating}
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
+                        <X className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -936,96 +1016,102 @@ export default function AssignedOrderList() {
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateForm(false)} disabled={isCreating}>
+          <DialogFooter className="border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50]">
+            <Button type="button" variant="ntSecondary" onClick={() => setShowCreateForm(false)} disabled={isCreating}>
               Cancel
             </Button>
-            <Button onClick={handleCreateAssignedList} disabled={isCreating || scannedMemos.length === 0}>
-              {isCreating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Create Assigned List
-                </>
-              )}
+            <Button type="button" variant="ntPrimary" onClick={handleCreateAssignedList} disabled={isCreating || scannedMemos.length === 0}>
+              {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+              {isCreating ? "Creating..." : "Create Assigned List"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Partial/Postponed Delivery Approval Dialog */}
-      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Approve Delivery</DialogTitle>
-            <DialogDescription>
-              Review and adjust delivered quantities for loading {selectedLoadingGroup?.loading_number}. 
-              Full deliveries are auto-filled. Partial and postponed deliveries can be edited.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="bg-muted p-4 rounded-lg">
-              <h4 className="font-semibold mb-2">Loading Details</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Loading Number:</span>{" "}
-                  <span className="font-medium">{selectedLoadingGroup?.loading_number}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Date:</span>{" "}
-                  <span className="font-medium">{formatDate(selectedLoadingGroup?.loading_date)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Employee:</span>{" "}
-                  <span className="font-medium">{selectedLoadingGroup?.employee_name}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Vehicle:</span>{" "}
-                  <span className="font-medium">{selectedLoadingGroup?.vehicle_registration}</span>
-                </div>
+      <Dialog
+        open={showApprovalDialog}
+        onOpenChange={(open) => {
+          if (isApproving || isRejecting) return;
+          setShowApprovalDialog(open);
+          if (!open) {
+            setRejectReason("");
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(dialogContentClass, "max-w-[860px]")}
+          onPointerDownOutside={(event) => {
+            if (isApproving || isRejecting) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (isApproving || isRejecting) event.preventDefault();
+          }}
+        >
+          <div className="border-b border-[#E3EAF3] px-5 py-4 dark:border-[#2C3B50]">
+            <DialogHeader className="space-y-1 pr-6 text-left">
+              <DialogTitle className="text-base font-semibold text-[#172B4D] dark:text-[#F1F5F9]">
+                Review delivery
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-[#64748B]">
+                Adjust delivered quantities for {selectedLoadingGroup?.loading_number}, then approve or reject this loading.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-[#E3EAF3] bg-[#F8FBFF] px-4 py-3 text-[13px] dark:border-[#2C3B50] dark:bg-[#1B283B] sm:grid-cols-4">
+              <div>
+                <p className="text-[11px] text-[#64748B]">Loading</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{selectedLoadingGroup?.loading_number}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#64748B]">Date</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{formatDate(selectedLoadingGroup?.loading_date)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#64748B]">Employee</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{selectedLoadingGroup?.employee_name}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#64748B]">Vehicle</p>
+                <p className="font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{selectedLoadingGroup?.vehicle_registration}</p>
               </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-[#E3EAF3] dark:border-[#2C3B50]">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Memo Number</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Loading Quantity</TableHead>
-                    <TableHead className="text-right">Delivered Quantity</TableHead>
-                    <TableHead className="text-right">Returned Quantity</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className={tableHeadClass}>Memo</TableHead>
+                    <TableHead className={tableHeadClass}>Status</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Loading qty</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Delivered qty</TableHead>
+                    <TableHead className={cn(tableHeadClass, "text-right")}>Returned qty</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approvalMemos.map((memo, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-mono text-sm font-medium">{memo.memo_number}</TableCell>
+                  {approvalMemos.map((memo) => (
+                    <TableRow key={memo.memo_number} className="hover:bg-[#F8FAFC] dark:hover:bg-[#1B283B]">
+                      <TableCell className="font-mono text-[13px] font-semibold text-[#172B4D] dark:text-[#F1F5F9]">{memo.memo_number}</TableCell>
                       <TableCell>
                         {memo.delivery_status === "Fully Delivered" && (
-                          <span className="inline-flex items-center rounded-full text-white font-bold text-xs px-2 py-1 shadow-lg ring-2 ring-green-400/60" style={{ backgroundColor: '#059669' }}>
+                          <span className="rounded-md bg-[#ECFDF5] px-1.5 py-0.5 text-[11px] font-semibold text-[#047857]">
                             Fully Delivered
                           </span>
                         )}
                         {memo.delivery_status === "Partial Delivered" && (
-                          <span className="inline-flex items-center rounded-full text-white font-bold text-xs px-2 py-1 shadow-lg ring-2 ring-orange-400/60" style={{ backgroundColor: '#ea580c' }}>
+                          <span className="rounded-md bg-[#FFEDD5] px-1.5 py-0.5 text-[11px] font-semibold text-[#C2410C]">
                             Partial Delivered
                           </span>
                         )}
                         {memo.delivery_status === "Postponed" && (
-                          <span className="inline-flex items-center rounded-full text-white font-bold text-xs px-2 py-1 shadow-lg ring-2 ring-pink-400/60" style={{ backgroundColor: '#dc2626' }}>
+                          <span className="rounded-md bg-[#FEE2E2] px-1.5 py-0.5 text-[11px] font-semibold text-[#B91C1C]">
                             Postponed
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-medium">{memo.loading_quantity}</TableCell>
+                      <TableCell className="text-right text-[13px] font-medium tabular-nums">{memo.loading_quantity}</TableCell>
                       <TableCell className="text-right">
-                        {/* Delivered quantity is always editable */}
                         <Input
                           type="number"
                           min="0"
@@ -1035,17 +1121,17 @@ export default function AssignedOrderList() {
                             const value = parseInt(e.target.value) || 0;
                             updateApprovalMemo(memo.memo_number, Math.min(value, memo.loading_quantity));
                           }}
-                          className="w-24 ml-auto text-right"
+                          className={cn(fieldClass, numberInputClass, "ml-auto h-8 w-24 text-right")}
+                          disabled={isApproving || isRejecting}
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        {/* Returned quantity is always non-editable (read-only) */}
                         <Input
                           type="number"
                           value={memo.returned_quantity}
                           readOnly
                           disabled
-                          className="w-24 ml-auto text-right bg-muted cursor-not-allowed"
+                          className={cn(fieldClass, numberInputClass, "ml-auto h-8 w-24 cursor-not-allowed bg-[#F8FAFC] text-right")}
                         />
                       </TableCell>
                     </TableRow>
@@ -1054,38 +1140,59 @@ export default function AssignedOrderList() {
               </Table>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> Delivered quantity is editable. Returned quantity is automatically calculated as (Loading Quantity - Delivered Quantity) and cannot be edited.
-              </p>
+            <p className="text-[12px] text-[#64748B]">
+              Delivered quantity is editable. Returned quantity is Loading qty minus Delivered qty.
+            </p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="reject-reason" className="text-[13px] font-medium text-[#172B4D] dark:text-[#F1F5F9]">
+                Rejection reason
+              </Label>
+              <Textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                placeholder="Required only when rejecting this loading"
+                className="min-h-[72px] rounded-lg border-[#CBD5E1] text-[13px] shadow-none focus-visible:border-[#0C4DA1] focus-visible:ring-[#0C4DA1]/20 dark:border-[#2C3B50] dark:bg-[#151F30]"
+                disabled={isApproving || isRejecting}
+              />
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApprovalDialog(false)} disabled={isApproving}>
+          <DialogFooter className="border-t border-[#E3EAF3] px-5 py-3 dark:border-[#2C3B50] sm:justify-between">
+            <Button
+              type="button"
+              variant="ntSecondary"
+              onClick={() => setShowApprovalDialog(false)}
+              disabled={isApproving || isRejecting}
+            >
               Cancel
             </Button>
-            <Button 
-              onClick={handleApprovePartialDelivery} 
-              disabled={isApproving}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isApproving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Approving...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Approve Delivery
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ntSecondary"
+                className="border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] hover:text-[#991B1B]"
+                onClick={handleRejectDelivery}
+                disabled={isApproving || isRejecting}
+              >
+                {isRejecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                {isRejecting ? "Rejecting..." : "Reject"}
+              </Button>
+              <Button
+                type="button"
+                variant="ntPrimary"
+                onClick={handleApprovePartialDelivery}
+                disabled={isApproving || isRejecting}
+              >
+                {isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {isApproving ? "Approving..." : "Approve Delivery"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main>
+    </OrderPageShell>
   );
 }
 
