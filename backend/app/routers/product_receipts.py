@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,6 +9,7 @@ from app.database import get_db
 from app import models, schemas
 from app.core.deps import require_auth
 from app.core.depot_scope import apply_depot_id_filter
+from app.services.stock_movement_service import StockMovementService
 
 router = APIRouter()
 
@@ -139,57 +141,82 @@ def delete_receipt(receipt_id: int, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
-def post_to_stock_ledger(db: Session, receipt: models.ProductReceipt) -> None:
+def _resolve_receipt_product(db: Session, item_code: Optional[str]) -> models.Product:
+    code = (item_code or "").strip()
+    if not code:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown product")
+    products = (
+        db.query(models.Product)
+        .filter(
+            (models.Product.code == code)
+            | (models.Product.new_code == code)
+            | (models.Product.old_code == code)
+        )
+        .order_by(models.Product.id)
+        .all()
+    )
+    if len(products) != 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown product")
+    return products[0]
+
+
+def _receipt_postings(db: Session, receipt: models.ProductReceipt) -> list[tuple]:
+    if not receipt.target_depot_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid depot")
+    depot = db.query(models.Depot).filter(models.Depot.id == receipt.target_depot_id).first()
+    if depot is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid depot")
+
+    postings = []
     for item in receipt.items:
-        if not item.item_code:
-            continue
-        product = (
-            db.query(models.Product)
-            .filter((models.Product.code == item.item_code) | (models.Product.new_code == item.item_code) | (models.Product.old_code == item.item_code))
-            .first()
-        )
-        if not product:
-            continue
-        ledger = (
-            db.query(models.StockLedger)
-            .filter(
-                models.StockLedger.product_id == product.id,
-                models.StockLedger.depot_id == receipt.target_depot_id,
-                models.StockLedger.batch == item.batch_number,
-            )
-            .first()
-        )
-        if ledger:
-            ledger.quantity = (ledger.quantity or 0) + (item.depot_quantity or 0)
-            ledger.available_quantity = (ledger.available_quantity or 0) + (item.depot_quantity or 0)
-            ledger.expiry_date = item.expiry_date or ledger.expiry_date
-        else:
-            ledger = models.StockLedger(
-                product_id=product.id,
-                depot_id=receipt.target_depot_id,
-                batch=item.batch_number,
-                storage_type=receipt.source_type.value,
-                quantity=item.depot_quantity or 0,
-                reserved_quantity=0,
-                available_quantity=item.depot_quantity or 0,
-                expiry_date=item.expiry_date,
-            )
-            db.add(ledger)
+        product = _resolve_receipt_product(db, item.item_code)
+        batch = (item.batch_number or "").strip()
+        if not batch:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid batch")
+        quantity = Decimal(str(item.depot_quantity or 0))
+        if quantity <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid quantity")
+        postings.append((product.id, depot.id, batch, quantity, item.expiry_date))
+    return postings
 
 
 @router.post("/{receipt_id}/approve", response_model=schemas.ProductReceiptApprovalResponse)
 def approve_receipt(receipt_id: int, db: Session = Depends(get_db)) -> schemas.ProductReceiptApprovalResponse:
-    receipt = db.query(models.ProductReceipt).filter(models.ProductReceipt.id == receipt_id).first()
+    receipt = (
+        db.query(models.ProductReceipt)
+        .filter(models.ProductReceipt.id == receipt_id)
+        .with_for_update()
+        .first()
+    )
     if not receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
     if receipt.status == models.ProductReceiptStatus.APPROVED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Receipt already approved")
+    if receipt.status != models.ProductReceiptStatus.DRAFT:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid receipt status")
     if not receipt.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Receipt has no items")
 
-    receipt.status = models.ProductReceiptStatus.APPROVED
-    post_to_stock_ledger(db, receipt)
-    db.commit()
+    postings = _receipt_postings(db, receipt)
+    try:
+        for product_id, depot_id, batch, quantity, expiry_date in postings:
+            StockMovementService.receive(
+                db,
+                product_id=product_id,
+                depot_id=depot_id,
+                batch_no=batch,
+                quantity=quantity,
+                expiry_date=expiry_date,
+            )
+        receipt.status = models.ProductReceiptStatus.APPROVED
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Receipt approval failed")
+
     db.refresh(receipt)
     return schemas.ProductReceiptApprovalResponse(
         id=receipt.id,

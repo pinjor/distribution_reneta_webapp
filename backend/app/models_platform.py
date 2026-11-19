@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -257,6 +258,71 @@ class OrderBatchAllocation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     validation_run = relationship("OrderValidationRun", back_populates="batch_allocations")
+
+
+class DeliveryAllocationOutcome(Base):
+    """Batch-level delivery result. This is not an inventory balance."""
+
+    __tablename__ = "delivery_allocation_outcomes"
+    __table_args__ = (
+        UniqueConstraint("allocation_id", name="uq_delivery_outcome_allocation"),
+        CheckConstraint("reserved_quantity >= 0", name="ck_delivery_outcome_reserved_nonneg"),
+        CheckConstraint("delivered_quantity >= 0", name="ck_delivery_outcome_delivered_nonneg"),
+        CheckConstraint("undelivered_quantity >= 0", name="ck_delivery_outcome_undelivered_nonneg"),
+        CheckConstraint(
+            "delivered_quantity + undelivered_quantity = reserved_quantity",
+            name="ck_delivery_outcome_quantities",
+        ),
+        Index("ix_delivery_outcomes_order", "order_id"),
+        Index("ix_delivery_outcomes_depot_batch", "depot_id", "batch_no"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    order_item_id = Column(Integer, ForeignKey("order_items.id", ondelete="CASCADE"), nullable=False)
+    allocation_id = Column(Integer, ForeignKey("order_batch_allocations.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    depot_id = Column(Integer, ForeignKey("depots.id"), nullable=False)
+    batch_no = Column(String(100), nullable=False)
+    reserved_quantity = Column(Numeric(12, 2), nullable=False)
+    delivered_quantity = Column(Numeric(12, 2), nullable=False)
+    undelivered_quantity = Column(Numeric(12, 2), nullable=False)
+    delivery_reference = Column(String(100), nullable=False)
+    custody_status = Column(String(50), nullable=False)
+    created_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ReturnVerification(Base):
+    """A requested or verified physical return. Verification does not change stock."""
+
+    __tablename__ = "return_verifications"
+    __table_args__ = (
+        UniqueConstraint("verification_number", name="uq_return_verification_number"),
+        CheckConstraint("expected_return_quantity >= 0", name="ck_return_expected_nonneg"),
+        CheckConstraint("received_quantity >= 0", name="ck_return_received_nonneg"),
+        CheckConstraint("received_quantity <= expected_return_quantity", name="ck_return_received_within_expected"),
+        Index("ix_return_verifications_allocation", "allocation_id"),
+        Index("ix_return_verifications_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    verification_number = Column(String(50), nullable=False)
+    outcome_id = Column(Integer, ForeignKey("delivery_allocation_outcomes.id", ondelete="CASCADE"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    allocation_id = Column(Integer, ForeignKey("order_batch_allocations.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    depot_id = Column(Integer, ForeignKey("depots.id"), nullable=False)
+    batch_no = Column(String(100), nullable=False)
+    expected_return_quantity = Column(Numeric(12, 2), nullable=False)
+    received_quantity = Column(Numeric(12, 2), nullable=False)
+    status = Column(String(50), nullable=False, default="REQUESTED")
+    verified_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    remarks = Column(Text, nullable=True)
+    created_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 # --- Status History ---

@@ -15,6 +15,8 @@ from app.core.depot_scope import apply_depot_code_filter, apply_depot_id_filter
 from app.models import Employee
 from app.services.audit_service import AuditService
 from app.services.order_validation_service import OrderValidationService
+from app.models_platform import OrderBatchAllocation
+from app.services.stock_movement_service import StockMovementService
 from app.services.stock_reservation_service import StockReservationService
 
 router = APIRouter()
@@ -1704,10 +1706,6 @@ def assign_route_wise_orders(
     
     db.commit()
 
-    for order in orders:
-        StockReservationService.commit_for_order(db, order.id, user)
-    db.commit()
-    
     # Create trip assignment automatically
     try:
         from app.models import Route, Driver, Trip, TransportExpense, RouteStop
@@ -1942,10 +1940,6 @@ def create_assigned_order_list_from_barcodes(
     
     db.commit()
 
-    for order in orders:
-        StockReservationService.commit_for_order(db, order.id, user)
-    db.commit()
-    
     # Create trip assignment automatically
     try:
         from app.models import Route, Driver, Trip, TransportExpense, RouteStop
@@ -2607,7 +2601,6 @@ def update_assigned_order_status(
         if not order.loaded_at:
             from datetime import datetime
             order.loaded_at = datetime.utcnow()
-        StockReservationService.commit_for_order(db, order.id, user)
     
     db.commit()
     
@@ -2617,110 +2610,150 @@ def update_assigned_order_status(
         "status": status_update.status,
     }
 
+def _order_line_total(order: models.Order) -> Decimal:
+    total = Decimal("0")
+    for item in order.items:
+        total += Decimal(str(item.total_quantity if item.total_quantity is not None else (item.quantity or 0) + (item.free_goods or 0)))
+    return total
+
+
+def _order_amount(order: models.Order) -> Decimal:
+    total_amount = Decimal("0")
+    for item in order.items:
+        unit_price = item.unit_price or item.trade_price or Decimal("0")
+        discount = item.discount_percent or Decimal("0")
+        line_qty = item.total_quantity if item.total_quantity is not None else (item.quantity or 0) + (item.free_goods or 0)
+        total_amount += unit_price * (1 - discount / 100) * Decimal(str(line_qty))
+    return total_amount
+
+
+def _full_delivery_allocations(db: Session, order: models.Order) -> list[OrderBatchAllocation]:
+    """Reserved allocations for one fully delivered order. Does not change stock."""
+    if not order.loaded:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid delivery status")
+    allocations = (
+        db.query(OrderBatchAllocation)
+        .filter(OrderBatchAllocation.order_id == order.id)
+        .order_by(OrderBatchAllocation.id)
+        .all()
+    )
+    if not allocations:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing allocation")
+    issued = [row for row in allocations if row.allocation_status == "ISSUED"]
+    reserved = [row for row in allocations if row.allocation_status == "RESERVED"]
+    if issued and not reserved:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delivery already approved")
+    if not reserved or len(reserved) != len(allocations):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid allocation status")
+
+    items_by_id = {item.id: item for item in order.items}
+    allocated = Decimal("0")
+    for alloc in reserved:
+        item = items_by_id.get(alloc.order_item_id)
+        product = db.query(models.Product).filter(models.Product.id == alloc.product_id).first()
+        if item is None or product is None or product.code != item.product_code:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown product")
+        if not alloc.stock_source_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing allocation")
+        detail = db.query(models.ProductItemStockDetail).filter(models.ProductItemStockDetail.id == alloc.stock_source_id).first()
+        if detail is None or (detail.batch_no or "").strip() != (alloc.batch_no or "").strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid batch")
+        header = db.query(models.ProductItemStock).filter(models.ProductItemStock.id == detail.item_code).first()
+        depot = db.query(models.Depot).filter(models.Depot.id == header.depot_id).first() if header and header.depot_id else None
+        if depot is None or not order.depot_code or depot.code != order.depot_code or header.product_id != product.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid depot")
+        allocated += Decimal(str(alloc.allocated_qty or 0))
+    if allocated != _order_line_total(order):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing allocation")
+    return reserved
+
+
 @router.post("/assigned/approve-delivery", status_code=status.HTTP_200_OK, response_model=schemas.DeliveryApprovalResponse)
 def approve_delivery(
     payload: schemas.DeliveryApprovalRequest,
     db: Session = Depends(get_db)
 ):
-    """Approve delivery for a loading group, update quantities, and move orders to collection approval"""
-    from datetime import datetime
-    from decimal import Decimal
-    
-    # Get all orders with this loading number
+    """Approve a fully delivered loading and issue its reserved allocations once."""
     orders = (
         db.query(models.Order)
         .filter(models.Order.loading_number == payload.loading_number)
+        .order_by(models.Order.id)
+        .with_for_update()
         .all()
     )
-    
     if not orders:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No orders found for loading number {payload.loading_number}"
+            detail=f"No orders found for loading number {payload.loading_number}",
         )
-
     if any(getattr(order, "delivery_rejected", False) for order in orders):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Loading {payload.loading_number} has already been rejected"
+            detail=f"Loading {payload.loading_number} has already been rejected",
         )
-    
-    # Create a map of memo_number to approval data
+
     memo_map = {memo.memo_number: memo for memo in payload.memos}
-    
-    approved_count = 0
-    orders_moved_to_collection = []
-    
-    # Update each order based on memo data
+    matched = []
     for order in orders:
         memo_number = order.memo_number or order.order_number
-        if not memo_number:
-            continue
-            
-        # Try to find matching memo in approval data
         approval_memo = None
-        for memo_key, memo_data in memo_map.items():
-            if memo_key == memo_number or memo_key == str(order.id):
-                approval_memo = memo_data
-                break
-        
-        if not approval_memo:
-            # If no specific approval data, check if fully delivered
-            continue
-        
-        # Calculate total order amount (original loading quantity)
-        total_amount = Decimal('0')
-        for item in order.items:
-            unit_price = item.unit_price or item.trade_price or Decimal('0')
-            discount = item.discount_percent or Decimal('0')
-            price_after_discount = unit_price * (1 - discount / 100)
-            # Use original loading quantity (total_quantity)
-            loading_qty_item = item.total_quantity or (item.quantity + (item.free_goods or Decimal('0')))
-            total_price = price_after_discount * loading_qty_item
-            total_amount += total_price
-        
-        # Determine collection status based on delivered and returned quantities
-        loading_qty = approval_memo.delivered_quantity + approval_memo.returned_quantity
-        
-        if approval_memo.returned_quantity == 0 and approval_memo.delivered_quantity > 0:
-            # Fully delivered (returned = 0, delivered = full)
-            # Set to "Pending" so it appears in Approval for Collection (will be marked as Fully Collected after approval)
+        if memo_number and memo_number in memo_map:
+            approval_memo = memo_map[memo_number]
+        elif str(order.id) in memo_map:
+            approval_memo = memo_map[str(order.id)]
+        if approval_memo is not None:
+            matched.append((order, approval_memo, memo_number or str(order.id)))
+    if not matched:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    try:
+        for order, approval_memo, _memo_number in matched:
+            delivered = Decimal(str(approval_memo.delivered_quantity))
+            returned = Decimal(str(approval_memo.returned_quantity))
+            if delivered < 0 or returned < 0:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid quantity")
+            line_total = _order_line_total(order)
+            if delivered + returned != line_total:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Delivered and returned quantities must equal the order quantity",
+                )
+            if delivered == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Postponed delivery cannot release stock without a verified depot return",
+                )
+            if returned != 0 or delivered != line_total:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Partial delivery cannot be posted until delivered quantity is recorded by batch",
+                )
+            _full_delivery_allocations(db, order)
+
+        orders_moved = []
+        for order, _approval_memo, memo_number in matched:
+            issued = StockMovementService.issue_reserved_allocations(db, order.id)
+            if issued <= 0:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delivery already approved")
             order.collection_status = "Pending"
-            order.collected_amount = total_amount
-            order.pending_amount = Decimal('0')
-        elif approval_memo.delivered_quantity == 0:
-            # Postponed (delivered = 0, all returned)
-            order.collection_status = "Postponed"
-            order.collection_type = "Postponed"
-            order.collected_amount = Decimal('0')
-            order.pending_amount = total_amount
-        else:
-            # Partial delivered (some delivered, some returned)
-            order.collection_status = "Partially Collected"
-            order.collection_type = "Partial"
-            # Calculate collected amount based on delivered quantity ratio
-            if loading_qty > 0:
-                delivered_ratio = Decimal(str(approval_memo.delivered_quantity)) / Decimal(str(loading_qty))
-                order.collected_amount = total_amount * delivered_ratio
-                order.pending_amount = total_amount - order.collected_amount
-            else:
-                order.collected_amount = Decimal('0')
-                order.pending_amount = total_amount
-        
-        # Mark as pending collection approval (will go to Remaining Cash Deposit list)
-        order.collection_approved = False
-        order.collection_source = "Web"  # Mark as Web source to distinguish from mobile app
-        
-        approved_count += 1
-        orders_moved_to_collection.append(memo_number)
-    
-    db.commit()
-    
+            order.collected_amount = _order_amount(order)
+            order.pending_amount = Decimal("0")
+            order.collection_approved = False
+            order.collection_source = "Web"
+            orders_moved.append(memo_number)
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Delivery approval failed")
+
     return {
-        "message": f"Delivery approved for loading {payload.loading_number}. {approved_count} order(s) moved to collection approval.",
+        "message": f"Delivery approved for loading {payload.loading_number}. {len(orders_moved)} order(s) moved to collection approval.",
         "loading_number": payload.loading_number,
-        "approved_count": approved_count,
-        "orders_moved_to_collection": orders_moved_to_collection
+        "approved_count": len(orders_moved),
+        "orders_moved_to_collection": orders_moved,
     }
 
 

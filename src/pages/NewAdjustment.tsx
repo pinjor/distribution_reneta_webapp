@@ -61,6 +61,7 @@ import { NAVY_TEAL_SCOPE_CLASS } from "@/lib/navyTealTheme";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
+import { signedAdjustmentQuantity } from "@/lib/adjustmentDirection";
 
 interface AdjustmentItem {
   id: number;
@@ -71,6 +72,7 @@ interface AdjustmentItem {
   batchNo: string;
   currentStock: number;
   adjustType: string;
+  correctionDirection: "" | "Increase" | "Decrease";
   adjustedQty: number;
   adjustReason: string;
   remarks: string;
@@ -86,6 +88,7 @@ interface AdjustedRecord {
   category: string;
   adjustedQty: number;
   adjustType: string;
+  correctionDirection: "" | "Increase" | "Decrease";
   expireDate: string;
   batchNo: string;
 }
@@ -465,6 +468,7 @@ const emptyDraft = (): AdjustmentItem => ({
   batchNo: "",
   currentStock: 0,
   adjustType: "",
+  correctionDirection: "",
   adjustedQty: 0,
   adjustReason: "",
   remarks: "",
@@ -540,6 +544,7 @@ export default function NewAdjustment() {
         category: "MEDICINE",
         adjustedQty: 2,
         adjustType: "Write off",
+        correctionDirection: "",
         expireDate: "",
         batchNo: "",
       },
@@ -700,6 +705,7 @@ export default function NewAdjustment() {
       category: "",
       adjustedQty: item.adjustedQty,
       adjustType: item.adjustType,
+      correctionDirection: item.correctionDirection,
       expireDate: selectedBatch?.expiryDate || "",
       batchNo: item.batchNo,
     };
@@ -710,6 +716,24 @@ export default function NewAdjustment() {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields (Item Code, Batch No, Adjust Type, Adjusted Qty, Adjust Reason)",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!(item.adjustedQty > 0)) {
+      toast({
+        title: "Validation Error",
+        description: "Enter a positive adjustment quantity. The adjustment type sets the stock direction.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (item.adjustType === "Correction" && !item.correctionDirection) {
+      toast({
+        title: "Validation Error",
+        description: "Select increase or decrease for a correction.",
         variant: "destructive",
       });
       return false;
@@ -752,7 +776,11 @@ export default function NewAdjustment() {
   };
 
   const handleDraftChange = (field: keyof AdjustmentItem, value: any) => {
-    setDraft((current) => ({ ...current, [field]: value }));
+    setDraft((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "adjustType" && value !== "Correction" ? { correctionDirection: "" as const } : {}),
+    }));
   };
 
   const handleDraftBatchChange = (value: string) => {
@@ -796,6 +824,11 @@ export default function NewAdjustment() {
       const [day, month, year] = chalanDate.split("/");
       const adjustmentDate = `${year}-${month}-${day}`;
 
+      const adjustmentType = records[0]?.adjustType || "";
+      if (records.some((record) => record.adjustType !== adjustmentType)) {
+        throw new Error("Use one adjustment type for each chalan. The request stores a single type.");
+      }
+
       const items = records.map((record) => {
         if (!record.productId) {
           throw new Error(`Product ID missing for item: ${record.itemCode}`);
@@ -804,14 +837,18 @@ export default function NewAdjustment() {
         return {
           product_id: record.productId,
           batch: record.batchNo || null,
-          quantity_change: Number(record.adjustedQty),
+          quantity_change: signedAdjustmentQuantity(
+            record.adjustType,
+            Number(record.adjustedQty),
+            record.correctionDirection,
+          ),
         };
       });
 
       const payload = {
         adjustment_date: adjustmentDate,
         depot_id: Number(selectedStore),
-        adjustment_type: records[0]?.adjustType || "Correction",
+        adjustment_type: adjustmentType,
         reason: records.map((r) => `${r.itemName}: ${r.adjustType}`).join("; "),
         status: "Pending",
         items: items,
@@ -884,7 +921,14 @@ export default function NewAdjustment() {
     {
       key: "adjustType",
       label: "Adjust Type",
-      render: (val) => adjustTypeBadge(String(val || "")),
+      render: (val, row) => (
+        <span className="inline-flex items-center gap-1.5">
+          {adjustTypeBadge(String(val || ""))}
+          {row.correctionDirection ? (
+            <span className="text-[11px] font-medium text-[#475569] dark:text-[#A9B8CC]">{row.correctionDirection}</span>
+          ) : null}
+        </span>
+      ),
     },
     {
       key: "expireDate",
@@ -1114,6 +1158,29 @@ export default function NewAdjustment() {
                     </SelectContent>
                   </Select>
                 </div>
+                {draft.adjustType === "Correction" && (
+                  <div className={fieldWrapClass}>
+                    <Label className={labelClass}>
+                      Correction Direction <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={draft.correctionDirection}
+                      onValueChange={(val) => handleDraftChange("correctionDirection", val)}
+                    >
+                      <SelectTrigger className={cn("w-full", fieldClass)}>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent className={selectPanelClass}>
+                        <SelectItem value="Increase" className={selectItemClass}>
+                          Increase
+                        </SelectItem>
+                        <SelectItem value="Decrease" className={selectItemClass}>
+                          Decrease
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className={fieldWrapClass}>
                   <Label className={labelClass}>
                     Adjusted Qty <span className="text-red-500">*</span>
@@ -1265,6 +1332,11 @@ export default function NewAdjustment() {
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <span className="font-mono text-[11px] text-[#64748B]">Batch {item.batchNo || "—"}</span>
                             {adjustTypeBadge(item.adjustType)}
+                            {item.correctionDirection ? (
+                              <span className="text-[11px] font-medium text-[#475569] dark:text-[#A9B8CC]">
+                                {item.correctionDirection}
+                              </span>
+                            ) : null}
                             <span className="ml-auto text-sm font-semibold tabular-nums text-[#172B4D] dark:text-[#F1F5F9]">
                               {item.adjustedQty}
                             </span>

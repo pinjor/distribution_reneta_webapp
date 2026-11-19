@@ -1,13 +1,14 @@
-from datetime import datetime, date
+from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.database import get_db
-from app.models import StockAdjustment, StockAdjustmentItem, Employee, StockLedger
+from app.models import Depot, Product, StockAdjustment, StockAdjustmentItem, Employee
 from app.schemas import StockAdjustmentCreate, StockAdjustment as StockAdjustmentSchema
 from app.core.deps import require_auth
 from app.core.depot_scope import apply_depot_id_filter
+from app.services.stock_movement_service import StockMovementService
 
 router = APIRouter()
 
@@ -64,7 +65,9 @@ def create_stock_adjustment(adjustment: StockAdjustmentCreate, db: Session = Dep
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one adjustment item is required"
         )
-    
+    initial_status = _require_pending_on_create(adjustment.status)
+    _require_direction(adjustment.adjustment_type, [Decimal(str(item.quantity_change)) for item in adjustment.items])
+
     # Generate adjustment number
     adjustment_number = generate_adjustment_number(db)
     
@@ -75,7 +78,7 @@ def create_stock_adjustment(adjustment: StockAdjustmentCreate, db: Session = Dep
         depot_id=adjustment.depot_id,
         adjustment_type=adjustment.adjustment_type,
         reason=adjustment.reason,
-        status=adjustment.status or "Pending",
+        status=initial_status,
     )
     
     db.add(db_adjustment)
@@ -116,38 +119,56 @@ def _is_pending(status_value: str | None) -> bool:
     return (status_value or "").strip().lower() == "pending"
 
 
-def apply_adjustment_to_ledger(db: Session, adjustment: StockAdjustment) -> None:
-    for item in adjustment.items:
-        ledger = (
-            db.query(StockLedger)
-            .filter(
-                StockLedger.product_id == item.product_id,
-                StockLedger.depot_id == adjustment.depot_id,
-                StockLedger.batch == item.batch,
-            )
-            .first()
+def _require_pending_on_create(status_value: str | None) -> str:
+    """New documents start as Pending. A client cannot choose a final status."""
+    if status_value is None or not str(status_value).strip() or _is_pending(status_value):
+        return "Pending"
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid adjustment status")
+
+
+_DECREASE_TYPES = {"write off", "damaged", "expired"}
+
+
+def _require_direction(adjustment_type: str | None, changes: list[Decimal]) -> None:
+    """Reject a type whose stored signs do not match its direction. Do not flip signs."""
+    key = (adjustment_type or "").strip().lower()
+    if key == "found":
+        required = "positive"
+    elif key in _DECREASE_TYPES:
+        required = "negative"
+    elif key == "correction":
+        required = "either"
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid adjustment type")
+    for change in changes:
+        if change == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid quantity")
+        if required == "positive" and change < 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid adjustment direction")
+        if required == "negative" and change > 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid adjustment direction")
+
+
+def _validate_adjustment_lines(db: Session, adjustment: StockAdjustment) -> None:
+    if not adjustment.depot_id or db.query(Depot).filter(Depot.id == adjustment.depot_id).first() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Depot not found")
+    if not adjustment.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one adjustment item is required",
         )
-        change = Decimal(item.quantity_change or 0)
-        if ledger:
-            ledger.quantity = Decimal(ledger.quantity or 0) + change
-            ledger.available_quantity = Decimal(ledger.available_quantity or 0) + change
-        elif change >= 0:
-            db.add(
-                StockLedger(
-                    product_id=item.product_id,
-                    depot_id=adjustment.depot_id,
-                    batch=item.batch,
-                    quantity=change,
-                    reserved_quantity=0,
-                    available_quantity=change,
-                    status="Unrestricted",
-                )
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot approve a stock reduction without an existing batch in the ledger",
-            )
+    for item in adjustment.items:
+        if not item.product_id or db.query(Product).filter(Product.id == item.product_id).first() is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        if not (item.batch or "").strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Batch not found")
+        change = Decimal(str(item.quantity_change if item.quantity_change is not None else 0))
+        if change == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid quantity")
+    _require_direction(
+        adjustment.adjustment_type,
+        [Decimal(str(item.quantity_change)) for item in adjustment.items],
+    )
 
 
 @router.get("/{adjustment_id}", response_model=StockAdjustmentSchema)
@@ -181,16 +202,44 @@ def approve_stock_adjustment(
     db: Session = Depends(get_db),
     user: Employee = Depends(require_auth),
 ):
-    adjustment = _get_adjustment_or_404(db, adjustment_id, user)
+    adjustment = (
+        apply_depot_id_filter(
+            db.query(StockAdjustment).filter(StockAdjustment.id == adjustment_id),
+            user,
+            StockAdjustment.depot_id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not adjustment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Adjustment not found")
     if not _is_pending(adjustment.status):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only pending adjustments can be approved",
         )
-    apply_adjustment_to_ledger(db, adjustment)
-    adjustment.status = "Approved"
-    adjustment.approved_by = user.id
-    db.commit()
-    db.refresh(adjustment)
-    return adjustment
+
+    _validate_adjustment_lines(db, adjustment)
+    try:
+        for item in adjustment.items:
+            StockMovementService.adjust(
+                db,
+                product_id=item.product_id,
+                depot_id=adjustment.depot_id,
+                batch_no=item.batch,
+                quantity_change=item.quantity_change,
+            )
+        adjustment.status = "Approved"
+        adjustment.approved_by = user.id
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Adjustment approval failed",
+        )
+    return _get_adjustment_or_404(db, adjustment_id, user)
 

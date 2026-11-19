@@ -1377,6 +1377,58 @@ class DeliveryApprovalResponse(BaseModel):
     orders_moved_to_collection: List[str]  # List of memo numbers
 
 
+class DeliveryAllocationOutcomeCreate(BaseModel):
+    allocation_id: int
+    delivered_quantity: Decimal
+    undelivered_quantity: Decimal
+    delivery_reference: str
+    custody_status: str
+    depot_id: int
+    product_id: int
+    batch_no: str
+
+
+class DeliveryAllocationOutcomeRead(DeliveryAllocationOutcomeCreate):
+    id: int
+    order_id: int
+    order_item_id: int
+    reserved_quantity: Decimal
+    created_by: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReturnVerificationCreate(BaseModel):
+    outcome_id: int
+    expected_return_quantity: Decimal
+    received_quantity: Decimal
+    remarks: Optional[str] = None
+
+
+class ReturnVerificationRead(BaseModel):
+    id: int
+    verification_number: str
+    outcome_id: int
+    order_id: int
+    allocation_id: int
+    product_id: int
+    depot_id: int
+    batch_no: str
+    expected_return_quantity: Decimal
+    received_quantity: Decimal
+    status: str
+    verified_by: Optional[int] = None
+    verified_at: Optional[datetime] = None
+    remarks: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class DeliveryRejectRequest(BaseModel):
     loading_number: str
     reason: str
