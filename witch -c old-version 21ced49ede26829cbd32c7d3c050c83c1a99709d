@@ -1,0 +1,20 @@
+[33mc629985[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m backend updated
+[33m62d9b12[m ui update
+[33mef52169[m ui update
+[33mc8f4281[m ui update
+[33mf9ed788[m ui change Dashboard - cockpit - invertoy management
+[33m21ced49[m feat: Refresh brand UI, navigation hubs, and fix backend build
+[33md447920[m feat: RENATA DMS branding, auth/profile, and platform UI improvements
+[33m7b13719[m Add demo data seeding and fix Docker frontend container startup.
+[33m9a651e2[m Add server Docker overlay and deploy port env; update nginx, Vite, and API client; adjust collection deposits seed; ignore local DB dump
+[33md1457e2[m feat: Complete Docker setup with frontend, database seeding, and button functionality fixes
+[33m6818fcc[m Add Transport Management System (TMS) with vehicle/driver management, trip assignment, expense tracking, shipping points, and comprehensive reports with PDF export
+[33m9576719[m Rename all occurrences of Reneta to Renata throughout the application
+[33m1066314[m Update: Complete order management system with invoice reports, memo numbers, batch validation, and Bangladeshi customer data
+[33m4c4399f[m Fix stock adjustment API, role masters serialization, and UI improvements
+[33mda340e3[m Clean up master data menus and remove materials module
+[33mc3a8644[m driver and vehicle
+[33md1a1b2f[m all
+[33ma5fe251[m Add safeSelectItemValue helper to ensure no SelectItem ever gets empty string value
+[33m233ca69[m Add helper function to prevent empty string values in Select components
+[33mcb449c9[m Final fix - ensure Select value never receives empty string and filter data at fetch

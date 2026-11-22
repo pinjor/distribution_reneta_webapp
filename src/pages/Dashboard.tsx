@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import {
   Package,
   Truck,
@@ -21,14 +21,11 @@ import { ExpiryAlerts } from "@/components/dashboard/ExpiryAlerts";
 import { OrderStatusCard } from "@/components/dashboard/OrderStatusCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { QuickActionsGrid, QuickActionsHeading } from "@/components/navigation/QuickActionsGrid";
-import { brandLabelClasses } from "@/lib/brandTheme";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
 const QUICK_ACTIONS = [
   { title: "New Order", icon: PlusCircle, path: "/orders/new" },
@@ -51,7 +48,6 @@ const STATUS_ROUTES: Record<string, string> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   useEffect(() => {
     document.title = "Dashboard | Renata";
@@ -65,49 +61,29 @@ const Dashboard = () => {
   const formatNumber = (num: number | undefined) =>
     num === undefined ? "0" : num.toLocaleString();
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  }, []);
-
-  const displayName = user?.first_name
-    ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""}`
-    : "there";
-
   const om = kpis?.order_management;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow={greeting}
-        title={displayName}
-        subtitle="Distribution operations overview - track orders from creation through billing and MIS."
-        icon={LayoutGrid}
-        variant="sky"
-        actions={(
-          <>
-            <Button
-              variant="headerAction"
-              size="sm"
-              onClick={() => navigate("/distribution/cockpit")}
-            >
-              <LayoutGrid className="h-4 w-4 mr-1.5" />
-              Open Cockpit
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="bg-white/20 text-white border border-white/30 hover:bg-white/30 backdrop-blur-sm"
-              onClick={() => navigate("/orders/new")}
-            >
-              <PlusCircle className="h-4 w-4 mr-1.5" />
-              New Order
-            </Button>
-          </>
-        )}
-      />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          size="sm"
+          className="bg-[#0C4CA1] text-white hover:bg-[#08357A]"
+          onClick={() => navigate("/distribution/cockpit")}
+        >
+          <LayoutGrid className="h-4 w-4 mr-1.5" />
+          Open Cockpit
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+          onClick={() => navigate("/orders/new")}
+        >
+          <PlusCircle className="h-4 w-4 mr-1.5" />
+          New Order
+        </Button>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -142,15 +118,15 @@ const Dashboard = () => {
       </div>
 
       {/* Order status grid */}
-      <Card className="card-elevated border-2 border-brand-from/15 bg-gradient-to-br from-brand-tile-from/40 via-card to-card shadow-sm overflow-hidden">
+      <Card className="card-elevated border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)] overflow-hidden">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-lg font-semibold">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-from to-brand-to text-white shadow-md shadow-brand-from/25">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
               <BarChart3 className="h-4 w-4" />
             </div>
             <div>
-              <span className={cn("block", brandLabelClasses)}>Order Management Status</span>
-              <span className="text-sm font-normal text-brand-to/80">
+              <span className={cn("block text-[#0C4CA1]")}>Order Management Status</span>
+              <span className="text-sm font-normal text-[#2C4A73]">
                 Live counts across each stage of the order pipeline
               </span>
             </div>
@@ -198,9 +174,9 @@ const Dashboard = () => {
       </Card>
 
       {/* Quick actions */}
-      <div>
-        <QuickActionsHeading />
-        <QuickActionsGrid actions={QUICK_ACTIONS} onNavigate={navigate} />
+      <div className="rounded-2xl border border-[#D5E1F2] bg-white p-5 shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+        <QuickActionsHeading className="text-[#0B1B33]" />
+        <QuickActionsGrid actions={QUICK_ACTIONS} onNavigate={navigate} tone="logo" />
       </div>
 
       {/* Charts */}

@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import type { FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
-import { Eye, EyeOff, Package } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { AuthFrame, authButtonClass, authFieldClass } from "@/components/auth/AuthFrame";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -25,10 +24,7 @@ export default function Signup() {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiEndpoints.auth.signup(data);
-      return response;
-    },
+    mutationFn: async (data: typeof formData) => apiEndpoints.auth.signup(data),
     onSuccess: () => {
       toast({
         title: "Account created",
@@ -36,7 +32,7 @@ export default function Signup() {
       });
       navigate("/login");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Signup failed",
         description: error.message || "Failed to create account",
@@ -45,10 +41,8 @@ export default function Signup() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    
-    // Basic validation
     if (!formData.employee_id || !formData.first_name || !formData.email || !formData.password) {
       toast({
         title: "Validation error",
@@ -57,7 +51,6 @@ export default function Signup() {
       });
       return;
     }
-
     if (formData.password.length < 6) {
       toast({
         title: "Validation error",
@@ -66,153 +59,128 @@ export default function Signup() {
       });
       return;
     }
-
     signupMutation.mutate(formData);
   };
 
+  const set = (key: keyof typeof formData) => (value: string) =>
+    setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const pending = signupMutation.isPending;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-tile-from via-brand-tile-via to-brand-from p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="h-16 w-16 bg-gradient-to-br from-brand-from to-brand-to rounded-full flex items-center justify-center shadow-lg shadow-brand-from/30">
-              <Package className="h-8 w-8 text-white" />
-            </div>
+    <AuthFrame
+      brandName="Renata Distribution"
+      brandSubtitle="Request a desk account for your depot."
+    >
+      <h2 className="text-[1.85rem] font-semibold tracking-[-0.035em] text-[#0B1B33]">
+        Create account
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-[#2C4A73]">
+        Fields marked required are needed before the desk can issue access.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Employee ID" id="employee_id" required value={formData.employee_id} onChange={set("employee_id")} placeholder="EMP001" disabled={pending} />
+          <Field label="Department" id="department" value={formData.department} onChange={set("department")} placeholder="IT" disabled={pending} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="First name" id="first_name" required value={formData.first_name} onChange={set("first_name")} placeholder="Karim" disabled={pending} autoComplete="given-name" />
+          <Field label="Last name" id="last_name" value={formData.last_name} onChange={set("last_name")} placeholder="Ahmed" disabled={pending} autoComplete="family-name" />
+        </div>
+        <Field label="Email" id="email" required type="email" value={formData.email} onChange={set("email")} placeholder="name@renata.com" disabled={pending} autoComplete="email" />
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="text-sm font-medium text-[#0B1B33]">
+            Password <span className="text-[#0C4CA1]">*</span>
+          </label>
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="At least 6 characters"
+              value={formData.password}
+              onChange={(e) => set("password")(e.target.value)}
+              required
+              disabled={pending}
+              className={cn(authFieldClass, "pr-11")}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              disabled={pending}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[#0C4CA1] hover:bg-[#E7EEF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C4CA1]/35"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
-          <div>
-            <CardTitle className="text-2xl">Create Account</CardTitle>
-            <CardDescription>Sign up for Swift Distribution Hub</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="employee_id">Employee ID *</Label>
-                <Input
-                  id="employee_id"
-                  placeholder="EMP001"
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                  required
-                  disabled={signupMutation.isPending}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Input
-                  id="department"
-                  placeholder="IT"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  disabled={signupMutation.isPending}
-                />
-              </div>
-            </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Phone" id="phone" type="tel" value={formData.phone} onChange={set("phone")} placeholder="+8801…" disabled={pending} autoComplete="tel" />
+          <Field label="Designation" id="designation" value={formData.designation} onChange={set("designation")} placeholder="Manager" disabled={pending} />
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">First Name *</Label>
-                <Input
-                  id="first_name"
-                  placeholder="John"
-                  value={formData.first_name}
-                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                  required
-                  disabled={signupMutation.isPending}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
-                <Input
-                  id="last_name"
-                  placeholder="Doe"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  disabled={signupMutation.isPending}
-                />
-              </div>
-            </div>
+        <button type="submit" disabled={pending} className={cn(authButtonClass, "mt-2")}>
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+            <>
+              Create account
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      </form>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="john.doe@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                disabled={signupMutation.isPending}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 6 characters"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  disabled={signupMutation.isPending}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  disabled={signupMutation.isPending}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1234567890"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  disabled={signupMutation.isPending}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="designation">Designation</Label>
-                <Input
-                  id="designation"
-                  placeholder="Manager"
-                  value={formData.designation}
-                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                  disabled={signupMutation.isPending}
-                />
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={signupMutation.isPending}>
-              {signupMutation.isPending ? "Creating account..." : "Sign up"}
-            </Button>
-
-            <div className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="text-primary hover:underline font-medium"
-              >
-                Sign in
-              </button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+      <p className="mt-8 text-sm text-[#2C4A73]">
+        Already on the desk?{" "}
+        <Link
+          to="/login"
+          className="font-semibold text-[#0C4CA1] underline decoration-[#C5D4EE] underline-offset-4 hover:decoration-[#0C4CA1]"
+        >
+          Sign in
+        </Link>
+      </p>
+    </AuthFrame>
   );
 }
 
+function Field({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  required,
+  type = "text",
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled: boolean;
+  required?: boolean;
+  type?: string;
+  autoComplete?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="text-sm font-medium text-[#0B1B33]">
+        {label} {required && <span className="text-[#0C4CA1]">*</span>}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        required={required}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className={authFieldClass}
+      />
+    </div>
+  );
+}

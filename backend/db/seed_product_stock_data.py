@@ -241,13 +241,24 @@ def seed_product_stock(db: Session):
             created_count += 1
             print(f"  Created stock record for {product_data['name']}")
         else:
-            # Update stock quantities
-            item_stock.product_code = product_data["code"]
-            item_stock.sku_code = product_data["sku"]
-            item_stock.gross_stock_receive = Decimal(str(total_receive))
-            item_stock.stock_qty = Decimal(str(total_quantity))
-            updated_count += 1
-            print(f"  Updated stock record for {product_data['name']}")
+            issued = Decimal(str(item_stock.issue or 0))
+            adjusted_out = Decimal(str(item_stock.adjusted_stock_out_qty or 0))
+            reserved_on_details = sum(
+                (Decimal(str(d.reserved_quantity or 0)) for d in item_stock.details),
+                Decimal("0"),
+            )
+            if issued > 0 or adjusted_out > 0 or reserved_on_details > 0:
+                print(
+                    f"  Skip stock reset for {product_data['name']}: "
+                    "reservations or posted movements already exist"
+                )
+            else:
+                item_stock.product_code = product_data["code"]
+                item_stock.sku_code = product_data["sku"]
+                item_stock.gross_stock_receive = Decimal(str(total_receive))
+                item_stock.stock_qty = Decimal(str(total_quantity))
+                updated_count += 1
+                print(f"  Updated stock record for {product_data['name']}")
         
         # Create batch details
         for batch_data in product_data["batches"]:
@@ -272,11 +283,18 @@ def seed_product_stock(db: Session):
                 db.add(batch_detail)
                 print(f"    Created batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
             else:
-                batch_detail.quantity = Decimal(str(batch_data["quantity"]))
-                batch_detail.available_quantity = Decimal(str(batch_data["quantity"]))
-                batch_detail.expiry_date = batch_data["expiry"]
-                batch_detail.manufacturing_date = batch_data["mfg_date"]
-                print(f"    Updated batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
+                reserved = Decimal(str(batch_detail.reserved_quantity or 0))
+                if reserved > 0:
+                    print(
+                        f"    Skip batch reset {batch_data['batch_no']}: "
+                        f"reserved {reserved}"
+                    )
+                else:
+                    batch_detail.quantity = Decimal(str(batch_data["quantity"]))
+                    batch_detail.available_quantity = Decimal(str(batch_data["quantity"]))
+                    batch_detail.expiry_date = batch_data["expiry"]
+                    batch_detail.manufacturing_date = batch_data["mfg_date"]
+                    print(f"    Updated batch: {batch_data['batch_no']} (Qty: {batch_data['quantity']})")
     
     try:
         db.commit()

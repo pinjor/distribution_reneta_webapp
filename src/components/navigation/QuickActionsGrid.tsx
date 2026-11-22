@@ -4,7 +4,7 @@ import { NavTileCard } from "@/components/ui/tile-card";
 import { NAV_CARD_VARIANT } from "@/lib/uiDesign";
 import { cn } from "@/lib/utils";
 import { brandLabelClasses } from "@/lib/brandTheme";
-import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight, type LucideIcon } from "lucide-react";
 
 const STACK_OFFSETS = [
   "[grid-area:stack] hover:-translate-y-8 before:absolute before:w-full before:outline-1 before:rounded-xl before:outline-brand-from/20 before:h-full before:content-[''] before:bg-blend-overlay before:bg-background/40 grayscale-[25%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0",
@@ -23,6 +23,7 @@ interface QuickActionsGridProps {
   actions: QuickActionItem[];
   onNavigate: (path: string) => void;
   className?: string;
+  tone?: "brand" | "logo";
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -31,7 +32,38 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-export function QuickActionsGrid({ actions, onNavigate, className }: QuickActionsGridProps) {
+export function QuickActionsGrid({ actions, onNavigate, className, tone = "brand" }: QuickActionsGridProps) {
+  if (tone === "logo") {
+    return (
+      <div className={cn("grid grid-cols-6 gap-2", className)}>
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.path}
+              type="button"
+              onClick={() => onNavigate(action.path)}
+              className="group flex items-center gap-3 rounded-xl border border-[#D5E1F2] bg-[#F7FAFE] px-3 py-2 text-left transition duration-200 hover:border-[#0C4CA1] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C4CA1]/30"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#0C4CA1] ring-1 ring-[#D5E1F2] transition group-hover:bg-[#0C4CA1] group-hover:text-white group-hover:ring-[#0C4CA1]">
+                <Icon className="h-4 w-4" strokeWidth={2.25} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0C4CA1]">
+                  Quick action
+                </span>
+                <span className="block truncate text-sm font-semibold leading-tight text-[#0B1B33]">
+                  {action.title}
+                </span>
+              </span>
+              <ArrowUpRight className="h-4 w-4 shrink-0 text-[#8AA0BE] transition group-hover:text-[#0C4CA1]" />
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (NAV_CARD_VARIANT === "tile") {
     return (
       <div className={cn("grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4", className)}>
@@ -42,6 +74,7 @@ export function QuickActionsGrid({ actions, onNavigate, className }: QuickAction
             icon={action.icon}
             index={index}
             compact
+            tone={tone}
             onClick={() => onNavigate(action.path)}
           />
         ))}

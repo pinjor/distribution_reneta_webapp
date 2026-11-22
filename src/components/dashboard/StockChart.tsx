@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
-const DEPOT_COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#06b6d4"];
+const DEPOT_COLORS = ["#0C4CA1", "#3D74D6", "#08357A", "#6B93D6", "#1A5FBF"];
 
 const data = [
   { depot: "Central", stock: 12500 },
@@ -13,7 +13,7 @@ const data = [
 
 export function StockChart() {
   return (
-    <Card className="p-6 card-elevated border-2 border-blue-100 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/50 to-card dark:from-blue-950/20">
+    <Card className="border border-[#D5E1F2] bg-white p-6 shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
       <h3 className="text-lg font-semibold mb-1">Depot-wise Stock Levels</h3>
       <p className="text-xs text-muted-foreground mb-4">Sellable inventory across depots</p>
       <ResponsiveContainer width="100%" height={280}>

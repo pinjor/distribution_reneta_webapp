@@ -36,13 +36,13 @@ const SEVERITY = {
 
 export function ExpiryAlerts() {
   return (
-    <Card className="p-6 card-elevated border-2 border-amber-100 dark:border-amber-900/40 bg-gradient-to-br from-amber-50/40 to-card dark:from-amber-950/20">
+    <Card className="border border-[#D5E1F2] bg-white p-6 shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold">Expiry Alerts</h3>
           <p className="text-xs text-muted-foreground">Products nearing expiry</p>
         </div>
-        <Button variant="ghost" size="sm" className="text-amber-700 hover:text-amber-800 hover:bg-amber-100">
+        <Button variant="ghost" size="sm" className="text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]">
           View All
         </Button>
       </div>

@@ -11,6 +11,7 @@ interface NavTileCardProps {
   className?: string;
   index?: number;
   compact?: boolean;
+  tone?: "brand" | "logo";
 }
 
 export function NavTileCard({
@@ -21,7 +22,9 @@ export function NavTileCard({
   className,
   index = 0,
   compact = false,
+  tone = "brand",
 }: NavTileCardProps) {
+  const logo = tone === "logo";
   return (
     <motion.div
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -37,12 +40,10 @@ export function NavTileCard({
     >
       <div
         className={cn(
-          "nav-tile-card relative h-full cursor-pointer overflow-hidden rounded-2xl border-2 border-brand-from/20",
-          "bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via",
-          "shadow-[0_4px_20px_-4px_rgba(106,198,223,0.25)]",
-          "transition-all duration-300 ease-out",
-          "hover:border-brand-from/45 hover:shadow-[0_12px_32px_-8px_rgba(106,198,223,0.45)]",
-          "focus-within:ring-2 focus-within:ring-brand-from/30 focus-within:ring-offset-2",
+          "relative h-full cursor-pointer overflow-hidden rounded-2xl border-2 transition-all duration-300 ease-out",
+          logo
+            ? "border-[#D5E1F2] bg-white shadow-[0_12px_28px_-20px_rgba(12,76,161,0.55)] hover:border-[#0C4CA1] hover:shadow-[0_16px_32px_-18px_rgba(12,76,161,0.55)] focus-within:ring-2 focus-within:ring-[#0C4CA1]/30 focus-within:ring-offset-2"
+            : "nav-tile-card border-brand-from/20 bg-gradient-to-br from-white via-brand-tile-from to-brand-tile-via shadow-[0_4px_20px_-4px_rgba(106,198,223,0.25)] hover:border-brand-from/45 hover:shadow-[0_12px_32px_-8px_rgba(106,198,223,0.45)] focus-within:ring-2 focus-within:ring-brand-from/30 focus-within:ring-offset-2",
         )}
         onClick={onClick}
         role={onClick ? "button" : undefined}
@@ -59,7 +60,7 @@ export function NavTileCard({
         }
       >
         {/* Ambient glow */}
-        <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-brand-from/15 blur-2xl transition-all duration-500 group-hover:bg-brand-from/30 group-hover:scale-125" />
+        <div className={cn("pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl transition-all duration-500 group-hover:scale-125", logo ? "bg-[#0C4CA1]/10 group-hover:bg-[#0C4CA1]/20" : "bg-brand-from/15 group-hover:bg-brand-from/30")} />
         <div className="pointer-events-none absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-brand-to/10 blur-xl transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
 
         {/* Shine sweep on hover */}
@@ -76,9 +77,10 @@ export function NavTileCard({
           <div
             className={cn(
               "flex shrink-0 items-center justify-center rounded-xl transition-all duration-300",
-              "group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg group-hover:shadow-brand-from/30",
+              "group-hover:scale-110 group-hover:rotate-3 group-hover:shadow-lg",
+              logo ? "group-hover:shadow-[#0C4CA1]/30" : "group-hover:shadow-brand-from/30",
               compact ? "h-12 w-12" : "h-11 w-11 p-0",
-              brandIconBoxClasses,
+              logo ? "bg-[#0C4CA1] text-white" : brandIconBoxClasses,
             )}
           >
             <Icon className={cn(compact ? "h-5 w-5" : "h-5 w-5")} strokeWidth={2.25} />
@@ -88,8 +90,8 @@ export function NavTileCard({
             <div className="flex items-start justify-between gap-2">
               <h3
                 className={cn(
-                  "font-semibold leading-snug transition-colors duration-300 group-hover:text-brand-deep",
-                  brandLabelClasses,
+                  "font-semibold leading-snug transition-colors duration-300",
+                  logo ? "text-[#0B1B33] group-hover:text-[#0C4CA1]" : cn("group-hover:text-brand-deep", brandLabelClasses),
                   compact ? "text-sm" : "text-base",
                 )}
               >
@@ -98,8 +100,8 @@ export function NavTileCard({
               {!compact && (
                 <ArrowUpRight
                   className={cn(
-                    "h-4 w-4 shrink-0 mt-0.5 text-brand-from/30",
-                    "transition-all duration-300 group-hover:text-brand-from group-hover:translate-x-0.5 group-hover:-translate-y-0.5",
+                    "mt-0.5 h-4 w-4 shrink-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5",
+                    logo ? "text-[#0C4CA1]/30 group-hover:text-[#0C4CA1]" : "text-brand-from/30 group-hover:text-brand-from",
                   )}
                 />
               )}
@@ -119,7 +121,7 @@ export function NavTileCard({
         </div>
 
         {/* Bottom accent line */}
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-from via-brand-to to-brand-deep scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+        <div className={cn("absolute bottom-0 left-0 right-0 h-0.5 origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100", logo ? "bg-[#0C4CA1]" : "bg-gradient-to-r from-brand-from via-brand-to to-brand-deep")} />
       </div>
     </motion.div>
   );

@@ -11,12 +11,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { shineHoverSoftClasses } from "@/components/ui/shine-hover";
-import {
-  brandIconBoxClasses,
-  brandLabelClasses,
-  brandMutedClasses,
-  brandTileClasses,
-} from "@/lib/brandTheme";
 
 interface OrderStatusCardProps {
   status: string;
@@ -78,32 +72,31 @@ export function OrderStatusCard({ status, count, onClick }: OrderStatusCardProps
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative flex flex-col rounded-2xl border p-4 text-left",
-        brandTileClasses,
+        "group relative flex flex-col rounded-2xl border border-[#D5E1F2] bg-white p-4 text-left shadow-[0_10px_24px_-18px_rgba(12,76,161,0.6)]",
         "transition-all duration-300 ease-out",
-        "hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-from/40 focus-visible:ring-offset-2",
+        "hover:-translate-y-1 hover:border-[#0C4CA1] hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0C4CA1]/40 focus-visible:ring-offset-2",
         shineHoverSoftClasses,
       )}
     >
       <div className="relative z-[1] flex items-start justify-between gap-2">
-        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105", brandIconBoxClasses)}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0C4CA1] text-white transition-transform duration-300 group-hover:scale-105">
           <Icon className="h-4 w-4" strokeWidth={2.25} />
         </div>
-        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-brand-from/40 transition-all duration-300 group-hover:text-brand-from group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#0C4CA1]/40 transition-all duration-300 group-hover:text-[#0C4CA1] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
       </div>
 
       <div className="relative z-[1] mt-3 min-h-[2.5rem]">
-        <p className={cn("text-[11px] font-semibold leading-snug tracking-wide", brandLabelClasses)}>
+        <p className="text-[11px] font-semibold leading-snug tracking-wide text-[#0B1B33]">
           {meta.label}
         </p>
-        <p className={cn("mt-0.5 text-[10px] leading-tight", brandMutedClasses)}>{meta.hint}</p>
+        <p className="mt-0.5 text-[10px] leading-tight text-[#2C4A73]">{meta.hint}</p>
       </div>
 
-      <div className="relative z-[1] mt-3 pt-3 border-t border-brand-from/15">
-        <p className={cn("text-3xl font-semibold tabular-nums tracking-tight leading-none", brandLabelClasses)}>
+      <div className="relative z-[1] mt-3 border-t border-[#D5E1F2] pt-3">
+        <p className="text-3xl font-semibold tabular-nums leading-none tracking-tight text-[#0C4CA1]">
           {count.toLocaleString()}
         </p>
-        <p className={cn("mt-1.5 text-[10px] font-medium", brandMutedClasses)}>
+        <p className="mt-1.5 text-[10px] font-medium text-[#2C4A73]">
           orders in stage
         </p>
       </div>

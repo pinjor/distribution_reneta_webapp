@@ -36,7 +36,7 @@ export function AppBrand({ collapsed = false, variant = "sidebar", className }: 
         <span
           className={cn(
             "text-base font-bold tracking-[0.08em] truncate",
-            isSidebar ? "text-sidebar-foreground" : "text-brand-deep",
+            isSidebar ? "text-sidebar-foreground" : "text-[#0C4CA1]",
           )}
         >
           RENATA DMS

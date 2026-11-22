@@ -8,7 +8,7 @@ interface DispatchChartProps {
   delivered?: number;
 }
 
-const SLICE_COLORS = ["#9ca3af", "#4f46e5", "#7c3aed", "#059669"];
+const SLICE_COLORS = ["#8AA4C8", "#0C4CA1", "#3D74D6", "#08357A"];
 
 export function DispatchChart({
   pending = 0,
@@ -26,7 +26,7 @@ export function DispatchChart({
   const chartData = data.length > 0 ? data : [{ name: "No orders", value: 1, color: "#e5e7eb" }];
 
   return (
-    <Card className="p-6 card-elevated border-2 border-violet-100 dark:border-violet-900/40 bg-gradient-to-br from-violet-50/50 to-card dark:from-violet-950/20">
+    <Card className="border border-[#D5E1F2] bg-white p-6 shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
       <h3 className="text-lg font-semibold mb-1">Order Pipeline Mix</h3>
       <p className="text-xs text-muted-foreground mb-4">Live distribution by lifecycle stage</p>
       <ResponsiveContainer width="100%" height={280}>
