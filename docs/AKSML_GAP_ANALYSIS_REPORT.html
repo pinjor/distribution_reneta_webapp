@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AKSML Phase 1 — Gap Analysis Report</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Liberation Serif", "Times New Roman", serif;
+    color: #1a1a1a;
+    font-size: 11pt;
+    line-height: 1.45;
+    margin: 0;
+  }
+  h1, h2, h3 { font-family: "Liberation Sans", Arial, sans-serif; color: #0f2744; page-break-after: avoid; }
+  h1 { font-size: 20pt; margin: 0 0 6px; line-height: 1.2; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; border-bottom: 1.5px solid #0f2744; padding-bottom: 3px; }
+  h3 { font-size: 12pt; margin: 14px 0 6px; }
+  p { margin: 0 0 8px; }
+  ul { margin: 4px 0 10px 18px; padding: 0; }
+  li { margin: 0 0 4px; }
+  .cover-kicker {
+    font-family: "Liberation Sans", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 9pt;
+    color: #5c6b7a;
+    margin-bottom: 10px;
+  }
+  .meta { font-family: "Liberation Sans", Arial, sans-serif; font-size: 10pt; color: #333; margin-top: 14px; }
+  .meta td { padding: 2px 16px 2px 0; vertical-align: top; }
+  .meta td:first-child { color: #5c6b7a; width: 130px; }
+  .finding {
+    background: #f4f7fb;
+    border-left: 4px solid #0f2744;
+    padding: 10px 14px;
+    margin: 12px 0 16px;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 10pt; page-break-inside: auto; }
+  th, td { border: 1px solid #c5ced8; padding: 6px 8px; vertical-align: top; text-align: left; }
+  th { background: #0f2744; color: #fff; font-family: "Liberation Sans", Arial, sans-serif; font-weight: 600; }
+  tr { page-break-inside: avoid; }
+  .tag { font-family: "Liberation Sans", Arial, sans-serif; font-size: 8.5pt; font-weight: 700; letter-spacing: 0.04em; }
+  .missing { color: #8a1f1f; }
+  .partial { color: #8a5a00; }
+  .present { color: #1d5c32; }
+  .footer-note { font-size: 9pt; color: #5c6b7a; margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<p class="cover-kicker">Gap analysis · Phase 1 requirement proposal</p>
+<h1>AKSML Digital Sales, Dealer &amp; Field Operations Platform<br>Coverage against the current distribution web application</h1>
+<p>This report compares the Final Requirement Proposal (Phase 1), prepared for Abul Khair Steel Melting Limited, with the codebase in this repository. It records what already exists, what exists only in part, and what the proposal requires that the project does not contain.</p>
+
+<table class="meta">
+  <tr><td>Prepared</td><td>23 November 2026</td></tr>
+  <tr><td>Source document</td><td>AKSML Digital Sales, Dealer &amp; Field Operations Platform — Detailed Functional &amp; Technical Requirement Proposal (Sabbir Hoque, ACA). Document status: Final Requirement Proposal – Phase 1.</td></tr>
+  <tr><td>System reviewed</td><td>React web application, FastAPI backend, PostgreSQL models, API routers, and navigation in this repository (depot distribution hub).</td></tr>
+  <tr><td>Scope</td><td>Functional coverage only. Phase 2 items excluded by the proposal are not treated as gaps.</td></tr>
+</table>
+
+<div class="finding">
+  <strong>Finding.</strong> The proposal and this codebase describe different products. The proposal is a steel commercial platform connecting management, the sales force, dealers, retailers, finance, and dispatch, with mobile apps, GPS, targets, credit, payments, bank guarantees, and CRM. This repository is a depot distribution web application for inventory, orders, cash collection, and transport. It can be a starting point for orders, stock, vehicles, and collection recording. It is not the platform described in the proposal.
+</div>
+
+<h2>1. What the proposal asks for</h2>
+<p>The proposal defines one digital ecosystem for the commercial lifecycle: attendance and live location, customer visits, dealer and retailer management, targets, orders and approvals, pricing and credit, payment and collection, bank guarantees, dispatch and delivery acknowledgement, competitor intelligence, an engineer database, construction-project opportunities, complaints and feedback, management dashboards, ERP integration, and an audit trail.</p>
+<p>Deliverables named in the proposal are four mobile surfaces (sales/field force, dealer, retailer/customer where applicable, and delivery/logistics), six web portal roles (management, sales administration, finance, dispatch, CRM, and system administration), and a backend with workflow, notifications, ERP, payment gateway, and GPS services.</p>
+
+<h2>2. What this project actually is</h2>
+<p>The running application is a single web administration interface. Navigation covers a dashboard, inventory (receipt, maintenance, adjustment), stock receive (factory, depot, return), order management (sales order, delivery order, route-wise memos, assigned orders, remaining cash, collection approval, lifecycle tracking, MIS), other deliveries (depot transfer, sample and gift, export), transport (vehicles, drivers, trips, expenses, reports), billing (deposits, remaining cash, collection reports, reconciliation), audit logs and a report center, and master data (company, depot, employees, customers, vendors, products, shipping points, routes, UOM, packaging, price, roles, chemist shop, doctor, vehicles, drivers).</p>
+<p>The backend stores companies, depots, employees, customers, products, prices, orders, stock, receipts, issuances, picking, vehicle loading, deliveries, depot transfers, collection deposits, trips, transport expenses, promotions, reconciliation, audit logs, permissions, and integration/sync records. There is no mobile application in the repository.</p>
+
+<h2>3. Partial overlap</h2>
+<p>These areas exist in some form. None of them meets the proposal as specified.</p>
+<table>
+  <thead>
+    <tr><th style="width:28%">Proposal area</th><th>What the project has</th><th style="width:16%">Coverage</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Web portal, API, database, login, roles</td><td>One React admin app, FastAPI, PostgreSQL, role master, login, audit log screen.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>Customer, product, price, employee, warehouse, vehicle masters</td><td>Settings screens and matching API endpoints. Customers are a flat list. Products are a pharma-style catalog, not steel grade, diameter, and length.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>Order entry, stock check, credit check, status</td><td>Order entry, a validation service that can block when exposure exceeds credit limit, order list, and a lifecycle tracker.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>Collection</td><td>Collection deposits, remaining cash, collection approval, collection reports, and reconciliation. This is cash documentation, not outstanding, aging, and collection targets.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>Dispatch</td><td>Picking, vehicle loading, drivers, routes, trips, depot transfer, and delivery status. No gate pass, challan control, or digital proof of delivery.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>ERP and mobile sync</td><td>Integration job, sync queue, and mobile-device tables. No live ERP connection and no mobile client.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>Dashboards and reports</td><td>Depot-oriented KPI dashboard and a report center. Target-versus-achievement and several finance reports are placeholders.</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>Security and audit</td><td>Authentication, roles, and audit logs. No OTP or two-factor authentication, and audit records do not store previous and new values across the commercial events the proposal lists.</td><td class="partial tag">PARTIAL</td></tr>
+  </tbody>
+</table>
+<p>Several screens do not use live data: dashboard stock and expiry charts, sample and gift delivery, export delivery, chemist shop, and doctor. Those pages cannot be treated as delivered modules.</p>
+
+<h2>4. Missing capabilities</h2>
+
+<h3>4.1 Channels and access</h3>
+<ul>
+  <li>No Android or iOS application for the sales force, dealers, retailers, or delivery staff.</li>
+  <li>No offline capture of attendance, visits, orders, feedback, competitor notes, or projects, and no user-visible sync status. Backend sync tables exist without a field client.</li>
+  <li>No push, SMS, or email notification engine for order, payment, credit, dispatch, delivery, bank-guarantee expiry, complaint, project follow-up, or target events.</li>
+  <li>No separate Management, Sales, Finance, Dispatch, CRM, and Administration portals. All users share one menu.</li>
+  <li>Role model does not implement the proposal’s hierarchy: management, GM / head of sales, RSM, ASM, market executive, finance, dispatch, dealer, and retailer, each with the listed duties.</li>
+</ul>
+
+<h3>4.2 Field force</h3>
+<ul>
+  <li>No live GPS map of employees, with name, ID, status, last update, movement history, visit locations, distance travelled, or time spent.</li>
+  <li>No configurable tracking interval, working-hours tracking, or history retention rules.</li>
+  <li>No GPS attendance: check-in and check-out coordinates, geo-fence by territory, late attendance, early checkout, leave, field duty, history, correction request, or supervisor approval. Optional selfie verification is also absent.</li>
+  <li>No visit module for dealer, retailer, corporate customer, engineer, contractor, construction project, prospect, collection, complaint, or follow-up visits.</li>
+  <li>No planned-versus-completed visit comparison, purpose, order or collection opportunity, next action, follow-up date, or photo on a visit.</li>
+  <li>No sales-officer daily dashboard (attendance, location, visits, orders, collection, target, follow-ups, projects, complaints) and no automatic daily activity report.</li>
+</ul>
+
+<h3>4.3 Dealer, retailer, and targets</h3>
+<ul>
+  <li>No configurable hierarchy of company, dealer, and retailer (or distributor, sub-dealer, and end customer).</li>
+  <li>Dealer master fields from the proposal are not modeled as a dealer record: NID, BIN, trade license, territory, assigned sales officer, ASM, RSM, credit days, security deposit, bank information, and bank-guarantee information.</li>
+  <li>No retailer master managed by the dealer, with GPS, category, monthly potential, product preference, sales and collection history, target, and achievement.</li>
+  <li>No drill-down from company to region, RSM, ASM, sales officer, dealer, retailer, and order.</li>
+  <li>No target module for sales value or quantity, product, dealer, retailer, region, territory, sales officer, ASM, RSM, collection, visits, new dealers, new retailers, or project conversion, across daily, weekly, monthly, and annual periods.</li>
+  <li>No automatic achievement percentage, remaining target, required daily run rate, previous-period comparison, growth, or ranking.</li>
+  <li>No dealer or retailer performance view combining target, sales, collection, outstanding, order frequency, visit frequency, last visit, last order, product mix, growth, complaints, and payment behavior.</li>
+</ul>
+
+<h3>4.4 Orders, price, credit, and approval</h3>
+<ul>
+  <li>Order lines do not capture steel attributes: grade, diameter, length, delivery location, required date, freight, and payment terms as specified.</li>
+  <li>Automatic validation covers some stock and credit rules. It does not cover the full set: price validity, discount authorization, delivery feasibility, dealer status, and payment status as a commercial control set.</li>
+  <li>Approval is not the configurable path in the proposal (dealer to sales officer to ASM to customer service, with a longer path through GM and accounts when credit or special price applies). Approver, time, remarks, rejection reason, and escalation are not a managed workflow.</li>
+  <li>Price setup is a product price record. It does not provide chart rate, regional price, dealer price, corporate price, special price, promotional price, discount, freight, controlled changes, and a historical price log.</li>
+  <li>Credit is a limit field and an order check. There is no credit desk for utilized credit, available credit, outstanding, unadjusted payment, overdue, aging (current, 30, 60, 90, 90+, custom buckets), utilization percentage, and block status.</li>
+  <li>No credit alerts for utilization above 80 percent, limit exceeded, overdue, blocked credit, or payment pending verification.</li>
+</ul>
+
+<h3>4.5 Payments, collection, and bank guarantee</h3>
+<ul>
+  <li>No recording model for bank deposit, RTGS, BEFTN, cheque, and other bank transfers as customer payments against invoices.</li>
+  <li>No payment-gateway layer for mobile banking, bank transfer, debit card, or credit card, with statuses initiated, pending, successful, failed, cancelled, refunded, and reconciled.</li>
+  <li>No finance reconciliation of gateway transaction to bank settlement to customer account to ERP ledger. The rule that credit must not increase until verification is not implemented as a payment control.</li>
+  <li>Collection monitoring does not provide outstanding, due amount, collection target and achievement, promised payment date, follow-up date, and collection visit.</li>
+  <li>No bank-guarantee module and no integration with the in-house SELP BG tracker. Missing: BG master, statuses (active, expiring, expired, renewed, released, encashed, cancelled), configurable alerts at 90, 60, 30, 15, and 7 days, and the BG dashboard (counts, BDT value, by dealer, by bank, utilization).</li>
+</ul>
+
+<h3>4.6 Dispatch, proof of delivery, and vehicle GPS</h3>
+<ul>
+  <li>Dispatch does not include warehouse allocation, a loading schedule as a controlled plan, gate pass, invoice, and challan as documents in the flow the proposal describes, or truck types (company-owned, rental, dealer-arranged, other).</li>
+  <li>Delivery lifecycle is not captured with timestamps through stock allocated, ready for loading, loaded, dispatched, in transit, arrived, delivered, and acknowledged.</li>
+  <li>No digital acknowledgement by OTP, signature, mobile confirmation, photo, quantity confirmation, and date/time.</li>
+  <li>No discrepancy workflow for shortage, damage, wrong product, delay, or other issues that opens work for the responsible department.</li>
+  <li>No vehicle GPS: current location, route, speed, trip start, duration, ETA, delivery location, completion, delay, and route deviation. The proposal notes that tracker hardware is a later operational dependency; the application module itself is still absent. Trip assignment in this project is a transport record, not live tracking.</li>
+</ul>
+
+<h3>4.7 Market intelligence and CRM</h3>
+<ul>
+  <li>No competitor master and no field capture of competitor price, market price, discount, margins, promotions, availability, demand, sales activity, market-share estimate, preference, strengths, weaknesses, photo, and location.</li>
+  <li>No competitor analysis for price comparison, product comparison, region activity, trends, discount analysis, opportunity, or competitor movement.</li>
+  <li>No construction-engineer database for the Technical Excellence team: organization, designation, area, specialization, assigned engineer, visits, meetings, specification influence, and opportunity history. The Doctor screen in this project is a pharmaceutical master kept in component state and is not that module.</li>
+  <li>No construction-project opportunity pipeline: project master, stages from identified through won or lost, quantity, revenue, probability, competitor, current supplier, next action, and loss reason.</li>
+  <li>No project dashboard for pipeline value, conversion rate, region, sales officer, and stage.</li>
+  <li>No customer-voice module for complaint, idea, advice, suggestion, and challenge.</li>
+  <li>No complaint lifecycle from submitted to assigned, under review, action taken, resolved, customer confirmation, and closed, with priority, department, photos, and aging of unresolved complaints.</li>
+  <li>No feedback analytics for volume by type, resolution time, and product, region, or dealer.</li>
+</ul>
+
+<h3>4.8 Reporting, workflow, configuration, and ERP</h3>
+<ul>
+  <li>Downloadable report catalog required by the proposal is not present: sales by product, dealer, retailer, region, territory, and salesperson; collection aging, overdue, and recovery; field-force attendance, distance, and visit productivity; project pipeline and lost projects; competitor comparisons; BG reports; feedback and complaint reports.</li>
+  <li>No executive dashboard for daily, monthly, and year-to-date sales, target versus achievement, outstanding and overdue, credit utilization, dealers, order and delivery counts, employees online, attendance, visits, project pipeline, competitor activity, complaints, and BG exposure.</li>
+  <li>Workflows are implemented in application code. Management cannot change approval levels for orders, special price, credit, payment verification, BG, complaints, projects, targets, or dealer and retailer onboarding without redevelopment.</li>
+  <li>Administration cannot configure credit thresholds, price rules, target periods, GPS intervals, visit types, complaint categories, competitor categories, project stages, BG alert periods, or notification rules.</li>
+  <li>User administration does not assign territory, dealers, and retailers, or reset access and approval hierarchy as an administration function set.</li>
+  <li>No live ERP integration for sales, accounts receivable, customer ledger, inventory, production, logistics, finance, payment, and customer master, with documented endpoints, authentication, mapping, sync frequency, retry, duplicate prevention, reconciliation, and integration logs.</li>
+  <li>Duplicate and control rules are incomplete relative to the proposal: duplicate customers and orders, invalid prices, unauthorized discounts, duplicate payments, invalid transaction IDs, invalid BG dates, incomplete customer data, and unverified payments.</li>
+</ul>
+
+<h3>4.9 Non-functional and handover items named in the proposal</h3>
+<ul>
+  <li>No stated backup and disaster-recovery mechanism, data-export process for AKSML ownership, administrator manual, user manuals, or integration documentation for this scope.</li>
+  <li>No evidence in the repository of the proposal’s test program: security testing, user acceptance of the listed commercial flows, GPS testing, offline testing, a regional pilot, or rollout plan.</li>
+</ul>
+
+<h2>5. In this project and outside the proposal</h2>
+<p>These features belong to a pharmaceutical depot operation. They do not close AKSML gaps: factory, depot, and return receipts; chemist shop; doctor master; sample and gift delivery; export delivery; primary packaging; units of measure; and route-to-shipping-point mapping. Sample, gift, and export lists are mock data.</p>
+
+<h2>6. Summary by proposal section</h2>
+<table>
+  <thead>
+    <tr><th>Proposal section</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>5. User categories and access levels</td><td class="missing tag">MISSING as specified. Generic roles only.</td></tr>
+    <tr><td>6–8. GPS, attendance, visits</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>9. Delivery acknowledgement and discrepancy</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>10–11. Dealer and retailer hierarchy</td><td class="missing tag">MISSING. Flat customer master only.</td></tr>
+    <tr><td>12, 30, 32. Targets and performance</td><td class="missing tag">MISSING. Report name is a placeholder.</td></tr>
+    <tr><td>13–14. Orders and approval workflow</td><td class="partial tag">PARTIAL. Orders exist; steel fields and configurable approval do not.</td></tr>
+    <tr><td>15. Price management</td><td class="partial tag">PARTIAL. Single price setup, no price log or price types.</td></tr>
+    <tr><td>16. Credit management and aging</td><td class="partial tag">PARTIAL. Limit check only.</td></tr>
+    <tr><td>17–18, 37. Payments and gateway</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>19. Collection management</td><td class="partial tag">PARTIAL. Deposits and cash, not a collection desk.</td></tr>
+    <tr><td>20. BG management and SELP</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>21–23. Dispatch, delivery tracking, vehicle GPS</td><td class="partial tag">PARTIAL. Loading and trips only.</td></tr>
+    <tr><td>24. Competitor intelligence</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>25. Engineer database</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>26. Construction project pipeline</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>27–29. Feedback and complaints</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>31, 33. Daily activity and executive dashboard</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>34, 46. Business intelligence</td><td class="partial tag">PARTIAL. Depot and transport reports only.</td></tr>
+    <tr><td>35. Notifications</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>36. ERP integration</td><td class="partial tag">PARTIAL. Tables only, no live sync.</td></tr>
+    <tr><td>38–39. Security and audit trail</td><td class="partial tag">PARTIAL</td></tr>
+    <tr><td>40–41. Offline mobile applications</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>42–44, 52–53. Portals, masters, workflow, configuration</td><td class="partial tag">PARTIAL. One portal and code-level flows.</td></tr>
+    <tr><td>47–48. End-to-end flows and seven-level drill-down</td><td class="missing tag">MISSING</td></tr>
+    <tr><td>49. Deliverables (apps, portals, engines, dashboards)</td><td class="partial tag">PARTIAL. Web admin and API only.</td></tr>
+  </tbody>
+</table>
+
+<h2>7. What would have to be built</h2>
+<p>To match Phase 1, the work that is not in this repository is the field-sales and commercial layer:</p>
+<ul>
+  <li>Mobile applications for sales, dealer, retailer, and delivery, including GPS, camera, offline capture, and sync.</li>
+  <li>Attendance, live location, and visit management.</li>
+  <li>Dealer and retailer hierarchy and the seven-level performance drill-down.</li>
+  <li>Target setting and automatic achievement.</li>
+  <li>Steel order attributes, price types with history, credit and aging, and a configurable approval workflow.</li>
+  <li>Payment methods, a gateway integration layer, and collection follow-up.</li>
+  <li>Bank-guarantee management, including a simple integration to the existing SELP tracker.</li>
+  <li>Proof of delivery, discrepancy handling, and vehicle GPS display once trackers are available.</li>
+  <li>Competitor intelligence, engineer records, construction-project CRM, and complaint management.</li>
+  <li>Notifications, role-specific dashboards and reports, administration configuration, and ERP synchronization.</li>
+</ul>
+<p>Orders, stock, vehicles, and collection deposits in the current application can be reused only where their data model is rewritten to the AKSML commercial process. They should not be presented to AKSML as completed Phase 1 modules.</p>
+
+<p class="footer-note">This report is an assessment of repository coverage against the Phase 1 proposal. It is not a commercial quotation and it does not certify runtime behavior of a deployed environment.</p>
+
+</body>
+</html>

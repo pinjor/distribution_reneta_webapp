@@ -1,5 +1,4 @@
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DemoUser } from "@/lib/demoUsers";
@@ -149,15 +148,6 @@ export function SignInCard({
             </div>
           )}
 
-          <p className="mt-8 text-sm text-[#2C4A73]">
-            Need an account?{" "}
-            <Link
-              to="/signup"
-              className="font-semibold text-[#0C4CA1] underline decoration-[#C5D4EE] underline-offset-4 hover:decoration-[#0C4CA1]"
-            >
-              Request access
-            </Link>
-          </p>
     </AuthFrame>
   );
 }

@@ -17,13 +17,14 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState, useEffect } from "react";
 import { AppBrand } from "@/components/layout/AppBrand";
-import { SIDEBAR_MENU } from "@/lib/menuNavigation";
-
-const menuItems = SIDEBAR_MENU;
+import { SIDEBAR_MENU, filterSidebarMenu } from "@/lib/menuNavigation";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export function AppSidebar() {
   const location = useLocation();
   const { open } = useSidebar();
+  const permissions = usePermissions();
+  const menuItems = filterSidebarMenu(SIDEBAR_MENU, permissions);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   // Auto-open parent menu if child is active
@@ -46,7 +47,7 @@ export function AppSidebar() {
       }
     });
     setOpenMenus(newOpenMenus);
-  }, [location.pathname]);
+  }, [location.pathname, permissions]);
 
   const toggleMenu = (title: string) => {
     setOpenMenus((prev) => ({ ...prev, [title]: !prev[title] }));

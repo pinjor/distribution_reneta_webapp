@@ -10,8 +10,8 @@ from app.models import (
     ProductItemStock, ProductItemStockDetail, Employee,
     DepotTransferStatusEnum
 )
-from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_transfer_filter, coerce_depot_id_param
+from app.core.deps import require_permission
+from app.core.depot_scope import apply_depot_transfer_filter, coerce_depot_id_param, hide_transfer, is_admin
 from pydantic import BaseModel
 from typing import Optional as Opt
 
@@ -107,8 +107,16 @@ def generate_transfer_number(db: Session) -> str:
 
 
 @router.post("/", response_model=DepotTransferDetailResponse, status_code=status.HTTP_201_CREATED)
-def create_depot_transfer(transfer: DepotTransferCreate, db: Session = Depends(get_db)):
+def create_depot_transfer(
+    transfer: DepotTransferCreate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
+):
     """Create a new depot transfer request"""
+    if not is_admin(user) and (
+        not user.depot_id or user.depot_id not in (transfer.from_depot_id, transfer.to_depot_id)
+    ):
+        raise HTTPException(status_code=403, detail="Access denied for this depot")
     # Validate depots
     from_depot = db.query(Depot).filter(Depot.id == transfer.from_depot_id).first()
     if not from_depot:
@@ -201,7 +209,7 @@ def get_depot_transfers(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """Get list of depot transfers"""
     query = db.query(DepotTransfer)
@@ -224,11 +232,16 @@ def get_depot_transfers(
 
 
 @router.get("/{transfer_id}", response_model=DepotTransferDetailResponse)
-def get_depot_transfer(transfer_id: int, db: Session = Depends(get_db)):
+def get_depot_transfer(
+    transfer_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
+):
     """Get depot transfer details"""
     transfer = db.query(DepotTransfer).filter(DepotTransfer.id == transfer_id).first()
     if not transfer:
         raise HTTPException(status_code=404, detail="Depot transfer not found")
+    hide_transfer(user, transfer.from_depot_id, transfer.to_depot_id)
     
     return build_transfer_detail_response(transfer, db)
 
@@ -241,12 +254,14 @@ class ApproveRequest(BaseModel):
 def approve_depot_transfer(
     transfer_id: int,
     request: ApproveRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
 ):
     """Approve depot transfer - reduces stock from source depot"""
     transfer = db.query(DepotTransfer).filter(DepotTransfer.id == transfer_id).first()
     if not transfer:
         raise HTTPException(status_code=404, detail="Depot transfer not found")
+    hide_transfer(user, transfer.from_depot_id, transfer.to_depot_id)
     
     status_value = transfer.status.value if hasattr(transfer.status, 'value') else str(transfer.status)
     if status_value != "Pending":
@@ -316,10 +331,13 @@ class ReceiveRequest(BaseModel):
 def receive_depot_transfer(
     transfer_id: int,
     request: ReceiveRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
 ):
     """Receive depot transfer - increases stock in destination depot"""
     transfer = db.query(DepotTransfer).filter(DepotTransfer.id == transfer_id).first()
+    if transfer:
+        hide_transfer(user, transfer.from_depot_id, transfer.to_depot_id)
     if not transfer:
         raise HTTPException(status_code=404, detail="Depot transfer not found")
     

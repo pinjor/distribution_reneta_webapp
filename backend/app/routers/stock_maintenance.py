@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from app.database import get_db
 from app.models import StockLedger, Product, ProductItemStock, ProductItemStockDetail, Depot, Employee
-from app.core.deps import require_auth
+from app.core.deps import require_permission
 from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
 
 router = APIRouter()
@@ -16,7 +16,7 @@ def get_stock_ledger(
     skip: int = 0,
     limit: int = 10000,
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """
     Get stock ledger from new product_item_stock tables.
@@ -81,7 +81,8 @@ def get_stock_ledger(
 def get_product_batches_fefo(
     product_id: int,
     depot_id: Optional[int] = Query(None, description="Filter by depot ID for depot transfers"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """
     Get batches for a product using FEFO (First Expiry First Out) logic.
@@ -89,6 +90,7 @@ def get_product_batches_fefo(
     Only returns batches with numeric batch numbers.
     If depot_id is provided, filters by that depot (for depot transfers).
     """
+    depot_id = coerce_depot_id_param(user, depot_id)
     query = db.query(ProductItemStockDetail, ProductItemStock).join(
         ProductItemStock, ProductItemStockDetail.item_code == ProductItemStock.id
     ).filter(
@@ -125,12 +127,14 @@ def get_product_batches_fefo(
 @router.get("/products/validation")
 def validate_products_have_batches_with_stock(
     depot_id: Optional[int] = Query(None, description="Filter by depot ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """
     Validate that all products have numeric batches with stock.
     Returns list of products that don't have numeric batches with stock.
     """
+    depot_id = coerce_depot_id_param(user, depot_id)
     # Get all active products
     products = db.query(Product).filter(Product.is_active == True).all()
     
@@ -221,11 +225,13 @@ def validate_products_have_batches_with_stock(
 def get_product_current_stock(
     product_id: int,
     depot_id: Optional[int] = Query(None, description="Filter by depot ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """
     Get current total available stock for a product across all batches from new tables.
     """
+    depot_id = coerce_depot_id_param(user, depot_id)
     query = db.query(func.sum(ProductItemStockDetail.available_quantity)).join(
         ProductItemStock, ProductItemStockDetail.item_code == ProductItemStock.id
     ).filter(

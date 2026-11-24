@@ -4,8 +4,8 @@ from typing import List
 from app.database import get_db
 from app.models import Vehicle, Employee
 from app.schemas import VehicleCreate, VehicleUpdate, Vehicle as VehicleSchema
-from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
+from app.core.deps import require_auth, require_role
+from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, hide_foreign_depot
 
 router = APIRouter()
 
@@ -21,20 +21,35 @@ def get_vehicles(
     return vehicles
 
 @router.post("/", response_model=VehicleSchema)
-def create_vehicle(vehicle: VehicleCreate, db: Session = Depends(get_db)):
-    db_vehicle = Vehicle(**vehicle.model_dump())
+def create_vehicle(
+    vehicle: VehicleCreate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_role("manager", "transport")),
+):
+    payload = vehicle.model_dump()
+    if "depot_id" in payload:
+        payload["depot_id"] = assign_depot_for_write(user, payload.get("depot_id"))
+    db_vehicle = Vehicle(**payload)
     db.add(db_vehicle)
     db.commit()
     db.refresh(db_vehicle)
     return db_vehicle
 
 @router.put("/{vehicle_id}", response_model=VehicleSchema)
-def update_vehicle(vehicle_id: int, vehicle: VehicleUpdate, db: Session = Depends(get_db)):
+def update_vehicle(
+    vehicle_id: int,
+    vehicle: VehicleUpdate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_role("manager", "transport")),
+):
     db_vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not db_vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    hide_foreign_depot(user, db_vehicle.depot_id)
 
     update_data = vehicle.model_dump(exclude_unset=True)
+    if "depot_id" in update_data:
+        update_data["depot_id"] = assign_depot_for_write(user, update_data.get("depot_id"))
     for field, value in update_data.items():
         setattr(db_vehicle, field, value)
 

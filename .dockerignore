@@ -12,3 +12,5 @@ dist
 .idea
 coverage
 .nyc_output
+backend
+.pytest_cache

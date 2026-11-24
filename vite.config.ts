@@ -6,8 +6,11 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const devPort = Number(process.env.VITE_DEV_PORT || 5173);
-// When behind nginx on :80, set VITE_HMR_CLIENT_PORT=80 so the browser WebSocket uses the proxy
-const hmrClientPort = Number(process.env.VITE_HMR_CLIENT_PORT || devPort);
+// Unset clientPort so the browser uses the page origin (nginx :80 or :8088).
+// Set VITE_HMR_CLIENT_PORT only when HMR is not same-origin as the page.
+const hmrClientPort = process.env.VITE_HMR_CLIENT_PORT
+  ? Number(process.env.VITE_HMR_CLIENT_PORT)
+  : undefined;
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -21,10 +24,12 @@ export default defineConfig(({ mode }) => ({
     hmr:
       process.env.VITE_DISABLE_HMR === "1"
         ? false
-        : {
-            clientPort: hmrClientPort,
-            host: process.env.VITE_HMR_HOST || "localhost",
-          },
+        : hmrClientPort
+          ? {
+              clientPort: hmrClientPort,
+              host: process.env.VITE_HMR_HOST || "localhost",
+            }
+          : true,
   },
   plugins: [react()],
   resolve: {

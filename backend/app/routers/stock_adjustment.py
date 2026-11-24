@@ -5,8 +5,8 @@ from typing import List
 from app.database import get_db
 from app.models import StockAdjustment, StockAdjustmentItem, Employee
 from app.schemas import StockAdjustmentCreate, StockAdjustment as StockAdjustmentSchema
-from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter
+from app.core.deps import require_permission
+from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write
 
 router = APIRouter()
 
@@ -41,7 +41,7 @@ def get_stock_adjustments(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """Get all stock adjustments"""
     query = apply_depot_id_filter(db.query(StockAdjustment), user, StockAdjustment.depot_id)
@@ -49,7 +49,11 @@ def get_stock_adjustments(
     return adjustments
 
 @router.post("/", response_model=StockAdjustmentSchema, status_code=status.HTTP_201_CREATED)
-def create_stock_adjustment(adjustment: StockAdjustmentCreate, db: Session = Depends(get_db)):
+def create_stock_adjustment(
+    adjustment: StockAdjustmentCreate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
+):
     """Create a new stock adjustment"""
     if not adjustment.items:
         raise HTTPException(
@@ -64,7 +68,7 @@ def create_stock_adjustment(adjustment: StockAdjustmentCreate, db: Session = Dep
     db_adjustment = StockAdjustment(
         adjustment_number=adjustment_number,
         adjustment_date=adjustment.adjustment_date,
-        depot_id=adjustment.depot_id,
+        depot_id=assign_depot_for_write(user, adjustment.depot_id),
         adjustment_type=adjustment.adjustment_type,
         reason=adjustment.reason,
         status=adjustment.status or "Pending",

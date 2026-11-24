@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, false
 from typing import List, Optional
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -13,8 +13,14 @@ from app.models import (
     Vehicle, Driver, Route, RouteStop, Trip, TransportExpense, Order, Employee
 )
 import app.models as models
-from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
+from app.core.deps import require_auth, require_role
+from app.core.depot_scope import (
+    apply_depot_id_filter,
+    assign_depot_for_write,
+    coerce_depot_id_param,
+    hide_foreign_depot,
+    is_admin,
+)
 from app.schemas import (
     VehicleCreate, VehicleUpdate, Vehicle as VehicleSchema,
     DriverCreate, DriverUpdate, Driver as DriverSchema,
@@ -25,6 +31,85 @@ from app.schemas import (
 )
 
 router = APIRouter()
+
+
+def _require_route_for_user(db: Session, user: Employee, route_id: int) -> Route:
+    """Stops and distance follow routes.depot_id. A route with no depot is hidden from non-admins."""
+    route = db.query(Route).filter(Route.id == route_id).first()
+    if is_admin(user):
+        if not route:
+            raise HTTPException(status_code=404, detail="Route not found")
+        return route
+    if not route or not user or not user.depot_id or route.depot_id != user.depot_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    return route
+
+
+def _trips_for_user(db: Session, user: Employee):
+    """Trips whose vehicle depot matches the caller. Vehicles with no depot are hidden from non-admins."""
+    query = db.query(Trip).join(Vehicle, Trip.vehicle_id == Vehicle.id)
+    return apply_depot_id_filter(query, user, Vehicle.depot_id)
+
+
+def _expenses_for_user(db: Session, user: Employee):
+    """Expenses follow a trip's vehicle depot, or a route depot when no trip can be resolved.
+
+    Drivers have no depot column, so they are not used as an ownership key.
+    An expense with neither a resolvable trip nor a route depot is hidden from non-admins.
+    """
+    query = db.query(TransportExpense)
+    if is_admin(user):
+        return query
+    if not user or not user.depot_id:
+        return query.filter(false())
+    own_trips = (
+        db.query(Trip.id)
+        .join(Vehicle, Trip.vehicle_id == Vehicle.id)
+        .filter(Vehicle.depot_id == user.depot_id)
+    )
+    own_numbers = (
+        db.query(Trip.trip_number)
+        .join(Vehicle, Trip.vehicle_id == Vehicle.id)
+        .filter(Vehicle.depot_id == user.depot_id, Trip.trip_number.isnot(None))
+    )
+    known_numbers = db.query(Trip.trip_number).filter(Trip.trip_number.isnot(None))
+    own_routes = db.query(Route.id).filter(Route.depot_id == user.depot_id)
+    return query.filter(
+        or_(
+            TransportExpense.trip_id.in_(own_trips),
+            and_(TransportExpense.trip_id.is_(None), TransportExpense.trip_number.in_(own_numbers)),
+            and_(
+                TransportExpense.trip_id.is_(None),
+                or_(
+                    TransportExpense.trip_number.is_(None),
+                    ~TransportExpense.trip_number.in_(known_numbers),
+                ),
+                TransportExpense.route_id.in_(own_routes),
+            ),
+        )
+    )
+
+
+def _hide_expense_target(db: Session, user: Employee, trip_id, trip_number, route_id) -> None:
+    """Reject a write when the linked trip or route is outside the caller's depot."""
+    if is_admin(user):
+        return
+    if trip_id:
+        trip = db.query(Trip).filter(Trip.id == trip_id).first()
+        vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first() if trip else None
+        hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
+        return
+    if trip_number:
+        trip = db.query(Trip).filter(Trip.trip_number == trip_number).first()
+        if trip:
+            vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+            hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
+            return
+    if route_id:
+        route = db.query(Route).filter(Route.id == route_id).first()
+        hide_foreign_depot(user, route.depot_id if route else None)
+        return
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 # ============ Vehicle Management ============
@@ -52,15 +137,20 @@ def get_vehicles(
     return vehicles
 
 @router.get("/vehicles/{vehicle_id}", response_model=VehicleSchema)
-def get_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
+def get_vehicle(
+    vehicle_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Get a specific vehicle"""
     vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    hide_foreign_depot(user, vehicle.depot_id)
     return vehicle
 
 @router.post("/vehicles", response_model=VehicleSchema)
-def create_vehicle(vehicle: VehicleCreate, db: Session = Depends(get_db)):
+def create_vehicle(vehicle: VehicleCreate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Create a new vehicle"""
     # Check if vehicle_id already exists
     existing = db.query(Vehicle).filter(Vehicle.vehicle_id == vehicle.vehicle_id).first()
@@ -72,20 +162,25 @@ def create_vehicle(vehicle: VehicleCreate, db: Session = Depends(get_db)):
     if existing_reg:
         raise HTTPException(status_code=400, detail="Registration number already exists")
     
-    db_vehicle = Vehicle(**vehicle.model_dump())
+    payload = vehicle.model_dump()
+    payload["depot_id"] = assign_depot_for_write(user, payload.get("depot_id"))
+    db_vehicle = Vehicle(**payload)
     db.add(db_vehicle)
     db.commit()
     db.refresh(db_vehicle)
     return db_vehicle
 
 @router.put("/vehicles/{vehicle_id}", response_model=VehicleSchema)
-def update_vehicle(vehicle_id: int, vehicle: VehicleUpdate, db: Session = Depends(get_db)):
+def update_vehicle(vehicle_id: int, vehicle: VehicleUpdate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Update a vehicle"""
     db_vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not db_vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    hide_foreign_depot(user, db_vehicle.depot_id)
     
     update_data = vehicle.model_dump(exclude_unset=True)
+    if "depot_id" in update_data:
+        update_data["depot_id"] = assign_depot_for_write(user, update_data.get("depot_id"))
     for field, value in update_data.items():
         setattr(db_vehicle, field, value)
     
@@ -94,11 +189,12 @@ def update_vehicle(vehicle_id: int, vehicle: VehicleUpdate, db: Session = Depend
     return db_vehicle
 
 @router.delete("/vehicles/{vehicle_id}")
-def delete_vehicle(vehicle_id: int, db: Session = Depends(get_db)):
+def delete_vehicle(vehicle_id: int, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Delete a vehicle (soft delete by setting is_active=False)"""
     db_vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
     if not db_vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    hide_foreign_depot(user, db_vehicle.depot_id)
     
     db_vehicle.is_active = False
     db.commit()
@@ -132,7 +228,7 @@ def get_driver(driver_id: int, db: Session = Depends(get_db)):
     return driver
 
 @router.post("/drivers", response_model=DriverSchema)
-def create_driver(driver: DriverCreate, db: Session = Depends(get_db)):
+def create_driver(driver: DriverCreate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Create a new driver"""
     # Check if driver_id already exists
     existing = db.query(Driver).filter(Driver.driver_id == driver.driver_id).first()
@@ -151,7 +247,7 @@ def create_driver(driver: DriverCreate, db: Session = Depends(get_db)):
     return db_driver
 
 @router.put("/drivers/{driver_id}", response_model=DriverSchema)
-def update_driver(driver_id: int, driver: DriverUpdate, db: Session = Depends(get_db)):
+def update_driver(driver_id: int, driver: DriverUpdate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Update a driver"""
     db_driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not db_driver:
@@ -166,7 +262,7 @@ def update_driver(driver_id: int, driver: DriverUpdate, db: Session = Depends(ge
     return db_driver
 
 @router.delete("/drivers/{driver_id}")
-def delete_driver(driver_id: int, db: Session = Depends(get_db)):
+def delete_driver(driver_id: int, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Delete a driver (soft delete by setting is_active=False)"""
     db_driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not db_driver:
@@ -180,15 +276,20 @@ def delete_driver(driver_id: int, db: Session = Depends(get_db)):
 # ============ Route Stops Management ============
 
 @router.get("/routes/{route_id}/stops", response_model=List[RouteStopSchema])
-def get_route_stops(route_id: int, db: Session = Depends(get_db)):
+def get_route_stops(
+    route_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Get all stops for a route, ordered by sequence"""
+    _require_route_for_user(db, user, route_id)
     stops = db.query(RouteStop).filter(
         RouteStop.route_id == route_id
     ).order_by(RouteStop.stop_sequence).all()
     return stops
 
 @router.post("/routes/{route_id}/stops", response_model=RouteStopSchema)
-def create_route_stop(route_id: int, stop: RouteStopCreate, db: Session = Depends(get_db)):
+def create_route_stop(route_id: int, stop: RouteStopCreate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Create a route stop"""
     # Verify route exists
     route = db.query(Route).filter(Route.id == route_id).first()
@@ -204,7 +305,7 @@ def create_route_stop(route_id: int, stop: RouteStopCreate, db: Session = Depend
     return db_stop
 
 @router.delete("/routes/stops/{stop_id}")
-def delete_route_stop(stop_id: int, db: Session = Depends(get_db)):
+def delete_route_stop(stop_id: int, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Delete a route stop"""
     db_stop = db.query(RouteStop).filter(RouteStop.id == stop_id).first()
     if not db_stop:
@@ -241,11 +342,13 @@ def calculate_route_distance(route_id: int, db: Session) -> float:
 
 
 @router.get("/routes/{route_id}/distance")
-def get_route_distance(route_id: int, db: Session = Depends(get_db)):
+def get_route_distance(
+    route_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Calculate and return route distance"""
-    route = db.query(Route).filter(Route.id == route_id).first()
-    if not route:
-        raise HTTPException(status_code=404, detail="Route not found")
+    route = _require_route_for_user(db, user, route_id)
     
     distance = calculate_route_distance(route_id, db)
     return {"route_id": route_id, "route_name": route.name, "distance_km": distance}
@@ -268,7 +371,7 @@ def generate_trip_number(db: Session) -> str:
     return trip_number
 
 @router.post("/trips/backfill-from-orders")
-def backfill_trips_from_orders(db: Session = Depends(get_db)):
+def backfill_trips_from_orders(db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Create trips for existing orders that have loading numbers but no trips"""
     from datetime import date
     from sqlalchemy import func
@@ -476,13 +579,18 @@ def get_trips(
     return result
 
 @router.get("/trips/{trip_id}", response_model=TripWithDetails)
-def get_trip(trip_id: int, db: Session = Depends(get_db)):
+def get_trip(
+    trip_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Get a specific trip with details"""
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
     
     vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+    hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
     driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
     route = db.query(Route).filter(Route.id == trip.route_id).first()
     
@@ -534,12 +642,13 @@ def get_trip(trip_id: int, db: Session = Depends(get_db)):
     return TripWithDetails(**trip_dict)
 
 @router.post("/trips/assign", response_model=TripAssignmentResponse)
-def assign_trip(assignment: TripAssignmentRequest, db: Session = Depends(get_db)):
+def assign_trip(assignment: TripAssignmentRequest, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Assign vehicle and driver to a route/delivery with automatic distance and cost calculation"""
     # Verify vehicle exists
     vehicle = db.query(Vehicle).filter(Vehicle.id == assignment.vehicle_id).first()
     if not vehicle:
         raise HTTPException(status_code=404, detail="Vehicle not found")
+    assign_depot_for_write(user, vehicle.depot_id if vehicle.depot_id is not None else -1)
     
     # Verify driver exists
     driver = db.query(Driver).filter(Driver.id == assignment.driver_id).first()
@@ -614,11 +723,13 @@ def assign_trip(assignment: TripAssignmentRequest, db: Session = Depends(get_db)
     )
 
 @router.put("/trips/{trip_id}", response_model=TripSchema)
-def update_trip(trip_id: int, trip: TripUpdate, db: Session = Depends(get_db)):
+def update_trip(trip_id: int, trip: TripUpdate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Update a trip"""
     db_trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not db_trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    vehicle = db.query(Vehicle).filter(Vehicle.id == db_trip.vehicle_id).first()
+    hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
     
     update_data = trip.model_dump(exclude_unset=True)
     
@@ -639,11 +750,13 @@ def update_trip(trip_id: int, trip: TripUpdate, db: Session = Depends(get_db)):
     return db_trip
 
 @router.delete("/trips/{trip_id}")
-def delete_trip(trip_id: int, db: Session = Depends(get_db)):
+def delete_trip(trip_id: int, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Delete a trip"""
     db_trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not db_trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    vehicle = db.query(Vehicle).filter(Vehicle.id == db_trip.vehicle_id).first()
+    hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
     
     db.delete(db_trip)
     db.commit()
@@ -653,9 +766,14 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db)):
 # ============ Expense Management ============
 
 @router.get("/expenses", response_model=List[TransportExpenseSchema])
-def get_expenses(route_id: Optional[int] = None, trip_number: Optional[str] = None, db: Session = Depends(get_db)):
+def get_expenses(
+    route_id: Optional[int] = None,
+    trip_number: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Get all expenses, optionally filtered by route or trip number"""
-    query = db.query(TransportExpense)
+    query = _expenses_for_user(db, user)
     if route_id:
         query = query.filter(TransportExpense.route_id == route_id)
     if trip_number:
@@ -663,17 +781,35 @@ def get_expenses(route_id: Optional[int] = None, trip_number: Optional[str] = No
     return query.order_by(TransportExpense.expense_date.desc()).all()
 
 @router.get("/trips/{trip_id}/expenses", response_model=List[TransportExpenseSchema])
-def get_trip_expenses(trip_id: int, db: Session = Depends(get_db)):
+def get_trip_expenses(
+    trip_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Get all expenses for a trip (legacy endpoint)"""
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        if not is_admin(user):
+            raise HTTPException(status_code=404, detail="Not found")
+    else:
+        vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+        hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
     expenses = db.query(TransportExpense).filter(
         TransportExpense.trip_id == trip_id
     ).order_by(TransportExpense.expense_date).all()
     return expenses
 
 @router.post("/expenses", response_model=TransportExpenseSchema)
-def create_expense(expense: TransportExpenseCreate, db: Session = Depends(get_db)):
+def create_expense(expense: TransportExpenseCreate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Create a new expense (route-based or trip-based)"""
     expense_data = expense.model_dump()
+    _hide_expense_target(
+        db,
+        user,
+        expense_data.get("trip_id"),
+        expense_data.get("trip_number"),
+        expense_data.get("route_id"),
+    )
     
     # If trip_number is provided, try to find the trip
     if expense_data.get("trip_number") and not expense_data.get("trip_id"):
@@ -690,12 +826,14 @@ def create_expense(expense: TransportExpenseCreate, db: Session = Depends(get_db
     return db_expense
 
 @router.post("/trips/{trip_id}/expenses", response_model=TransportExpenseSchema)
-def create_expense_legacy(trip_id: int, expense: TransportExpenseCreate, db: Session = Depends(get_db)):
+def create_expense_legacy(trip_id: int, expense: TransportExpenseCreate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Create an expense for a trip (legacy endpoint)"""
     # Verify trip exists
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+    hide_foreign_depot(user, vehicle.depot_id if vehicle else None)
     
     expense_data = expense.model_dump()
     expense_data["trip_id"] = trip_id
@@ -709,13 +847,21 @@ def create_expense_legacy(trip_id: int, expense: TransportExpenseCreate, db: Ses
     return db_expense
 
 @router.put("/expenses/{expense_id}", response_model=TransportExpenseSchema)
-def update_expense(expense_id: int, expense: TransportExpenseUpdate, db: Session = Depends(get_db)):
+def update_expense(expense_id: int, expense: TransportExpenseUpdate, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Update an expense"""
     db_expense = db.query(TransportExpense).filter(TransportExpense.id == expense_id).first()
     if not db_expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    _hide_expense_target(db, user, db_expense.trip_id, db_expense.trip_number, db_expense.route_id)
     
     update_data = expense.model_dump(exclude_unset=True)
+    _hide_expense_target(
+        db,
+        user,
+        update_data.get("trip_id", db_expense.trip_id),
+        update_data.get("trip_number", db_expense.trip_number),
+        update_data.get("route_id", db_expense.route_id),
+    )
     for field, value in update_data.items():
         setattr(db_expense, field, value)
     
@@ -724,11 +870,12 @@ def update_expense(expense_id: int, expense: TransportExpenseUpdate, db: Session
     return db_expense
 
 @router.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+def delete_expense(expense_id: int, db: Session = Depends(get_db), user: Employee = Depends(require_role("manager", "transport"))):
     """Delete an expense"""
     db_expense = db.query(TransportExpense).filter(TransportExpense.id == expense_id).first()
     if not db_expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    _hide_expense_target(db, user, db_expense.trip_id, db_expense.trip_number, db_expense.route_id)
     
     db.delete(db_expense)
     db.commit()
@@ -744,10 +891,11 @@ def get_transport_report(
     vehicle_id: Optional[int] = None,
     driver_id: Optional[int] = None,
     route_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get transport report with analytics"""
-    query = db.query(Trip)
+    query = _trips_for_user(db, user)
     
     if start_date:
         query = query.filter(Trip.trip_date >= start_date)
@@ -902,13 +1050,14 @@ def get_vehicle_expense_report(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     vehicle_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get expense report grouped by vehicle"""
     from sqlalchemy import func
     
     # Get trips with filters
-    query = db.query(Trip)
+    query = _trips_for_user(db, user)
     if start_date:
         query = query.filter(Trip.trip_date >= start_date)
     if end_date:
@@ -974,13 +1123,14 @@ def get_driver_expense_report(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     driver_id: Optional[int] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Get expense report grouped by driver"""
     from sqlalchemy import func
     
     # Get trips with filters
-    query = db.query(Trip)
+    query = _trips_for_user(db, user)
     if start_date:
         query = query.filter(Trip.trip_date >= start_date)
     if end_date:
@@ -1048,7 +1198,8 @@ def generate_pdf_report(
     driver_id: Optional[int] = None,
     route_id: Optional[int] = None,
     report_type: Optional[str] = None,  # general, vehicle, driver
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Generate PDF report for transport expenses"""
     if not report_type:
@@ -1076,7 +1227,7 @@ def generate_pdf_report(
     
     # Handle different report types
     if report_type == "vehicle":
-        vehicle_report = get_vehicle_expense_report(start_date, end_date, vehicle_id, db)
+        vehicle_report = get_vehicle_expense_report(start_date, end_date, vehicle_id, db, user)
         title = Paragraph("Vehicle Expense Report", title_style)
         elements.append(title)
         date_text = f"Period: {start_date or 'All time'} to {end_date or 'Present'}"
@@ -1111,7 +1262,7 @@ def generate_pdf_report(
             elements.append(Paragraph(f"Total Expenses: ৳{vehicle_report['total_expenses']:.2f}", styles['Heading2']))
     
     elif report_type == "driver":
-        driver_report = get_driver_expense_report(start_date, end_date, driver_id, db)
+        driver_report = get_driver_expense_report(start_date, end_date, driver_id, db, user)
         title = Paragraph("Driver Expense Report", title_style)
         elements.append(title)
         date_text = f"Period: {start_date or 'All time'} to {end_date or 'Present'}"
@@ -1152,7 +1303,8 @@ def generate_pdf_report(
             vehicle_id=vehicle_id,
             driver_id=driver_id,
             route_id=route_id,
-            db=db
+            db=db,
+            user=user,
         )
         title = Paragraph("Transport Management Report", title_style)
         elements.append(title)

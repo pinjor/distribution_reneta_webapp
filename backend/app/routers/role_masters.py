@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
 from app.models import RoleMaster, Employee, RoleTypeEnum
+from app.core.deps import require_permission
 from app.schemas import (
     RoleMasterCreate, RoleMasterUpdate, RoleMaster as RoleMasterSchema,
     RoleHierarchyResponse
@@ -200,7 +201,11 @@ def get_role_master(role_id: int, db: Session = Depends(get_db)):
     return RoleMasterSchema(**role_data)
 
 @router.post("/", response_model=RoleMasterSchema)
-def create_role_master(role: RoleMasterCreate, db: Session = Depends(get_db)):
+def create_role_master(
+    role: RoleMasterCreate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("admin.roles")),
+):
     """Create new role master"""
     # Auto-generate code if not provided
     if not role.code:
@@ -236,7 +241,12 @@ def create_role_master(role: RoleMasterCreate, db: Session = Depends(get_db)):
     return RoleMasterSchema(**role_data)
 
 @router.put("/{role_id}", response_model=RoleMasterSchema)
-def update_role_master(role_id: int, role: RoleMasterUpdate, db: Session = Depends(get_db)):
+def update_role_master(
+    role_id: int,
+    role: RoleMasterUpdate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("admin.roles")),
+):
     """Update role master"""
     db_role = db.query(RoleMaster).filter(RoleMaster.id == role_id).first()
     if not db_role:
@@ -294,7 +304,11 @@ def update_role_master(role_id: int, role: RoleMasterUpdate, db: Session = Depen
     return RoleMasterSchema(**role_data)
 
 @router.delete("/{role_id}")
-def delete_role_master(role_id: int, db: Session = Depends(get_db)):
+def delete_role_master(
+    role_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("admin.roles")),
+):
     """Delete role master"""
     db_role = db.query(RoleMaster).filter(RoleMaster.id == role_id).first()
     if not db_role:

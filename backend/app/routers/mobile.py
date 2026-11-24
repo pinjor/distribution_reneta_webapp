@@ -11,6 +11,9 @@ from decimal import Decimal
 
 from app.database import get_db
 from app import models, schemas
+from app.core.deps import require_auth
+from app.core.depot_scope import filter_orders, hide_order, restrict_orders
+from app.models import Employee
 
 router = APIRouter(tags=["Mobile"])
 
@@ -19,7 +22,8 @@ router = APIRouter(tags=["Mobile"])
 def get_assigned_memos(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get all assigned memos available for mobile app users to accept.
@@ -51,6 +55,7 @@ def get_assigned_memos(
             .limit(limit)
             .all()
         )
+        orders = filter_orders(db, user, orders)
         
         result = []
         for order in orders:
@@ -108,7 +113,8 @@ def get_assigned_memos(
 @router.post("/accept-memo", response_model=schemas.MobileAcceptMemoResponse)
 def accept_memo(
     payload: schemas.MobileAcceptMemoRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Accept a memo from mobile app.
@@ -136,6 +142,7 @@ def accept_memo(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Memo not found"
             )
+        hide_order(db, user, order, detail="Memo not found")
         
         # Check if already accepted
         if order.mobile_accepted:
@@ -183,7 +190,8 @@ def accept_memo(
 @router.get("/loading-number/{loading_number}/status", response_model=schemas.MobileLoadingNumberStatus)
 def get_loading_number_status(
     loading_number: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get acceptance status for all memos in a loading number.
@@ -203,6 +211,7 @@ def get_loading_number_status(
             )
             .all()
         )
+        orders = restrict_orders(db, user, orders, detail="Loading number not found")
         
         if not orders:
             raise HTTPException(
@@ -253,7 +262,8 @@ def get_my_accepted_memos(
     user_id: str,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get all memos accepted by a specific mobile user.
@@ -272,6 +282,7 @@ def get_my_accepted_memos(
             .limit(limit)
             .all()
         )
+        orders = filter_orders(db, user, orders)
         
         result = []
         for order in orders:

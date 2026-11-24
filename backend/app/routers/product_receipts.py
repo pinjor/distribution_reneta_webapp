@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
 from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter
+from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, hide_foreign_depot
 
 router = APIRouter()
 
@@ -54,15 +54,24 @@ def list_receipts(
 
 
 @router.get("/{receipt_id}", response_model=schemas.ProductReceipt)
-def get_receipt(receipt_id: int, db: Session = Depends(get_db)) -> schemas.ProductReceipt:
+def get_receipt(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.ProductReceipt:
     receipt = db.query(models.ProductReceipt).filter(models.ProductReceipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
+    hide_foreign_depot(user, receipt.target_depot_id)
     return receipt
 
 
 @router.post("", response_model=schemas.ProductReceipt, status_code=status.HTTP_201_CREATED)
-def create_receipt(payload: schemas.ProductReceiptCreate, db: Session = Depends(get_db)) -> schemas.ProductReceipt:
+def create_receipt(
+    payload: schemas.ProductReceiptCreate,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.ProductReceipt:
     if not payload.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Receipt requires at least one item")
 
@@ -71,7 +80,7 @@ def create_receipt(payload: schemas.ProductReceiptCreate, db: Session = Depends(
     receipt = models.ProductReceipt(
         receipt_number=receipt_number,
         source_type=payload.source_type,
-        target_depot_id=payload.target_depot_id,
+        target_depot_id=assign_depot_for_write(user, payload.target_depot_id),
         to_address=payload.to_address,
         tfa_number=payload.tfa_number,
         iso_number=payload.iso_number,
@@ -94,14 +103,23 @@ def create_receipt(payload: schemas.ProductReceiptCreate, db: Session = Depends(
 
 
 @router.put("/{receipt_id}", response_model=schemas.ProductReceipt)
-def update_receipt(receipt_id: int, payload: schemas.ProductReceiptUpdate, db: Session = Depends(get_db)) -> schemas.ProductReceipt:
+def update_receipt(
+    receipt_id: int,
+    payload: schemas.ProductReceiptUpdate,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.ProductReceipt:
     receipt = db.query(models.ProductReceipt).filter(models.ProductReceipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
+    hide_foreign_depot(user, receipt.target_depot_id)
     if receipt.status != models.ProductReceiptStatus.DRAFT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only draft receipts can be edited")
 
-    for field, value in payload.model_dump(exclude={"items"}, exclude_unset=True).items():
+    changes = payload.model_dump(exclude={"items"}, exclude_unset=True)
+    if "target_depot_id" in changes:
+        changes["target_depot_id"] = assign_depot_for_write(user, changes.get("target_depot_id"))
+    for field, value in changes.items():
         setattr(receipt, field, value)
 
     if payload.items is not None:
@@ -129,10 +147,15 @@ def update_receipt(receipt_id: int, payload: schemas.ProductReceiptUpdate, db: S
 
 
 @router.delete("/{receipt_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_receipt(receipt_id: int, db: Session = Depends(get_db)) -> None:
+def delete_receipt(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> None:
     receipt = db.query(models.ProductReceipt).filter(models.ProductReceipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
+    hide_foreign_depot(user, receipt.target_depot_id)
     if receipt.status != models.ProductReceiptStatus.DRAFT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only draft receipts can be deleted")
     db.delete(receipt)
@@ -178,10 +201,15 @@ def post_to_stock_ledger(db: Session, receipt: models.ProductReceipt) -> None:
 
 
 @router.post("/{receipt_id}/approve", response_model=schemas.ProductReceiptApprovalResponse)
-def approve_receipt(receipt_id: int, db: Session = Depends(get_db)) -> schemas.ProductReceiptApprovalResponse:
+def approve_receipt(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.ProductReceiptApprovalResponse:
     receipt = db.query(models.ProductReceipt).filter(models.ProductReceipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
+    hide_foreign_depot(user, receipt.target_depot_id)
     if receipt.status == models.ProductReceiptStatus.APPROVED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Receipt already approved")
     if not receipt.items:
@@ -200,8 +228,13 @@ def approve_receipt(receipt_id: int, db: Session = Depends(get_db)) -> schemas.P
 
 
 @router.get("/{receipt_id}/report", response_model=schemas.ProductReceipt)
-def get_receipt_report(receipt_id: int, db: Session = Depends(get_db)) -> schemas.ProductReceipt:
+def get_receipt_report(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.ProductReceipt:
     receipt = db.query(models.ProductReceipt).filter(models.ProductReceipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt not found")
+    hide_foreign_depot(user, receipt.target_depot_id)
     return receipt

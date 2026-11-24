@@ -4,13 +4,15 @@ import { BarChart3 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { MenuSectionGrid } from "@/components/navigation/MenuSectionGrid";
 import { getCockpitSections } from "@/lib/menuNavigation";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function DistributionCockpit() {
+  const permissions = usePermissions();
   useEffect(() => {
     document.title = "Distribution Cockpit | Renata";
   }, []);
 
-  const sections = getCockpitSections();
+  const sections = getCockpitSections(permissions);
 
   return (
     <div className="relative min-h-full">

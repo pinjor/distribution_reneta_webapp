@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import Employee, Order
 from app.models_platform import OrderValidationRun, ValidationRuleConfig
 from app.services.order_validation_service import OrderValidationService
-from app.core.depot_scope import apply_depot_code_filter
+from app.core.depot_scope import apply_depot_code_filter, hide_order
 
 router = APIRouter()
 
@@ -42,6 +42,7 @@ def validate_single_order(
     order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     run = OrderValidationService.validate_order(db, order, user)
     return {"order_id": order_id, "validation_run_id": run.id, "status": run.validation_status.value}
 
@@ -58,6 +59,7 @@ def batch_validate(
         if not order:
             results.append({"order_id": oid, "error": "not found"})
             continue
+        hide_order(db, user, order, detail="Order not found")
         run = OrderValidationService.validate_order(db, order, user)
         results.append({"order_id": oid, "validation_run_id": run.id, "status": run.validation_status.value})
     return {"results": results}
@@ -74,6 +76,8 @@ def get_validation_result(
         .filter(OrderValidationRun.order_id == order_id, OrderValidationRun.is_current == True)
         .first()
     )
+    order = db.query(Order).filter(Order.id == order_id).first()
+    hide_order(db, user, order, detail="No validation result")
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No validation result")
     return {
@@ -103,6 +107,7 @@ def approve_exception(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     run = OrderValidationService.approve_exception(db, order, user, payload.reason)
     return {"order_id": order_id, "status": run.validation_status.value}
 
@@ -121,6 +126,7 @@ def reject_validation(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     StockReservationService.release_for_order(db, order_id, user)
     order.validated = False
     order.validation_status = ValidationStatusEnum.REJECTED.value

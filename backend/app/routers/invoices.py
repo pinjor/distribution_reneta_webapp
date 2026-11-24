@@ -6,7 +6,7 @@ from datetime import date
 from app.database import get_db
 from app.models import Invoice, PickingOrder, PickingOrderDelivery, OrderDelivery, Customer, StockIssuance, Employee
 from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter
+from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, hide_foreign_depot
 
 router = APIRouter()
 
@@ -22,14 +22,25 @@ def get_invoices(
     return invoices
 
 @router.get("/{invoice_id}")
-def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def get_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    hide_foreign_depot(user, invoice.depot_id)
     return invoice
 
 @router.post("/")
-def create_invoice(invoice_data: dict, db: Session = Depends(get_db)):
+def create_invoice(
+    invoice_data: dict,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
+    invoice_data = dict(invoice_data)
+    invoice_data["depot_id"] = assign_depot_for_write(user, invoice_data.get("depot_id"))
     invoice = Invoice(**invoice_data)
     db.add(invoice)
     db.commit()
@@ -37,7 +48,11 @@ def create_invoice(invoice_data: dict, db: Session = Depends(get_db)):
     return invoice
 
 @router.post("/generate-bulk/{challan_id}")
-def generate_bulk_invoices(challan_id: int, db: Session = Depends(get_db)):
+def generate_bulk_invoices(
+    challan_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """
     Generate invoices for all chemist shops (customers) in a loading challan.
     Groups deliveries by customer and creates one invoice per customer.
@@ -46,6 +61,14 @@ def generate_bulk_invoices(challan_id: int, db: Session = Depends(get_db)):
     picking_order = db.query(PickingOrder).filter(PickingOrder.id == challan_id).first()
     if not picking_order:
         raise HTTPException(status_code=404, detail="Loading challan not found")
+    if (user.role or "").lower() != "admin":
+        from app.models import Order
+        linked = db.query(Order).filter(Order.loading_number == picking_order.loading_no).all() if picking_order.loading_no else []
+        from app.core.depot_scope import restrict_orders
+        if linked:
+            restrict_orders(db, user, linked, detail="Loading challan not found")
+        elif not user.depot_id:
+            raise HTTPException(status_code=403, detail="No depot assignment")
     
     if picking_order.status != "Approved":
         raise HTTPException(status_code=400, detail="Only approved loading challans can generate invoices")
@@ -138,10 +161,15 @@ def generate_bulk_invoices(challan_id: int, db: Session = Depends(get_db)):
     }
 
 @router.get("/{invoice_id}/download")
-def download_invoice(invoice_id: int, db: Session = Depends(get_db)):
+def download_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
+    hide_foreign_depot(user, invoice.depot_id)
     # In production, generate PDF and return file
     return {"invoice": invoice, "pdf_url": f"/api/invoices/{invoice_id}/pdf"}
 

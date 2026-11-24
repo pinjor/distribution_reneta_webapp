@@ -9,6 +9,7 @@ from app.core.deps import get_client_ip, get_user_agent, require_auth, require_p
 from app.database import get_db
 from app.models import Employee, Order
 from app.models_platform import OrderStatusHistory
+from app.core.depot_scope import hide_order
 from app.services.status_service import DELIVERY_TRANSITIONS, StatusTransitionService
 
 router = APIRouter()
@@ -33,6 +34,7 @@ def transition_order_status(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     StatusTransitionService.transition(
         db, order, payload.event_code, user,
         reason=payload.reason, remarks=payload.remarks,
@@ -50,6 +52,9 @@ def order_status_history(
     db: Session = Depends(get_db),
     user: Employee = Depends(require_permission("orders.read")),
 ):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if order:
+        hide_order(db, user, order, detail="Order not found")
     return db.query(OrderStatusHistory).filter(
         OrderStatusHistory.order_id == order_id
     ).order_by(OrderStatusHistory.changed_at.desc()).all()

@@ -9,7 +9,7 @@ from sqlalchemy import asc
 from app.database import get_db
 from app import models, schemas
 from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_code_filter
+from app.core.depot_scope import apply_depot_code_filter, hide_order
 from app.services.order_lifecycle_service import build_order_lifecycle_steps
 
 router = APIRouter()
@@ -157,10 +157,12 @@ def build_delivery_items(
     return delivery_items
 
 
-def get_delivery(db: Session, delivery_id: int) -> models.OrderDelivery:
+def get_delivery(db: Session, delivery_id: int, user: models.Employee) -> models.OrderDelivery:
     delivery = db.query(models.OrderDelivery).filter(models.OrderDelivery.id == delivery_id).first()
     if not delivery:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery order not found")
+    order = db.query(models.Order).filter(models.Order.id == delivery.order_id).first()
+    hide_order(db, user, order, detail="Delivery order not found", missing_ok=False)
     return delivery
 
 
@@ -209,11 +211,13 @@ def list_order_deliveries(
 
 
 @router.get("/{delivery_id}", response_model=schemas.OrderDelivery)
-def retrieve_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
+def retrieve_order_delivery(
+    delivery_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.OrderDelivery:
     from sqlalchemy.orm import joinedload
-    delivery = db.query(models.OrderDelivery).options(joinedload(models.OrderDelivery.order)).filter(models.OrderDelivery.id == delivery_id).first()
-    if not delivery:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery order not found")
+    delivery = get_delivery(db, delivery_id, user)
     # Include order_number in response
     delivery_dict = schemas.OrderDelivery.model_validate(delivery).model_dump()
     delivery_dict["order_number"] = delivery.order.order_number if delivery.order else None
@@ -221,7 +225,12 @@ def retrieve_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> 
 
 
 @router.post("/from-order/{identifier}", response_model=schemas.OrderDelivery, status_code=status.HTTP_201_CREATED)
-def create_from_order(identifier: str, delivery_date: Optional[date] = None, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
+def create_from_order(
+    identifier: str,
+    delivery_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.OrderDelivery:
     order: Optional[models.Order] = None
     if identifier.isdigit():
         order = db.query(models.Order).filter(models.Order.id == int(identifier)).first()
@@ -237,6 +246,7 @@ def create_from_order(identifier: str, delivery_date: Optional[date] = None, db:
             order = delivery.order
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     delivery_number = generate_delivery_number()
     customer = None
     if order.customer_code:
@@ -258,7 +268,13 @@ def create_from_order(identifier: str, delivery_date: Optional[date] = None, db:
 
 
 @router.post("", response_model=schemas.OrderDelivery, status_code=status.HTTP_201_CREATED)
-def create_order_delivery(payload: schemas.OrderDeliveryCreate, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
+def create_order_delivery(
+    payload: schemas.OrderDeliveryCreate,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.OrderDelivery:
+    parent = db.query(models.Order).filter(models.Order.id == payload.order_id).first()
+    hide_order(db, user, parent, detail="Order not found", missing_ok=False)
     delivery_number = payload.delivery_number or generate_delivery_number()
     delivery = models.OrderDelivery(
         order_id=payload.order_id,
@@ -302,8 +318,13 @@ def create_order_delivery(payload: schemas.OrderDeliveryCreate, db: Session = De
 
 
 @router.put("/{delivery_id}", response_model=schemas.OrderDelivery)
-def update_order_delivery(delivery_id: int, payload: schemas.OrderDeliveryUpdate, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
-    delivery = get_delivery(db, delivery_id)
+def update_order_delivery(
+    delivery_id: int,
+    payload: schemas.OrderDeliveryUpdate,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.OrderDelivery:
+    delivery = get_delivery(db, delivery_id, user)
 
     for field, value in payload.model_dump(exclude={"items"}, exclude_unset=True).items():
         setattr(delivery, field, value)
@@ -348,8 +369,12 @@ def update_order_delivery(delivery_id: int, payload: schemas.OrderDeliveryUpdate
 
 
 @router.delete("/{delivery_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> None:
-    delivery = get_delivery(db, delivery_id)
+def delete_order_delivery(
+    delivery_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> None:
+    delivery = get_delivery(db, delivery_id, user)
     for item in delivery.items:
         ledger = (
             db.query(models.StockLedger)
@@ -364,8 +389,12 @@ def delete_order_delivery(delivery_id: int, db: Session = Depends(get_db)) -> No
 
 
 @router.post("/{delivery_id}/advance", response_model=schemas.OrderDelivery)
-def advance_delivery_status(delivery_id: int, db: Session = Depends(get_db)) -> schemas.OrderDelivery:
-    delivery = get_delivery(db, delivery_id)
+def advance_delivery_status(
+    delivery_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.OrderDelivery:
+    delivery = get_delivery(db, delivery_id, user)
     order = [
         models.DeliveryStatusEnum.DRAFT,
         models.DeliveryStatusEnum.PACKING,
@@ -387,7 +416,11 @@ def advance_delivery_status(delivery_id: int, db: Session = Depends(get_db)) -> 
 
 
 @router.get("/tracking/{identifier}", response_model=schemas.DeliveryTrackingResponse)
-def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.DeliveryTrackingResponse:
+def track_order(
+    identifier: str,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.DeliveryTrackingResponse:
     order: Optional[models.Order] = None
     delivery: Optional[models.OrderDelivery] = None
 
@@ -403,6 +436,7 @@ def track_order(identifier: str, db: Session = Depends(get_db)) -> schemas.Deliv
             order = delivery.order
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
 
     if not delivery:
         delivery = (

@@ -8,10 +8,15 @@ from sqlalchemy import func, and_
 
 from app.database import get_db
 from app import models, schemas
-from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter, apply_depot_code_filter
+from app.core.deps import require_permission
+from app.core.depot_scope import apply_depot_id_filter, apply_depot_code_filter, hide_foreign_depot, is_admin
 
 router = APIRouter()
+
+
+def _guard_deposit(db: Session, user: models.Employee, deposit: models.CollectionDeposit) -> None:
+    person = db.query(models.Employee).filter(models.Employee.id == deposit.collection_person_id).first()
+    hide_foreign_depot(user, person.depot_id if person else None)
 
 
 def generate_deposit_number(db: Session) -> str:
@@ -39,7 +44,8 @@ def generate_deposit_number(db: Session) -> str:
 @router.post("/deposits", response_model=schemas.CollectionDeposit, status_code=status.HTTP_201_CREATED)
 def create_collection_deposit(
     deposit_data: schemas.CollectionDepositCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.write")),
 ):
     """Create a new collection deposit"""
     # Verify collection person exists
@@ -52,6 +58,7 @@ def create_collection_deposit(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Collection person not found"
         )
+    hide_foreign_depot(user, collection_person.depot_id)
     
     # Generate deposit number
     deposit_number = generate_deposit_number(db)
@@ -92,7 +99,7 @@ def list_collection_deposits(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
-    user: models.Employee = Depends(require_auth),
+    user: models.Employee = Depends(require_permission("billing.read")),
 ):
     """List all collection deposits with filters"""
     query = db.query(models.CollectionDeposit)
@@ -141,7 +148,8 @@ def list_collection_deposits(
 @router.get("/deposits/{deposit_id}", response_model=schemas.CollectionDeposit)
 def get_collection_deposit(
     deposit_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.read")),
 ):
     """Get a specific collection deposit"""
     deposit = db.query(models.CollectionDeposit).filter(
@@ -153,6 +161,7 @@ def get_collection_deposit(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Deposit not found"
         )
+    _guard_deposit(db, user, deposit)
     
     collection_person = db.query(models.Employee).filter(
         models.Employee.id == deposit.collection_person_id
@@ -177,7 +186,8 @@ def get_collection_deposit(
 def update_collection_deposit(
     deposit_id: int,
     deposit_data: schemas.CollectionDepositUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.write")),
 ):
     """Update a collection deposit"""
     deposit = db.query(models.CollectionDeposit).filter(
@@ -189,6 +199,7 @@ def update_collection_deposit(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Deposit not found"
         )
+    _guard_deposit(db, user, deposit)
     
     if deposit.approved:
         raise HTTPException(
@@ -198,6 +209,11 @@ def update_collection_deposit(
     
     # Update fields
     update_data = deposit_data.dict(exclude_unset=True)
+    if "collection_person_id" in update_data:
+        person = db.query(models.Employee).filter(models.Employee.id == update_data["collection_person_id"]).first()
+        if not person:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection person not found")
+        hide_foreign_depot(user, person.depot_id)
     for field, value in update_data.items():
         setattr(deposit, field, value)
     
@@ -228,7 +244,8 @@ def update_collection_deposit(
 def approve_collection_deposit(
     deposit_id: int,
     approver_id: int = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.approve")),
 ):
     """Approve a collection deposit"""
     deposit = db.query(models.CollectionDeposit).filter(
@@ -240,6 +257,7 @@ def approve_collection_deposit(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Deposit not found"
         )
+    _guard_deposit(db, user, deposit)
     
     if deposit.approved:
         raise HTTPException(
@@ -275,7 +293,8 @@ def approve_collection_deposit(
 @router.post("/transactions", response_model=schemas.CollectionTransaction, status_code=status.HTTP_201_CREATED)
 def create_collection_transaction(
     transaction_data: schemas.CollectionTransactionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.write")),
 ):
     """Create a new collection transaction"""
     # Verify order exists
@@ -342,7 +361,7 @@ def list_collection_transactions(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
-    user: models.Employee = Depends(require_auth),
+    user: models.Employee = Depends(require_permission("billing.read")),
 ):
     """List all collection transactions with filters"""
     query = db.query(models.CollectionTransaction)
@@ -390,7 +409,8 @@ def get_collection_person_report(
     collection_person_id: int,
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.read")),
 ):
     """Get collection report for a specific collection person"""
     collection_person = db.query(models.Employee).filter(
@@ -402,6 +422,7 @@ def get_collection_person_report(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Collection person not found"
         )
+    hide_foreign_depot(user, collection_person.depot_id)
     
     # Get all transactions for this person
     transaction_query = db.query(models.CollectionTransaction).filter(
@@ -490,7 +511,8 @@ def get_collection_person_report(
 def get_all_collection_reports(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.read")),
 ):
     """Get collection reports for all collection persons"""
     # Get all unique collection person IDs from transactions
@@ -502,7 +524,12 @@ def get_all_collection_reports(
     
     reports = []
     for person_id in collection_person_ids:
-        report = get_collection_person_report(person_id, start_date, end_date, db)
+        person = db.query(models.Employee).filter(models.Employee.id == person_id).first()
+        if not person:
+            continue
+        if not is_admin(user) and (not user.depot_id or person.depot_id != user.depot_id):
+            continue
+        report = get_collection_person_report(person_id, start_date, end_date, db, user)
         reports.append(report)
     
     return reports
@@ -514,7 +541,8 @@ def receive_remaining_cash(
     received_amount: Decimal = Query(...),
     received_by: int = Query(...),
     receipt_notes: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_permission("billing.approve")),
 ):
     """Receive remaining cash from collection person at depot"""
     deposit = db.query(models.CollectionDeposit).filter(
@@ -526,6 +554,7 @@ def receive_remaining_cash(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Deposit not found"
         )
+    _guard_deposit(db, user, deposit)
     
     if deposit.remaining_amount == 0:
         raise HTTPException(

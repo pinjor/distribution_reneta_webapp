@@ -8,7 +8,6 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
 import StockReceipt from "./pages/StockReceipt";
 import StockIssuance from "./pages/StockIssuance";
 import OrderEntry from "./pages/orders/OrderEntry";
@@ -91,7 +90,6 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
               <Route path="/" element={<MainLayout><Dashboard /></MainLayout>} />
               <Route path="/warehouse/receipt" element={<MainLayout><StockReceipt /></MainLayout>} />
               <Route path="/warehouse/issuance" element={<MainLayout><StockIssuance /></MainLayout>} />

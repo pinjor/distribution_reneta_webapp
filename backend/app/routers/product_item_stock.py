@@ -12,8 +12,8 @@ from app.schemas import (
     ProductItemStockDetail as ProductItemStockDetailSchema,
     ProductItemStockDetailCreate
 )
-from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_id_filter, coerce_depot_id_param
+from app.core.deps import require_permission
+from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, coerce_depot_id_param, hide_foreign_depot
 
 router = APIRouter()
 
@@ -24,7 +24,7 @@ def get_product_item_stock(
     product_id: Optional[int] = Query(None),
     depot_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """Get all product item stock records"""
     query = db.query(ProductItemStock)
@@ -41,19 +41,28 @@ def get_product_item_stock(
     return stock_records
 
 @router.get("/{stock_id}", response_model=ProductItemStockSchema)
-def get_product_item_stock_by_id(stock_id: int, db: Session = Depends(get_db)):
+def get_product_item_stock_by_id(
+    stock_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
+):
     """Get a specific product item stock record with details"""
     stock = db.query(ProductItemStock).filter(ProductItemStock.id == stock_id).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Product item stock not found")
+    hide_foreign_depot(user, stock.depot_id)
     return stock
 
 @router.post("/", response_model=ProductItemStockSchema)
 def create_product_item_stock(
     stock_data: ProductItemStockCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
 ):
     """Create a new product item stock record"""
+    stock_data = stock_data.model_copy(update={
+        "depot_id": assign_depot_for_write(user, stock_data.depot_id),
+    })
     # Verify product exists
     product = db.query(Product).filter(Product.id == stock_data.product_id).first()
     if not product:
@@ -78,12 +87,18 @@ def create_product_item_stock(
 def update_product_item_stock(
     stock_id: int,
     stock_data: ProductItemStockUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
 ):
     """Update a product item stock record"""
     stock = db.query(ProductItemStock).filter(ProductItemStock.id == stock_id).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Product item stock not found")
+    hide_foreign_depot(user, stock.depot_id)
+    changes = stock_data.model_dump(exclude_unset=True)
+    if "depot_id" in changes:
+        changes["depot_id"] = assign_depot_for_write(user, changes.get("depot_id"))
+        stock_data = stock_data.model_copy(update={"depot_id": changes["depot_id"]})
     
     for key, value in stock_data.dict().items():
         setattr(stock, key, value)
@@ -95,12 +110,14 @@ def update_product_item_stock(
 @router.get("/{stock_id}/details", response_model=List[ProductItemStockDetailSchema])
 def get_stock_details(
     stock_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """Get all batch details for a product item stock"""
     stock = db.query(ProductItemStock).filter(ProductItemStock.id == stock_id).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Product item stock not found")
+    hide_foreign_depot(user, stock.depot_id)
     
     return stock.details
 
@@ -108,10 +125,13 @@ def get_stock_details(
 def create_stock_detail(
     stock_id: int,
     detail_data: ProductItemStockDetailCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.write")),
 ):
     """Create a new batch detail for product item stock"""
     stock = db.query(ProductItemStock).filter(ProductItemStock.id == stock_id).first()
+    if stock:
+        hide_foreign_depot(user, stock.depot_id)
     if not stock:
         raise HTTPException(status_code=404, detail="Product item stock not found")
     
@@ -161,13 +181,16 @@ def create_stock_detail(
 def get_product_stock_summary(
     product_id: int,
     depot_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
 ):
     """Get stock summary for a product across all depots or specific depot"""
     query = db.query(ProductItemStock).filter(ProductItemStock.product_id == product_id)
-    
-    if depot_id:
-        query = query.filter(ProductItemStock.depot_id == depot_id)
+    effective_depot = coerce_depot_id_param(user, depot_id)
+    if effective_depot:
+        query = query.filter(ProductItemStock.depot_id == effective_depot)
+    else:
+        query = apply_depot_id_filter(query, user, ProductItemStock.depot_id)
     
     stock_records = query.all()
     

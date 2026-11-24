@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models, schemas
 from app.core.deps import require_auth
-from app.core.depot_scope import apply_depot_code_filter, user_depot_code, is_admin
+from sqlalchemy import false
+
+from app.core.depot_scope import hide_order, is_admin, restrict_orders, user_depot_code
 
 router = APIRouter()
 
@@ -17,10 +19,31 @@ def generate_picking_order_number(prefix: str = "PCK") -> str:
     return f"{prefix}-{stamp.strftime('%Y%m%d')}-{stamp.strftime('%H%M%S')}{stamp.microsecond // 1000:03d}"
 
 
-def fetch_picking_order(db: Session, order_id: int) -> models.PickingOrder:
+def orders_for_loading(db: Session, loading_no: str | None) -> list:
+    if not loading_no:
+        return []
+    return db.query(models.Order).filter(models.Order.loading_number == loading_no).all()
+
+
+def require_loading_owner(db: Session, user: models.Employee, loading_no: str | None) -> None:
+    """A picking row is visible only when its loading number matches orders in the caller's depot.
+
+    A depot assignment by itself is not enough. An unknown loading number is 404.
+    Administrators are not restricted.
+    """
+    if is_admin(user):
+        return
+    linked = orders_for_loading(db, loading_no)
+    if not linked:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Picking order not found")
+    restrict_orders(db, user, linked, detail="Picking order not found")
+
+
+def fetch_picking_order(db: Session, order_id: int, user: models.Employee) -> models.PickingOrder:
     order = db.query(models.PickingOrder).filter(models.PickingOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Picking order not found")
+    require_loading_owner(db, user, order.loading_no)
     return order
 
 
@@ -30,9 +53,11 @@ def list_picking_orders(
     user: models.Employee = Depends(require_auth),
 ) -> schemas.PickingOrderListResponse:
     query = db.query(models.PickingOrder)
-    if not is_admin(user) and user.depot_id:
+    if not is_admin(user):
         code = user_depot_code(db, user)
-        if code:
+        if not code:
+            query = query.filter(false())
+        else:
             loading_nums = (
                 db.query(models.Order.loading_number)
                 .filter(
@@ -47,14 +72,23 @@ def list_picking_orders(
 
 
 @router.get("/{order_id}", response_model=schemas.PickingOrder)
-def retrieve_picking_order(order_id: int, db: Session = Depends(get_db)) -> schemas.PickingOrder:
-    return fetch_picking_order(db, order_id)
+def retrieve_picking_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.PickingOrder:
+    return fetch_picking_order(db, order_id, user)
 
 
 @router.post("", response_model=schemas.PickingOrder, status_code=status.HTTP_201_CREATED)
-def create_picking_order(payload: schemas.PickingOrderCreate, db: Session = Depends(get_db)) -> schemas.PickingOrder:
+def create_picking_order(
+    payload: schemas.PickingOrderCreate,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.PickingOrder:
     if not payload.deliveries:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one delivery must be provided")
+    require_loading_owner(db, user, payload.loading_no)
 
     order_number = payload.order_number or generate_picking_order_number()
     picking_order = models.PickingOrder(
@@ -85,6 +119,8 @@ def create_picking_order(payload: schemas.PickingOrderCreate, db: Session = Depe
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Delivery order {line.delivery_id} not found",
             )
+        parent = db.query(models.Order).filter(models.Order.id == delivery.order_id).first()
+        hide_order(db, user, parent, detail="Picking order not found", missing_ok=False)
 
         item = models.PickingOrderDelivery(
             picking_order_id=picking_order.id,
@@ -110,8 +146,12 @@ def create_picking_order(payload: schemas.PickingOrderCreate, db: Session = Depe
 
 
 @router.post("/{order_id}/approve", response_model=schemas.PickingOrder)
-def approve_picking_order(order_id: int, db: Session = Depends(get_db)) -> schemas.PickingOrder:
-    picking_order = fetch_picking_order(db, order_id)
+def approve_picking_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.PickingOrder:
+    picking_order = fetch_picking_order(db, order_id, user)
     if picking_order.status == models.PickingOrderStatusEnum.APPROVED.value:
         return picking_order
 
@@ -128,7 +168,11 @@ def approve_picking_order(order_id: int, db: Session = Depends(get_db)) -> schem
 
 
 @router.get("/{order_id}/report", response_model=schemas.PickingOrder)
-def picking_order_report(order_id: int, db: Session = Depends(get_db)) -> schemas.PickingOrder:
-    return fetch_picking_order(db, order_id)
+def picking_order_report(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: models.Employee = Depends(require_auth),
+) -> schemas.PickingOrder:
+    return fetch_picking_order(db, order_id, user)
 
 

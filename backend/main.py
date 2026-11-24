@@ -3,13 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
-import redis.asyncio as redis
+import json
 import traceback
 
 from app.database import engine, Base
 from app.core.deps import require_auth
 from app.core.config import get_settings
 from app.core.audit_middleware import AuditWriteMiddleware
+from app.redis_cache import close_redis_client, get_redis_client
 
 # Import platform models so create_all registers them
 import app.models_platform  # noqa: F401
@@ -28,17 +29,16 @@ from app.routers import (
 
 PROTECTED = [Depends(require_auth)]
 
-redis_client = None
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_client
     settings = get_settings()
     settings.validate_production()
     try:
-        redis_client = redis.from_url("redis://redis:6379/0", encoding="utf-8", decode_responses=True)
-    except Exception:
-        redis_client = None
+        client = await get_redis_client()
+        await client.ping()
+    except Exception as exc:
+        print(f"Redis unavailable, continuing without cache: {exc}")
+        await close_redis_client()
     Base.metadata.create_all(bind=engine)
     # Apply legacy column alters on existing PostgreSQL volumes (safe IF NOT EXISTS)
     try:
@@ -69,8 +69,7 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     yield
-    if redis_client:
-        await redis_client.close()
+    await close_redis_client()
 
 app = FastAPI(
     title="Swift Distribution Hub API",
@@ -82,17 +81,36 @@ app = FastAPI(
 app.add_middleware(AuditWriteMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost", "http://localhost:80", "http://localhost:5173",
-        "http://localhost:8080", "http://localhost:3000",
-        "http://127.0.0.1:5173", "http://127.0.0.1:8080", "http://127.0.0.1:3000",
-    ],
+    allow_origins=get_settings().cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,
 )
+
+def _json_safe(value):
+    if isinstance(value, BaseException):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    try:
+        json.dumps(value)
+    except TypeError:
+        return str(value)
+    return value
+
+
+def _cors_error_headers(request: Request) -> dict:
+    origin = request.headers.get("origin")
+    if origin and origin in get_settings().cors_origins:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+        }
+    return {}
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -101,18 +119,15 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": str(exc), "type": type(exc).__name__},
-        headers={
-            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
-            "Access-Control-Allow-Credentials": "true",
-        }
+        headers=_cors_error_headers(request),
     )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors(), "body": exc.body},
-        headers={"Access-Control-Allow-Origin": request.headers.get("origin", "*")},
+        content={"detail": _json_safe(exc.errors()), "body": _json_safe(exc.body)},
+        headers=_cors_error_headers(request),
     )
 
 # Public routes

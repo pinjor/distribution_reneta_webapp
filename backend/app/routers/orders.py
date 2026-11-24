@@ -11,7 +11,13 @@ from sqlalchemy import or_
 from app.database import get_db
 from app import models, schemas
 from app.core.deps import require_auth, require_permission
-from app.core.depot_scope import apply_depot_code_filter, apply_depot_id_filter
+from app.core.depot_scope import (
+    apply_depot_code_filter,
+    apply_depot_id_filter,
+    hide_order,
+    restrict_orders,
+    stamp_depot_code,
+)
 from app.models import Employee
 from app.services.audit_service import AuditService
 from app.services.order_validation_service import OrderValidationService
@@ -382,7 +388,8 @@ def get_mis_report_memos(
     end_date: Optional[str] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
     status: Optional[str] = Query(None, description="Filter by status (validated, printed, assigned, loaded, collected, postponed)"),
     route_code: Optional[str] = Query(None, description="Filter by route code"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get all memos for MIS report with date and status filters.
@@ -396,6 +403,7 @@ def get_mis_report_memos(
         joinedload(models.Order.assigned_employee),
         joinedload(models.Order.assigned_vehicle_rel)
     )
+    query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
     
     # Filter by date range - parse string dates
     if start_date:
@@ -495,7 +503,8 @@ def get_mis_report_memos(
 @router.get("/mis-report/{memo_id}", response_model=schemas.MISReportMemoDetail)
 def get_mis_report_memo_detail(
     memo_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Get detailed history and full cycle information for a specific memo.
@@ -511,6 +520,7 @@ def get_mis_report_memo_detail(
     
     if not order:
         raise HTTPException(status_code=404, detail="Memo not found")
+    hide_order(db, user, order, detail="Memo not found")
     
     # Calculate total amount and items
     total_amount = Decimal('0')
@@ -603,10 +613,15 @@ def get_mis_report_memo_detail(
 
 
 @router.get("/{order_id}", response_model=schemas.Order)
-def get_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
+def get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+) -> schemas.Order:
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     return order
 
 
@@ -614,9 +629,12 @@ def get_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
 def create_order(
     order_data: schemas.OrderCreate,
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("orders.write")),
 ) -> schemas.Order:
     try:
+        order_data = order_data.model_copy(update={
+            "depot_code": stamp_depot_code(db, user, order_data.depot_code),
+        })
         # MANDATORY: Route validation - Route is required for all orders
         if not order_data.route_code or order_data.route_code.strip() == '':
             raise HTTPException(
@@ -801,11 +819,14 @@ def update_order(
     order_id: int,
     order_update: schemas.OrderUpdate,
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("orders.write")),
 ) -> schemas.Order:
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
+    if order_update.depot_code is not None:
+        stamp_depot_code(db, user, order_update.depot_code)
     
     # MANDATORY: Route validation - If route_code is being updated, it must not be empty
     if order_update.route_code is not None:
@@ -1010,7 +1031,7 @@ def update_order(
                     )
 
     if order_update.depot_code is not None:
-        order.depot_code = order_update.depot_code
+        order.depot_code = stamp_depot_code(db, user, order_update.depot_code)
     if order_update.depot_name is not None:
         order.depot_name = order_update.depot_name
     if order_update.customer_id is not None:
@@ -1086,11 +1107,12 @@ def update_order(
 def delete_order(
     order_id: int,
     db: Session = Depends(get_db),
-    user: Employee = Depends(require_auth),
+    user: Employee = Depends(require_permission("orders.write")),
 ) -> None:
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     StockReservationService.release_for_order(db, order_id, user)
     AuditService.log_action(
         db,
@@ -1105,10 +1127,15 @@ def delete_order(
 
 
 @router.post("/{order_id}/submit", response_model=schemas.Order)
-def submit_order(order_id: int, db: Session = Depends(get_db)) -> schemas.Order:
+def submit_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("orders.write")),
+) -> schemas.Order:
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     if not order.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order has no items")
 
@@ -1134,6 +1161,7 @@ def validate_orders(
         .filter(models.Order.id.in_(payload.order_ids))
         .all()
     )
+    orders = restrict_orders(db, user, orders, detail="No matching orders found")
 
     if not orders:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No matching orders found")
@@ -1393,6 +1421,10 @@ def print_route_wise_orders(
             )
             .all()
         )
+        orders = restrict_orders(
+            db, user, orders,
+            detail="No pending print orders found. All selected orders may already be printed.",
+        )
         
         if not orders:
             raise HTTPException(
@@ -1622,6 +1654,7 @@ def assign_route_wise_orders(
         .filter(models.Order.id.in_(payload.order_ids))
         .all()
     )
+    orders = restrict_orders(db, user, orders, detail="No orders found")
     
     if not orders:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No orders found")
@@ -1852,6 +1885,7 @@ def create_assigned_order_list_from_barcodes(
         .filter(models.Order.memo_number.in_(payload.memo_numbers))
         .all()
     )
+    orders = restrict_orders(db, user, orders, detail="No orders found with the provided memo numbers")
     
     if not orders:
         raise HTTPException(
@@ -2051,7 +2085,11 @@ def create_assigned_order_list_from_barcodes(
 
 
 @router.get("/loading-report/{loading_number}")
-def get_loading_report(loading_number: str, db: Session = Depends(get_db)):
+def get_loading_report(
+    loading_number: str,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Generate loading report PDF for a specific loading number"""
     from datetime import datetime
     from decimal import Decimal
@@ -2071,6 +2109,7 @@ def get_loading_report(loading_number: str, db: Session = Depends(get_db)):
         .order_by(models.Order.order_number)
         .all()
     )
+    orders = restrict_orders(db, user, orders, detail=f"No orders found for loading number {loading_number}")
     
     if not orders:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No orders found for loading number {loading_number}")
@@ -2336,7 +2375,11 @@ def get_loading_report(loading_number: str, db: Session = Depends(get_db)):
 
 
 @router.get("/money-receipt/{loading_number}")
-def get_money_receipt_report(loading_number: str, db: Session = Depends(get_db)):
+def get_money_receipt_report(
+    loading_number: str,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Generate money receipt PDF for a specific loading number after collection approval"""
     from datetime import datetime
     from decimal import Decimal
@@ -2359,6 +2402,7 @@ def get_money_receipt_report(loading_number: str, db: Session = Depends(get_db))
         .order_by(models.Order.order_number)
         .all()
     )
+    orders = restrict_orders(db, user, orders, detail=f"No approved orders found for loading number {loading_number}")
     
     if not orders:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No approved orders found for loading number {loading_number}")
@@ -2567,6 +2611,7 @@ def update_assigned_order_status(
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     
     if not order.assigned_to or not order.assigned_vehicle:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is not assigned")
@@ -2594,7 +2639,8 @@ def update_assigned_order_status(
 @router.post("/assigned/approve-delivery", status_code=status.HTTP_200_OK, response_model=schemas.DeliveryApprovalResponse)
 def approve_delivery(
     payload: schemas.DeliveryApprovalRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Approve delivery for a loading group, update quantities, and move orders to collection approval"""
     from datetime import datetime
@@ -2606,6 +2652,7 @@ def approve_delivery(
         .filter(models.Order.loading_number == payload.loading_number)
         .all()
     )
+    orders = restrict_orders(db, user, orders, detail=f"No orders found for loading number {payload.loading_number}")
     
     if not orders:
         raise HTTPException(
@@ -2693,7 +2740,11 @@ def approve_delivery(
 
 
 @router.post("/route-wise/validate", status_code=status.HTTP_200_OK)
-def validate_route_wise_orders(payload: schemas.RouteWiseValidateRequest, db: Session = Depends(get_db)):
+def validate_route_wise_orders(
+    payload: schemas.RouteWiseValidateRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
+):
     """Validate orders in a route (only unvalidated orders)"""
     from datetime import datetime
     
@@ -2702,6 +2753,7 @@ def validate_route_wise_orders(payload: schemas.RouteWiseValidateRequest, db: Se
         models.Order.route_code == payload.route_code,
         models.Order.status.in_([models.OrderStatusEnum.APPROVED, models.OrderStatusEnum.PARTIALLY_APPROVED])
     )
+    query = apply_depot_code_filter(query, user, models.Order.depot_code, db)
     
     # If specific order_ids provided, filter by them
     if payload.order_ids:
@@ -2745,7 +2797,8 @@ def validate_route_wise_orders(payload: schemas.RouteWiseValidateRequest, db: Se
 def collect_remaining_cash(
     loading_number: str,
     payload: schemas.CollectionCollectRequest = schemas.CollectionCollectRequest(memos=None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """
     Collect remaining cash for a loading number (for Remaining Cash Deposit List).
@@ -2759,6 +2812,10 @@ def collect_remaining_cash(
         models.Order.collection_source == "Web",
         models.Order.collection_approved == False
     ).all()
+    orders = restrict_orders(
+        db, user, orders,
+        detail=f"No orders found for loading number {loading_number} that need cash collection",
+    )
     
     if not orders:
         raise HTTPException(
@@ -2814,7 +2871,8 @@ def collect_remaining_cash(
 @router.post("/collection-approval/approve-loading/{loading_number}", response_model=None)
 def approve_collection_by_loading(
     loading_number: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("billing.approve")),
 ):
     """Approve all orders in a loading number for collection processing (for both web and mobile app collections)"""
     # Get all orders with this loading number that need approval
@@ -2828,6 +2886,10 @@ def approve_collection_by_loading(
         ),
         models.Order.collection_approved == False
     ).all()
+    orders = restrict_orders(
+        db, user, orders,
+        detail=f"No orders found for loading number {loading_number} that need collection approval",
+    )
     
     if not orders:
         raise HTTPException(
@@ -2858,12 +2920,14 @@ def approve_collection_by_loading(
 @router.post("/{order_id}/approve-collection", response_model=None)
 def approve_collection(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("billing.approve")),
 ):
     """Approve an order for collection processing"""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     
     if order.collection_status not in ["Pending", "Partially Collected", "Postponed"]:
         raise HTTPException(
@@ -2909,12 +2973,14 @@ def approve_collection(
 def mark_partial_collection(
     order_id: int,
     collected_amount: Optional[float] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Mark an order as partially collected"""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     
     # Calculate total amount
     total_amount = Decimal('0')
@@ -2971,12 +3037,14 @@ def mark_partial_collection(
 @router.post("/{order_id}/mark-postponed-collection", response_model=schemas.CollectionApprovalOrder)
 def mark_postponed_collection(
     order_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_auth),
 ):
     """Mark an order collection as postponed"""
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    hide_order(db, user, order, detail="Order not found")
     
     # Calculate total amount
     total_amount = Decimal('0')

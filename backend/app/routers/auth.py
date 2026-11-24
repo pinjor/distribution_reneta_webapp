@@ -5,7 +5,7 @@ from datetime import timedelta
 from app.database import get_db
 from app.auth import authenticate_user, create_access_token, get_password_hash, verify_token
 from app.core.config import get_settings
-from app.core.deps import get_client_ip, get_current_user, get_user_agent, require_auth
+from app.core.deps import get_client_ip, get_current_user, get_user_agent, require_auth, require_permission
 from app.models import Employee, Depot
 from app.models_platform import LoginAudit
 from app.schemas import LoginRequest, SignupRequest, Token, UserProfileResponse, UserResponse
@@ -92,7 +92,12 @@ async def login(login_data: LoginRequest, request: Request, db: Session = Depend
 
 
 @router.post("/signup", response_model=UserResponse)
-async def signup(signup_data: SignupRequest, db: Session = Depends(get_db)):
+async def signup(
+    signup_data: SignupRequest,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("admin.users")),
+):
+    """Employee registration is an administrator action. Login is unchanged."""
     existing_user = db.query(Employee).filter(Employee.email == signup_data.email).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
