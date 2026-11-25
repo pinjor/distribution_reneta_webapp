@@ -33,6 +33,15 @@ DEFAULT_CORS_ORIGINS = (
 )
 
 
+def _env_flag(name: str, *, default_off_in_production: bool, environment: str) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        if default_off_in_production:
+            return environment.lower() not in ("production", "prod")
+        return False
+    return raw.strip().lower() in ("true", "yes", "1", "on")
+
+
 def _parse_cors_origins(raw: str | None) -> list[str]:
     if raw is None or not raw.strip():
         return list(DEFAULT_CORS_ORIGINS)
@@ -55,6 +64,18 @@ class Settings:
         )
         self.require_auth: bool = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
         self.integration_sandbox: bool = os.getenv("INTEGRATION_SANDBOX", "true").lower() == "true"
+        # Draft writes: off in production unless explicitly enabled.
+        # Role gate (admin/manager) is separate. orders.write mapping is not approved.
+        self.sample_gift_draft_writes = _env_flag(
+            "SAMPLE_GIFT_DRAFT_WRITES",
+            default_off_in_production=True,
+            environment=self.environment,
+        )
+        self.export_draft_writes = _env_flag(
+            "EXPORT_DRAFT_WRITES",
+            default_off_in_production=True,
+            environment=self.environment,
+        )
         self.cors_origins: list[str] = _parse_cors_origins(os.getenv("CORS_ORIGINS"))
 
     @property

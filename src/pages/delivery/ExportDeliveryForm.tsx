@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, PlusCircle, Trash2, Save, Loader2, Globe } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, PlusCircle, Trash2, Loader2, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  canShowDraftEdit,
+  decimalInput,
+  formatApiError,
+  isNonDraftUpdateConflict,
+  toDateInput,
+} from "@/lib/draftDocumentUi";
+import { DraftEditConflict } from "@/pages/delivery/DraftEditConflict";
+import { DraftUnsavedChangesDialog } from "@/pages/delivery/DraftUnsavedChangesDialog";
+import { useDraftCapabilities } from "@/hooks/useDraftCapabilities";
+import { useUnsavedDraftGuard } from "@/hooks/useUnsavedDraftGuard";
+import {
+  EXPORT_LINE_FIELDS,
+  captureDraftFormSnapshot,
+  isDraftFormDirty,
+} from "@/lib/draftFormSnapshot";
 
 interface ExportItem {
   key: string;
@@ -29,11 +46,20 @@ const createKey = () => Math.random().toString(36).substring(2, 8).toUpperCase()
 
 export default function ExportDeliveryForm() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = Boolean(id);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const capabilities = useDraftCapabilities();
   const [loading, setLoading] = useState(false);
+  const [loadingDocument, setLoadingDocument] = useState(isEdit);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [blockedReason, setBlockedReason] = useState<string | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const [items, setItems] = useState<ExportItem[]>([]);
+  const [depotId, setDepotId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     deliveryNumber: "",
@@ -60,9 +86,97 @@ export default function ExportDeliveryForm() {
     hsnCode: "",
   });
 
+  const listPath = "/delivery/export";
+  const detailPath = id ? `${listPath}/${id}` : listPath;
+
+  const snapshot = useMemo(
+    () => captureDraftFormSnapshot(form, items, EXPORT_LINE_FIELDS),
+    [form, items]
+  );
+  const [baseline, setBaseline] = useState<string | null>(null);
+  useEffect(() => {
+    if (capabilities.loading || (isEdit && loadingDocument)) return;
+    if (baseline === null) setBaseline(snapshot);
+  }, [capabilities.loading, isEdit, loadingDocument, snapshot, baseline]);
+  const isDirty = isDraftFormDirty(snapshot, baseline);
+  const guard = useUnsavedDraftGuard(isDirty);
+
+  const applyDocument = (row: any) => {
+    setDepotId(row.depot_id ?? null);
+    setForm({
+      deliveryNumber: row.delivery_number || "",
+      deliveryDate: toDateInput(row.delivery_date) || new Date().toISOString().split("T")[0],
+      destinationCountry: row.destination_country || "",
+      portOfLoading: row.port_of_loading || "",
+      portOfDischarge: row.port_of_discharge || "",
+      shippingLine: row.shipping_line || "",
+      containerNumber: row.container_number || "",
+      blNumber: row.bl_number || "",
+      invoiceNumber: row.invoice_number || "",
+      lcNumber: row.lc_number || "",
+      incoterms: row.incoterms || "",
+      paymentTerms: row.payment_terms || "",
+      remarks: row.remarks || "",
+    });
+    setItems(
+      (row.items || []).map((item: any) => ({
+        key: createKey(),
+        productId: String(item.product_id),
+        productName: item.product_name || `Product ${item.product_id}`,
+        oldCode: "",
+        newCode: "",
+        batchNumber: item.batch_number || "",
+        expiryDate: toDateInput(item.expiry_date),
+        quantity: decimalInput(item.quantity),
+        unitPrice: decimalInput(item.unit_price || "0"),
+        hsnCode: item.hsn_code || "",
+      }))
+    );
+  };
+
+  const fetchDocument = async () => {
+    if (!id) return;
+    try {
+      setLoadingDocument(true);
+      setLoadError(null);
+      setBlockedReason(null);
+      setConflictMessage(null);
+      const row = await apiEndpoints.exportDeliveries.getById(id);
+      if (row.status !== "Draft") {
+        setBlockedReason("Only Draft documents can be edited.");
+        setDepotId(row.depot_id ?? null);
+        return;
+      }
+      if (!canShowDraftEdit(capabilities.export.can_edit, row.status)) {
+        setBlockedReason("Editing is currently unavailable.");
+        applyDocument(row);
+        return;
+      }
+      applyDocument(row);
+    } catch (error: any) {
+      setLoadError(formatApiError(error, "Unable to load delivery details"));
+    } finally {
+      setLoadingDocument(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (capabilities.loading) return;
+    if (isEdit) {
+      fetchDocument();
+      return;
+    }
+    if (!capabilities.export.can_create) {
+      setBlockedReason("Draft creation is currently unavailable.");
+    } else {
+      setBlockedReason(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, capabilities.loading, capabilities.export.can_create, capabilities.export.can_edit]);
 
   const fetchProducts = async () => {
     try {
@@ -83,8 +197,10 @@ export default function ExportDeliveryForm() {
       setProducts(exportProducts);
       
       if (exportProducts.length === 0) {
-        console.warn("No export products found. Total products:", allProducts.length);
-        console.log("Sample product:", allProducts[0]);
+        toast({
+          title: "No export products",
+          description: "No products are flagged as export in master data. The catalog is empty until those flags are set.",
+        });
       }
     } catch (error) {
       console.error("Failed to load products", error);
@@ -94,7 +210,7 @@ export default function ExportDeliveryForm() {
     }
   };
 
-  const selectedProduct = products.find((p) => p.id === itemDraft.productId);
+  const selectedProduct = products.find((p) => String(p.id) === String(itemDraft.productId));
 
   const handleAddItem = () => {
     if (!itemDraft.productId) {
@@ -105,8 +221,16 @@ export default function ExportDeliveryForm() {
       toast({ title: "Enter valid quantity", variant: "destructive" });
       return;
     }
+    if (itemDraft.unitPrice !== "" && Number(itemDraft.unitPrice) < 0) {
+      toast({ title: "Unit price cannot be negative", variant: "destructive" });
+      return;
+    }
+    if (!selectedProduct) {
+      toast({ title: "Select a product", variant: "destructive" });
+      return;
+    }
 
-    const product = selectedProduct!;
+    const product = selectedProduct;
     setItems((prev) => [
       ...prev,
       {
@@ -137,8 +261,13 @@ export default function ExportDeliveryForm() {
     setItems((prev) => prev.filter((item) => item.key !== key));
   };
 
+  const handleLineChange = (key: string, field: "quantity" | "unitPrice", value: string) => {
+    setItems((prev) => prev.map((item) => (item.key === key ? { ...item, [field]: value } : item)));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!form.destinationCountry || !form.portOfLoading || !form.portOfDischarge) {
       toast({ title: "Please fill all required fields", variant: "destructive" });
       return;
@@ -147,41 +276,83 @@ export default function ExportDeliveryForm() {
       toast({ title: "Add at least one item", variant: "destructive" });
       return;
     }
+    if (items.some((item) => item.unitPrice !== "" && Number(item.unitPrice) < 0)) {
+      toast({ title: "Unit price cannot be negative", variant: "destructive" });
+      return;
+    }
+    if (items.some((item) => !item.quantity || Number(item.quantity) <= 0)) {
+      toast({ title: "Enter valid quantity", variant: "destructive" });
+      return;
+    }
+    const writeDepotId = isEdit ? depotId : user?.depot_id;
+    if (!writeDepotId) {
+      toast({
+        title: "No depot assignment",
+        description: "A depot is required to save an Export draft. The form will not choose a depot for you.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setSaving(true);
+      setConflictMessage(null);
       const payload = {
-        delivery_type: "export",
-        delivery_number: form.deliveryNumber || `EX-${Date.now()}`,
+        delivery_number: form.deliveryNumber || undefined,
+        depot_id: writeDepotId,
         delivery_date: form.deliveryDate,
         destination_country: form.destinationCountry,
         port_of_loading: form.portOfLoading,
         port_of_discharge: form.portOfDischarge,
-        shipping_line: form.shippingLine,
-        container_number: form.containerNumber,
-        bl_number: form.blNumber,
-        invoice_number: form.invoiceNumber,
-        lc_number: form.lcNumber,
-        incoterms: form.incoterms,
-        payment_terms: form.paymentTerms,
-        remarks: form.remarks,
+        shipping_line: form.shippingLine || null,
+        container_number: form.containerNumber || null,
+        bl_number: form.blNumber || null,
+        invoice_number: form.invoiceNumber || null,
+        lc_number: form.lcNumber || null,
+        incoterms: form.incoterms || null,
+        payment_terms: form.paymentTerms || null,
+        remarks: form.remarks || null,
         items: items.map((item) => ({
-          product_id: parseInt(item.productId),
-          batch_number: item.batchNumber,
-          expiry_date: item.expiryDate,
-          quantity: parseFloat(item.quantity),
-          unit_price: parseFloat(item.unitPrice || "0"),
-          hsn_code: item.hsnCode,
+          product_id: parseInt(item.productId, 10),
+          batch_number: item.batchNumber || null,
+          expiry_date: item.expiryDate || null,
+          quantity: item.quantity,
+          unit_price: item.unitPrice || "0",
+          hsn_code: item.hsnCode || null,
         })),
       };
 
-      await apiEndpoints.orderDeliveries.create(payload);
-      
-      toast({ title: "Export delivery created successfully" });
-      navigate("/delivery/export");
+      if (isEdit && id) {
+        const updated = await apiEndpoints.exportDeliveries.update(id, payload);
+        toast({
+          title: "Export delivery updated",
+          description: `Draft ${updated.delivery_number} saved.`,
+        });
+        guard.allowNextNavigation();
+        navigate(detailPath);
+        return;
+      }
+
+      const created = await apiEndpoints.exportDeliveries.create(payload);
+      toast({
+        title: "Export delivery created",
+        description: `Draft ${created.delivery_number} saved.`,
+      });
+      guard.allowNextNavigation();
+      navigate(listPath);
     } catch (error: any) {
-      console.error("Failed to create export delivery", error);
-      toast({ title: "Unable to create delivery", description: error?.message, variant: "destructive" });
+      console.error("Failed to save export delivery", error);
+      if (isNonDraftUpdateConflict(error)) {
+        setConflictMessage(formatApiError(error, "Only Draft documents can be updated"));
+        toast({
+          title: "Document is no longer editable",
+          description: formatApiError(error),
+          variant: "destructive",
+        });
+        return;
+      }
+      const title = error?.status === 403 ? "You do not have permission to save" : isEdit ? "Unable to update delivery" : "Unable to create delivery";
+      toast({ title, description: formatApiError(error), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -190,26 +361,83 @@ export default function ExportDeliveryForm() {
   const totalAmount = items.reduce((sum, item) => {
     return sum + parseFloat(item.quantity || "0") * parseFloat(item.unitPrice || "0");
   }, 0);
+  const formLocked = Boolean(conflictMessage || blockedReason);
+
+  if (capabilities.loading || (isEdit && loadingDocument)) {
+    return (
+      <main className="p-6">
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">
+              {isEdit ? "Loading delivery details..." : "Checking permissions..."}
+            </p>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  if (isEdit && loadError) {
+    return (
+      <main className="p-6 space-y-4">
+        <Card>
+          <CardContent className="py-16 text-center text-muted-foreground">{loadError}</CardContent>
+        </Card>
+        <Button variant="outline" onClick={fetchDocument}>Retry</Button>
+        <Button variant="outline" onClick={() => navigate(listPath)}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+      </main>
+    );
+  }
 
   return (
     <main className="p-6 space-y-6">
       <PageHeader
-        title="Create Export Delivery"
-        subtitle="Create a new international export delivery with shipping documentation"
+        title={isEdit ? "Edit Export Delivery" : "Create Export Delivery"}
+        subtitle={
+          isEdit
+            ? "Update this Draft. Submitted, Approved, and Rejected documents cannot be changed."
+            : "Create a new international export delivery with shipping documentation"
+        }
         icon={Globe}
         variant="teal"
         actions={(
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => navigate("/delivery/export")}
-           
+            onClick={() => navigate(isEdit ? detailPath : listPath)}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
         )}
       />
+
+      {conflictMessage && (
+        <DraftEditConflict
+          message={conflictMessage}
+          onReload={() =>
+            guard.confirmOrRun(() => {
+              setBaseline(null);
+              fetchDocument();
+            })
+          }
+          onBack={() => navigate(detailPath)}
+        />
+      )}
+      {blockedReason && (
+        <Card>
+          <CardContent className="py-4 space-y-3">
+            <p>{blockedReason}</p>
+            <Button type="button" variant="outline" onClick={() => navigate(detailPath || listPath)}>
+              Back to Detail
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">
@@ -315,7 +543,7 @@ export default function ExportDeliveryForm() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="incoterms">Incoterms</Label>
-                  <Select value={form.incoterms} onValueChange={(value) => setForm((prev) => ({ ...prev, incoterms: value }))}>
+                  <Select value={form.incoterms || undefined} onValueChange={(value) => setForm((prev) => ({ ...prev, incoterms: value }))}>
                     <SelectTrigger id="incoterms">
                       <SelectValue placeholder="Select incoterms" />
                     </SelectTrigger>
@@ -330,7 +558,7 @@ export default function ExportDeliveryForm() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="paymentTerms">Payment Terms</Label>
-                  <Select value={form.paymentTerms} onValueChange={(value) => setForm((prev) => ({ ...prev, paymentTerms: value }))}>
+                  <Select value={form.paymentTerms || undefined} onValueChange={(value) => setForm((prev) => ({ ...prev, paymentTerms: value }))}>
                     <SelectTrigger id="paymentTerms">
                       <SelectValue placeholder="Select payment terms" />
                     </SelectTrigger>
@@ -362,10 +590,15 @@ export default function ExportDeliveryForm() {
               <CardTitle>Export Items</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {!loading && products.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No products are flagged as export in master data. This is the real catalog state; demo products will not be added here.
+                </p>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div className="space-y-2">
                   <Label>Product *</Label>
-                  <Select value={itemDraft.productId} onValueChange={(value) => setItemDraft((prev) => ({ ...prev, productId: value }))} disabled={loading || products.length === 0}>
+                  <Select value={itemDraft.productId || undefined} onValueChange={(value) => setItemDraft((prev) => ({ ...prev, productId: value }))} disabled={loading || products.length === 0}>
                     <SelectTrigger>
                       <SelectValue placeholder={loading ? "Loading..." : products.length === 0 ? "No products available" : "Select product"} />
                     </SelectTrigger>
@@ -373,7 +606,7 @@ export default function ExportDeliveryForm() {
                       {loading ? (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading...</div>
                       ) : products.length === 0 ? (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No products available</div>
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No export products in catalog</div>
                       ) : (
                         products.map((product) => (
                           <SelectItem key={product.id} value={String(product.id)}>
@@ -408,7 +641,6 @@ export default function ExportDeliveryForm() {
                     onChange={(e) => setItemDraft((prev) => ({ ...prev, quantity: e.target.value }))}
                     placeholder="0"
                     min="1"
-                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -464,8 +696,29 @@ export default function ExportDeliveryForm() {
                             <TableCell>{item.batchNumber || "—"}</TableCell>
                             <TableCell>{item.expiryDate || "—"}</TableCell>
                             <TableCell>{item.hsnCode || "—"}</TableCell>
-                            <TableCell className="text-right">{parseFloat(item.quantity).toLocaleString()}</TableCell>
-                            <TableCell className="text-right">{parseFloat(item.unitPrice || "0").toLocaleString()}</TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                min="0"
+                                className="ml-auto w-24 text-right"
+                                data-testid="line-quantity"
+                                value={item.quantity}
+                                disabled={formLocked}
+                                onChange={(e) => handleLineChange(item.key, "quantity", e.target.value)}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="ml-auto w-28 text-right"
+                                data-testid="line-unit-price"
+                                value={item.unitPrice}
+                                disabled={formLocked}
+                                onChange={(e) => handleLineChange(item.key, "unitPrice", e.target.value)}
+                              />
+                            </TableCell>
                             <TableCell className="text-right font-medium">{amount.toLocaleString()}</TableCell>
                             <TableCell>
                               <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(item.key)}>
@@ -490,10 +743,10 @@ export default function ExportDeliveryForm() {
           </Card>
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => navigate("/delivery/export")}>
+            <Button type="button" variant="outline" onClick={() => navigate(isEdit ? detailPath : listPath)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || items.length === 0}>
+            <Button type="submit" data-testid="export-save" disabled={saving || items.length === 0 || formLocked}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -502,13 +755,14 @@ export default function ExportDeliveryForm() {
               ) : (
                 <>
                   <Globe className="h-4 w-4 mr-2" />
-                  Create Export
+                  {isEdit ? "Save Changes" : "Create Export"}
                 </>
               )}
             </Button>
           </div>
         </div>
       </form>
+      <DraftUnsavedChangesDialog open={guard.dialogOpen} onStay={guard.stay} onDiscard={guard.discard} />
     </main>
   );
 }

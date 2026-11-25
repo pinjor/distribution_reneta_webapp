@@ -1,18 +1,13 @@
-"""Reconciled schema baseline for an empty PostgreSQL database.
+"""ARCHIVED. Not loaded by Alembic. See alembic/historical/README.md.
+
+This was the 80-table root (d2_baseline) from 23 November 2026. The live
+catalog later diverged (78 tables plus five rejection columns). Do not
+upgrade or stamp swift_distro_hub with this revision. The active root is
+d4_baseline.
 
 Revision ID: d2_baseline
 Revises:
 Create Date: 2026-11-23
-
-Creates the 80 public tables present in swift_distro_hub, including the four
-tables that have no SQLAlchemy model. This revision contains no data and no
-historical UPDATE statements.
-
-It is the only active root revision. The older 001_platform script is archived
-under alembic/historical and is not on this chain.
-
-Do not upgrade or stamp swift_distro_hub with this revision until the
-disposable-database diff has been reviewed and the stamp is explicitly approved.
 """
 from pathlib import Path
 from typing import Sequence, Union
@@ -26,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    sql_path = Path(__file__).resolve().parents[1] / "sql" / "d2_reconciled_baseline.sql"
+    sql_path = Path(__file__).resolve().parent / "d2_reconciled_baseline.sql"
     sql = sql_path.read_text(encoding="utf-8")
     connection = op.get_bind()
     raw = connection.connection

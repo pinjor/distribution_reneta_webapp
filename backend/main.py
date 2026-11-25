@@ -6,17 +6,21 @@ from contextlib import asynccontextmanager
 import json
 import traceback
 
-from app.database import engine, Base
+from app.database import engine, SessionLocal
 from app.core.deps import require_auth
 from app.core.config import get_settings
 from app.core.audit_middleware import AuditWriteMiddleware
+from app.core.schema_guard import assert_schema_ready, is_sqlite
 from app.redis_cache import close_redis_client, get_redis_client
 
-# Import platform models so create_all registers them
+# Register ORM tables for schema checks (Alembic owns DDL).
+import app.models  # noqa: F401
 import app.models_platform  # noqa: F401
 
+from app.routers.draft_modules import router as draft_modules_capability_router
 from app.routers import (
-    auth, companies, depots, employees, customers, vendors,
+    auth, companies, depots, employees, customers, vendors, doctors, chemist_shops,
+    sample_gift_deliveries, export_deliveries,
     products, materials, shipping_points, route_shipping_points, uoms, primary_packagings, price_setups,
     role_masters, orders, product_receipts, order_deliveries,
     vehicles, drivers, routes, picking_orders,
@@ -39,35 +43,21 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         print(f"Redis unavailable, continuing without cache: {exc}")
         await close_redis_client()
-    Base.metadata.create_all(bind=engine)
-    # Apply legacy column alters on existing PostgreSQL volumes (safe IF NOT EXISTS)
-    try:
-        from sqlalchemy import text
-        from app.database import SessionLocal
+    assert_schema_ready(engine)
+    if not is_sqlite(engine):
+        from app.core.permissions import PERMISSIONS
+        from app.models_platform import Permission
+        from app.services.order_validation_service import OrderValidationService
+
         db = SessionLocal()
         try:
-            db.execute(text(
-                "ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE"
-            ))
+            for code, name, module in PERMISSIONS:
+                if not db.query(Permission).filter(Permission.code == code).first():
+                    db.add(Permission(code=code, name=name, module=module))
+            OrderValidationService.ensure_default_rules(db)
             db.commit()
         finally:
             db.close()
-    except Exception as exc:
-        print(f"Startup schema patch skipped: {exc}")
-    # Seed permissions and validation rules
-    from app.database import SessionLocal
-    from app.core.permissions import PERMISSIONS
-    from app.models_platform import Permission
-    from app.services.order_validation_service import OrderValidationService
-    db = SessionLocal()
-    try:
-        for code, name, module in PERMISSIONS:
-            if not db.query(Permission).filter(Permission.code == code).first():
-                db.add(Permission(code=code, name=name, module=module))
-        OrderValidationService.ensure_default_rules(db)
-        db.commit()
-    finally:
-        db.close()
     yield
     await close_redis_client()
 
@@ -139,6 +129,11 @@ app.include_router(depots.router, prefix="/api/depots", tags=["Depots"], depende
 app.include_router(employees.router, prefix="/api/employees", tags=["Employees"], dependencies=PROTECTED)
 app.include_router(customers.router, prefix="/api/customers", tags=["Customers"], dependencies=PROTECTED)
 app.include_router(vendors.router, prefix="/api/vendors", tags=["Vendors"], dependencies=PROTECTED)
+app.include_router(doctors.router, prefix="/api/doctors", tags=["Doctors"], dependencies=PROTECTED)
+app.include_router(chemist_shops.router, prefix="/api/chemist-shops", tags=["Chemist Shops"], dependencies=PROTECTED)
+app.include_router(sample_gift_deliveries.router, prefix="/api/sample-gift-deliveries", tags=["Sample Gift Deliveries"], dependencies=PROTECTED)
+app.include_router(export_deliveries.router, prefix="/api/export-deliveries", tags=["Export Deliveries"], dependencies=PROTECTED)
+app.include_router(draft_modules_capability_router, prefix="/api/draft-modules", tags=["Draft Modules"], dependencies=PROTECTED)
 app.include_router(products.router, prefix="/api/products", tags=["Products"], dependencies=PROTECTED)
 app.include_router(materials.router, prefix="/api/materials", tags=["Materials"], dependencies=PROTECTED)
 app.include_router(shipping_points.router, prefix="/api/shipping-points", tags=["Shipping Points"], dependencies=PROTECTED)

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.deps import require_role
 from app.database import get_db
 from app.models import PrimaryPackaging
 from app.schemas import PrimaryPackagingCreate, PrimaryPackagingUpdate, PrimaryPackaging as PrimaryPackagingSchema
 
 router = APIRouter()
+WRITE_ROLES = require_role("admin", "manager")
 
 def generate_primary_packaging_code(db: Session) -> str:
     """Generate a unique PrimaryPackaging code in format PP-XXXX"""
@@ -51,7 +53,7 @@ def get_primary_packaging(packaging_id: int, db: Session = Depends(get_db)):
     return packaging
 
 @router.post("/", response_model=PrimaryPackagingSchema)
-def create_primary_packaging(packaging: PrimaryPackagingCreate, db: Session = Depends(get_db)):
+def create_primary_packaging(packaging: PrimaryPackagingCreate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     # Auto-generate code if not provided
     if not packaging.code:
         packaging.code = generate_primary_packaging_code(db)
@@ -68,7 +70,7 @@ def create_primary_packaging(packaging: PrimaryPackagingCreate, db: Session = De
     return db_packaging
 
 @router.put("/{packaging_id}", response_model=PrimaryPackagingSchema)
-def update_primary_packaging(packaging_id: int, packaging: PrimaryPackagingUpdate, db: Session = Depends(get_db)):
+def update_primary_packaging(packaging_id: int, packaging: PrimaryPackagingUpdate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_packaging = db.query(PrimaryPackaging).filter(PrimaryPackaging.id == packaging_id).first()
     if not db_packaging:
         raise HTTPException(status_code=404, detail="PrimaryPackaging not found")
@@ -88,7 +90,7 @@ def update_primary_packaging(packaging_id: int, packaging: PrimaryPackagingUpdat
     return db_packaging
 
 @router.delete("/{packaging_id}")
-def delete_primary_packaging(packaging_id: int, db: Session = Depends(get_db)):
+def delete_primary_packaging(packaging_id: int, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_packaging = db.query(PrimaryPackaging).filter(PrimaryPackaging.id == packaging_id).first()
     if not db_packaging:
         raise HTTPException(status_code=404, detail="PrimaryPackaging not found")

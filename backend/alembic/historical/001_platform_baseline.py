@@ -2,7 +2,7 @@
 
 This was the old root revision. It runs 001_platform_hardening.sql, including
 UPDATE statements against orders. It cannot build an empty database and must
-not be upgraded onto swift_distro_hub. The active root is d2_baseline.
+not be upgraded onto swift_distro_hub. The active root is d4_baseline. d2_baseline is also archived in this directory.
 
 Revision ID: 001_platform
 Revises:

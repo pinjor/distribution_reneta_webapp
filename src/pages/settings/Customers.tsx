@@ -72,31 +72,59 @@ export default function Customers() {
     hospital: false,
     others: false,
   });
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    const base: Customer[] = [
-      { id: "1", code: "CUST-0001", name: "Global Retail Inc", company: "Retail", email: "orders@globalretail.com", phone: "+1 555-1001", address: "123 Main Street", city: "New York", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
-      { id: "2", code: "CUST-0002", name: "Premium Foods Co", company: "Food & Beverage", email: "supply@premiumfoods.com", phone: "+1 555-1002", address: "456 Commerce Ave", city: "Los Angeles", priority: "Medium", deliveryStatus: "Open", creditStatus: "Cash" },
-      { id: "3", code: "CUST-0003", name: "Tech Solutions Ltd", company: "Technology", email: "logistics@techsol.com", phone: "+1 555-1003", address: "789 Tech Park", city: "San Francisco", priority: "High", deliveryStatus: "Block", creditStatus: "Credit" },
-      { id: "4", code: "CUST-0004", name: "Manufacturing Plus", company: "Manufacturing", email: "contact@mfgplus.com", phone: "+1 555-1004", address: "321 Industrial Blvd", city: "Chicago", priority: "Low", deliveryStatus: "Open", creditStatus: "Credit" },
-      { id: "5", code: "CUST-0005", name: "Retail World Corp", company: "Retail", email: "info@retailworld.com", phone: "+1 555-1005", address: "654 Shopping Center", city: "Miami", priority: "Medium", deliveryStatus: "Open", creditStatus: "Cash" },
-      { id: "6", code: "CUST-0006", name: "Supply Chain Pro", company: "Logistics", email: "contact@supplypro.com", phone: "+1 555-1006", address: "987 Warehouse Rd", city: "Dallas", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
-      { id: "7", code: "CUST-0007", name: "Consumer Goods Inc", company: "Consumer", email: "sales@consumergoods.com", phone: "+1 555-1007", address: "147 Market St", city: "Boston", priority: "Medium", deliveryStatus: "Block", creditStatus: "Credit" },
-      { id: "8", code: "CUST-0008", name: "Distribution Hub", company: "Distribution", email: "info@disthub.com", phone: "+1 555-1008", address: "258 Distribution Way", city: "Seattle", priority: "Low", deliveryStatus: "Open", creditStatus: "Cash" },
-      { id: "9", code: "CUST-0009", name: "Trade Partners Ltd", company: "Trading", email: "contact@tradepartners.com", phone: "+1 555-1009", address: "369 Trade Center", city: "Houston", priority: "High", deliveryStatus: "Open", creditStatus: "Credit" },
-      { id: "10", code: "CUST-0010", name: "Merchant Solutions", company: "Merchant", email: "info@merchantsol.com", phone: "+1 555-1010", address: "741 Business Park", city: "Atlanta", priority: "Medium", deliveryStatus: "Open", creditStatus: "Credit" },
-      { id: "11", code: "CUST-0011", name: "Wholesale Express", company: "Wholesale", email: "sales@wholesaleexp.com", phone: "+1 555-1011", address: "852 Wholesale Ave", city: "Phoenix", priority: "High", deliveryStatus: "Block", creditStatus: "Cash" },
-      { id: "12", code: "CUST-0012", name: "Bulk Distributors", company: "Bulk", email: "contact@bulkdist.com", phone: "+1 555-1012", address: "963 Bulk Center", city: "Detroit", priority: "Low", deliveryStatus: "Open", creditStatus: "Credit" },
-    ];
-    return base.map((customer) => ({
-      ...customer,
-      shipToParty: customer.address,
-      soldToParty: customer.address,
-    }));
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mapCustomer = (row: any): Customer => ({
+    id: String(row.id),
+    code: row.code || "",
+    name: row.name || "",
+    company: row.type || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    address: row.address || "",
+    city: row.city || "",
+    shipToParty: row.ship_to_party || "",
+    soldToParty: row.sold_to_party || row.address || "",
+    priority: row.priority || "Medium",
+    deliveryStatus: row.delivery_status_block ? "Block" : "Open",
+    creditStatus: row.credit_status_cash ? "Cash" : "Credit",
+    paymentDays: row.payment_days ?? undefined,
   });
+
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item: any) => item?.msg || JSON.stringify(item)).join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadCustomers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await apiEndpoints.customers.getAll();
+      setCustomers(Array.isArray(rows) ? rows.map(mapCustomer) : []);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setCustomers([]);
+      toast({ title: "Failed to load customers", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     document.title = "Customers | Renata";
     fetchCompanies();
+    loadCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCompanies = async () => {
@@ -113,61 +141,50 @@ export default function Customers() {
     return generateCode("CUST", existingCodes);
   };
 
-  const handleAdd = () => {
-    const deliveryStatus = deliveryOpen ? "Open" : "Block";
-    const creditStatus = creditCredit ? "Credit" : "Cash";
-    
-    if (editMode && selectedCustomer) {
-      setCustomers(prev => prev.map(c => 
-        c.id === selectedCustomer.id 
-          ? { 
-              ...c, 
-              name: formData.name,
-              company: formData.company,
-              email: formData.email,
-              phone: formData.phone,
-              address: formData.address,
-              city: formData.city,
-              shipToParty: formData.shipToParty,
-              soldToParty: formData.soldToParty || formData.address,
-              priority: priority,
-              deliveryStatus: deliveryStatus,
-              creditStatus: creditStatus,
-              paymentDays: paymentDays ? parseInt(paymentDays) : undefined,
-              customerType: customerType,
-            }
-          : c
-      ));
-      toast({
-        title: "Customer updated",
-        description: "Customer information has been updated successfully.",
-      });
-    } else {
-      const newCode = generateCustomerCode();
-      const newCustomer: Customer = {
-        id: Date.now().toString(),
-        code: newCode,
-        name: formData.name,
-        company: formData.company,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        shipToParty: formData.shipToParty,
-        soldToParty: formData.soldToParty || formData.address,
-        priority: priority,
-        deliveryStatus: deliveryStatus,
-        creditStatus: creditStatus,
-        paymentDays: paymentDays ? parseInt(paymentDays) : undefined,
-        customerType: customerType,
-      };
-      setCustomers(prev => [...prev, newCustomer]);
-      toast({
-        title: "Customer added",
-        description: `New customer created with code ${newCode}.`,
-      });
+  const handleAdd = async () => {
+    if (!formData.name.trim()) {
+      toast({ title: "Missing required fields", description: "Customer name is required.", variant: "destructive" });
+      return;
     }
-    resetForm();
+    const payload = {
+      name: formData.name.trim(),
+      type: formData.company || "Retailer",
+      email: formData.email || null,
+      phone: formData.phone || null,
+      address: formData.address || null,
+      city: formData.city || null,
+      ship_to_party: formData.shipToParty || null,
+      sold_to_party: formData.soldToParty || formData.address || null,
+      priority,
+      delivery_status_block: deliveryBlock,
+      delivery_status_open: deliveryOpen,
+      credit_status_cash: creditCash,
+      credit_status_credit: creditCredit,
+      payment_days: paymentDays ? parseInt(paymentDays, 10) : null,
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedCustomer) {
+        await apiEndpoints.customers.update(Number(selectedCustomer.id), payload);
+        toast({ title: "Customer updated", description: "Customer information has been updated successfully." });
+      } else {
+        const created = await apiEndpoints.customers.create({
+          ...payload,
+          code: newCustomerCode || undefined,
+        });
+        toast({ title: "Customer added", description: `New customer created with code ${created.code}.` });
+      }
+      await loadCustomers();
+      resetForm();
+    } catch (err) {
+      toast({
+        title: editMode ? "Failed to update customer" : "Failed to create customer",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAddressChange = (value: string) => {
@@ -261,13 +278,15 @@ export default function Customers() {
     setSoldToEditedManually(false);
   };
 
-  const handleDelete = (customer: Customer) => {
-    setCustomers(prev => prev.filter(c => c.id !== customer.id));
-    toast({
-      title: "Customer deleted",
-      description: "The customer has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (customer: Customer) => {
+    if (!window.confirm(`Delete customer ${customer.name}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.customers.delete(Number(customer.id));
+      toast({ title: "Customer deleted", description: "The customer has been removed.", variant: "destructive" });
+      await loadCustomers();
+    } catch (err) {
+      toast({ title: "Failed to delete customer", description: formatApiError(err), variant: "destructive" });
+    }
   };
 
   // Define table columns
@@ -419,6 +438,7 @@ export default function Customers() {
               {/* Customer Type */}
               <div className="space-y-3">
                 <Label>Customer Type</Label>
+                <p className="text-xs text-muted-foreground">These checkboxes are not stored in the database. Industry / type is saved as the customer type field.</p>
                 <div className="flex flex-wrap items-center gap-6">
                   <div className="flex items-center space-x-2">
                     <Checkbox 
@@ -646,8 +666,8 @@ export default function Customers() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Customer" : "Create Customer"}
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Customer" : "Create Customer"}
                 </Button>
               </div>
             </div>
@@ -667,6 +687,13 @@ export default function Customers() {
         variant="slate"
       />
 
+      {error && (
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" size="sm" onClick={loadCustomers}>Retry</Button>
+        </div>
+      )}
+
       <MasterDataTable
         title="All Customers"
         description={`Total accounts: ${customers.length}`}
@@ -678,7 +705,7 @@ export default function Customers() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No customers found"
+        emptyMessage={loading ? "Loading customers..." : "No customers found"}
         showCode={true}
         codeKey="code"
       />

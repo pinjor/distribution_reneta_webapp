@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.deps import require_role
 from app.database import get_db
 from app.models import PriceSetup, Product
 from app.schemas import PriceSetupCreate, PriceSetupUpdate, PriceSetup as PriceSetupSchema
 
 router = APIRouter()
+WRITE_ROLES = require_role("admin", "manager")
 
 def generate_price_setup_code(db: Session) -> str:
     """Generate a unique PriceSetup code in format PRICE-XXXX"""
@@ -51,7 +53,7 @@ def get_price_setup(setup_id: int, db: Session = Depends(get_db)):
     return setup
 
 @router.post("/", response_model=PriceSetupSchema)
-def create_price_setup(setup: PriceSetupCreate, db: Session = Depends(get_db)):
+def create_price_setup(setup: PriceSetupCreate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     # Auto-generate code if not provided
     if not setup.code:
         setup.code = generate_price_setup_code(db)
@@ -73,7 +75,7 @@ def create_price_setup(setup: PriceSetupCreate, db: Session = Depends(get_db)):
     return db_setup
 
 @router.put("/{setup_id}", response_model=PriceSetupSchema)
-def update_price_setup(setup_id: int, setup: PriceSetupUpdate, db: Session = Depends(get_db)):
+def update_price_setup(setup_id: int, setup: PriceSetupUpdate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_setup = db.query(PriceSetup).filter(PriceSetup.id == setup_id).first()
     if not db_setup:
         raise HTTPException(status_code=404, detail="Price Setup not found")
@@ -99,7 +101,7 @@ def update_price_setup(setup_id: int, setup: PriceSetupUpdate, db: Session = Dep
     return db_setup
 
 @router.delete("/{setup_id}")
-def delete_price_setup(setup_id: int, db: Session = Depends(get_db)):
+def delete_price_setup(setup_id: int, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_setup = db.query(PriceSetup).filter(PriceSetup.id == setup_id).first()
     if not db_setup:
         raise HTTPException(status_code=404, detail="Price Setup not found")

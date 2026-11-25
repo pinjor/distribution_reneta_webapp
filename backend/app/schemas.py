@@ -81,16 +81,21 @@ class CompanyCreate(CompanyBase):
 
 class CompanyUpdate(BaseModel):
     name: Optional[str] = None
+    code: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
+    country: Optional[str] = None
+    pincode: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    gstin: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Company(CompanyBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -99,7 +104,7 @@ class Company(CompanyBase):
 class DepotBase(BaseModel):
     name: str
     code: str
-    company_id: int
+    company_id: Optional[int] = None
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -109,12 +114,25 @@ class DepotBase(BaseModel):
     is_active: bool = True
 
 class DepotCreate(DepotBase):
-    pass
+    name: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=1)
+
+class DepotUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    company_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Depot(DepotBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -183,7 +201,7 @@ class Customer(CustomerBase):
 # Vendor schemas
 class VendorBase(BaseModel):
     name: str
-    code: str
+    code: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -194,12 +212,25 @@ class VendorBase(BaseModel):
     is_active: bool = True
 
 class VendorCreate(VendorBase):
-    pass
+    name: str = Field(..., min_length=1)
+    code: Optional[str] = None
+
+class VendorUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gstin: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class Vendor(VendorBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -788,10 +819,80 @@ class StockAdjustment(StockAdjustmentBase):
     adjustment_number: str
     submitted_by: Optional[int] = None
     approved_by: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     items: List[StockAdjustmentItem] = []
     
+    class Config:
+        from_attributes = True
+
+
+class ShippingPointBase(BaseModel):
+    name: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=1)
+    depot_id: int
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: Optional[bool] = True
+
+
+class ShippingPointCreate(ShippingPointBase):
+    pass
+
+
+class ShippingPointUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    depot_id: Optional[int] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ShippingPoint(ShippingPointBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RouteMasterBase(BaseModel):
+    name: str = Field(..., min_length=1)
+    depot_id: int
+    stops: Optional[int] = 0
+    distance: Optional[str] = None
+    avg_time: Optional[str] = None
+    status: Optional[str] = "Active"
+
+
+class RouteMasterCreate(RouteMasterBase):
+    route_id: Optional[str] = None
+
+
+class RouteMasterUpdate(BaseModel):
+    name: Optional[str] = None
+    route_id: Optional[str] = None
+    depot_id: Optional[int] = None
+    stops: Optional[int] = None
+    distance: Optional[str] = None
+    avg_time: Optional[str] = None
+    status: Optional[str] = None
+
+
+class RouteMaster(RouteMasterBase):
+    id: int
+    route_id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 
@@ -1595,3 +1696,334 @@ class TransportReportResponse(BaseModel):
     trips_by_driver: List[dict]
     monthly_stats: List[dict]
     expenses_by_trip: List[dict] = []  # Expenses grouped by trip number
+
+
+class DoctorBase(BaseModel):
+    name: str = Field(..., min_length=1)
+    specialization: str = Field(..., min_length=1)
+    registration_number: str = Field(..., min_length=1)
+    qualification: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: Optional[bool] = True
+
+
+class DoctorCreate(DoctorBase):
+    code: Optional[str] = None
+
+
+class DoctorUpdate(BaseModel):
+    name: Optional[str] = None
+    specialization: Optional[str] = None
+    registration_number: Optional[str] = None
+    qualification: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: Optional[bool] = None
+    code: Optional[str] = None
+
+
+class Doctor(DoctorBase):
+    id: int
+    code: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DoctorList(BaseModel):
+    items: List[Doctor]
+
+
+class ChemistShopBase(BaseModel):
+    name: str = Field(..., min_length=1)
+    owner_name: str = Field(..., min_length=1)
+    license_number: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: Optional[bool] = True
+
+
+class ChemistShopCreate(ChemistShopBase):
+    code: Optional[str] = None
+
+
+class ChemistShopUpdate(BaseModel):
+    name: Optional[str] = None
+    owner_name: Optional[str] = None
+    license_number: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    is_active: Optional[bool] = None
+    code: Optional[str] = None
+
+
+class ChemistShop(ChemistShopBase):
+    id: int
+    code: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ChemistShopList(BaseModel):
+    items: List[ChemistShop]
+
+
+SAMPLE_GIFT_RECIPIENT_TYPES = (
+    "Doctor",
+    "Pharmacy",
+    "Hospital",
+    "Distributor",
+    "Partner",
+    "Other",
+)
+SAMPLE_GIFT_DOCUMENT_KINDS = ("sample", "gift")
+SAMPLE_GIFT_STATUSES = ("Draft",)
+
+
+class SampleGiftDeliveryItemCreate(BaseModel):
+    product_id: int
+    quantity: Decimal = Field(..., gt=0)
+    gift_type: Optional[str] = Field(None, max_length=100)
+
+
+class SampleGiftDeliveryItemResponse(BaseModel):
+    id: int
+    product_id: int
+    product_name: Optional[str] = None
+    quantity: Decimal
+    gift_type: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SampleGiftDeliveryCreate(BaseModel):
+    delivery_number: Optional[str] = Field(None, max_length=50)
+    depot_id: Optional[int] = None
+    document_kind: str = Field(..., min_length=1, max_length=20)
+    gift_type: Optional[str] = Field(None, max_length=100)
+    occasion: Optional[str] = Field(None, max_length=255)
+    delivery_date: date
+    recipient_name: str = Field(..., min_length=1, max_length=255)
+    recipient_type: str = Field(..., min_length=1, max_length=50)
+    recipient_address: Optional[str] = None
+    recipient_phone: Optional[str] = Field(None, max_length=50)
+    recipient_email: Optional[str] = Field(None, max_length=255)
+    remarks: Optional[str] = None
+    items: List[SampleGiftDeliveryItemCreate]
+
+    @validator("document_kind")
+    def validate_document_kind(cls, value):
+        kind = (value or "").strip().lower()
+        if kind not in SAMPLE_GIFT_DOCUMENT_KINDS:
+            raise ValueError("document_kind must be 'sample' or 'gift'")
+        return kind
+
+    @validator("recipient_name")
+    def validate_recipient_name(cls, value):
+        name = (value or "").strip()
+        if not name:
+            raise ValueError("recipient_name is required")
+        return name
+
+    @validator("recipient_type")
+    def validate_recipient_type(cls, value):
+        if value not in SAMPLE_GIFT_RECIPIENT_TYPES:
+            raise ValueError(
+                "recipient_type must be one of: " + ", ".join(SAMPLE_GIFT_RECIPIENT_TYPES)
+            )
+        return value
+
+    @validator("items")
+    def validate_items(cls, value):
+        if not value:
+            raise ValueError("At least one line item is required")
+        return value
+
+
+class SampleGiftDeliveryUpdate(SampleGiftDeliveryCreate):
+    pass
+
+
+class SampleGiftDeliveryResponse(BaseModel):
+    id: int
+    delivery_number: str
+    depot_id: int
+    document_kind: str
+    gift_type: Optional[str] = None
+    occasion: Optional[str] = None
+    status: str
+    delivery_date: date
+    recipient_name: str
+    recipient_type: str
+    recipient_address: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    recipient_email: Optional[str] = None
+    remarks: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    total_items: int = 0
+    total_quantity: Decimal = Decimal("0")
+
+    class Config:
+        from_attributes = True
+
+
+class SampleGiftDeliveryDetailResponse(SampleGiftDeliveryResponse):
+    items: List[SampleGiftDeliveryItemResponse] = []
+
+
+EXPORT_INCOTERMS = ("FOB", "CIF", "CFR", "EXW", "DDP")
+EXPORT_PAYMENT_TERMS = ("LC", "TT", "DP", "DA", "Advance")
+
+
+class ExportDeliveryItemCreate(BaseModel):
+    product_id: int
+    quantity: Decimal = Field(..., gt=0)
+    unit_price: Decimal = Field(Decimal("0"), ge=0)
+    batch_number: Optional[str] = Field(None, max_length=100)
+    expiry_date: Optional[date] = None
+    hsn_code: Optional[str] = Field(None, max_length=50)
+
+    @validator("batch_number", "hsn_code", pre=True)
+    def empty_item_str(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return value.strip() if isinstance(value, str) else value
+
+
+class ExportDeliveryItemResponse(BaseModel):
+    id: int
+    product_id: int
+    product_name: Optional[str] = None
+    batch_number: Optional[str] = None
+    expiry_date: Optional[date] = None
+    quantity: Decimal
+    unit_price: Decimal
+    line_total: Decimal
+    hsn_code: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ExportDeliveryCreate(BaseModel):
+    delivery_number: Optional[str] = Field(None, max_length=50)
+    depot_id: Optional[int] = None
+    delivery_date: date
+    destination_country: str = Field(..., min_length=1, max_length=100)
+    port_of_loading: str = Field(..., min_length=1, max_length=150)
+    port_of_discharge: str = Field(..., min_length=1, max_length=150)
+    shipping_line: Optional[str] = Field(None, max_length=150)
+    container_number: Optional[str] = Field(None, max_length=50)
+    bl_number: Optional[str] = Field(None, max_length=100)
+    invoice_number: Optional[str] = Field(None, max_length=100)
+    lc_number: Optional[str] = Field(None, max_length=100)
+    incoterms: Optional[str] = Field(None, max_length=20)
+    payment_terms: Optional[str] = Field(None, max_length=50)
+    remarks: Optional[str] = None
+    items: List[ExportDeliveryItemCreate]
+
+    @validator(
+        "destination_country",
+        "port_of_loading",
+        "port_of_discharge",
+    )
+    def required_trimmed(cls, value):
+        text = (value or "").strip()
+        if not text:
+            raise ValueError("This field is required")
+        return text
+
+    @validator(
+        "shipping_line",
+        "container_number",
+        "bl_number",
+        "invoice_number",
+        "lc_number",
+        "remarks",
+        pre=True,
+    )
+    def empty_optional(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return value.strip() if isinstance(value, str) else value
+
+    @validator("incoterms", pre=True)
+    def validate_incoterms(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        code = value.strip().upper()
+        if code not in EXPORT_INCOTERMS:
+            raise ValueError("incoterms must be one of: " + ", ".join(EXPORT_INCOTERMS))
+        return code
+
+    @validator("payment_terms", pre=True)
+    def validate_payment_terms(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        code = value.strip()
+        if code not in EXPORT_PAYMENT_TERMS:
+            raise ValueError(
+                "payment_terms must be one of: " + ", ".join(EXPORT_PAYMENT_TERMS)
+            )
+        return code
+
+    @validator("items")
+    def validate_items(cls, value):
+        if not value:
+            raise ValueError("At least one line item is required")
+        return value
+
+
+class ExportDeliveryUpdate(ExportDeliveryCreate):
+    pass
+
+
+class ExportDeliveryResponse(BaseModel):
+    id: int
+    delivery_number: str
+    depot_id: int
+    status: str
+    delivery_date: date
+    destination_country: str
+    port_of_loading: str
+    port_of_discharge: str
+    shipping_line: Optional[str] = None
+    container_number: Optional[str] = None
+    bl_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    lc_number: Optional[str] = None
+    incoterms: Optional[str] = None
+    payment_terms: Optional[str] = None
+    remarks: Optional[str] = None
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    total_items: int = 0
+    total_quantity: Decimal = Decimal("0")
+    total_value: Decimal = Decimal("0")
+
+    class Config:
+        from_attributes = True
+
+
+class ExportDeliveryDetailResponse(ExportDeliveryResponse):
+    items: List[ExportDeliveryItemResponse] = []

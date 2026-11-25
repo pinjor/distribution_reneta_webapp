@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface ChemistShop {
   id: string;
@@ -31,44 +32,10 @@ export default function ChemistShop() {
   const [editMode, setEditMode] = useState(false);
   const [selectedChemistShop, setSelectedChemistShop] = useState<ChemistShop | null>(null);
   const [newChemistShopCode, setNewChemistShopCode] = useState<string>("");
-  const [chemistShops, setChemistShops] = useState<ChemistShop[]>([
-    { 
-      id: "1", 
-      code: "CHEM-0001",
-      name: "Green Pharmacy", 
-      ownerName: "Mohammad Rahman", 
-      licenseNumber: "LIC-2024-001", 
-      email: "info@greenpharmacy.com", 
-      phone: "+880 1712-345678", 
-      address: "123 Main Street, Dhanmondi", 
-      city: "Dhaka", 
-      status: "active" 
-    },
-    { 
-      id: "2", 
-      code: "CHEM-0002",
-      name: "City Medical Store", 
-      ownerName: "Fatema Khatun", 
-      licenseNumber: "LIC-2024-002", 
-      email: "contact@citymedical.com", 
-      phone: "+880 1712-345679", 
-      address: "456 Commerce Road, Gulshan", 
-      city: "Dhaka", 
-      status: "active" 
-    },
-    { 
-      id: "3", 
-      code: "CHEM-0003",
-      name: "Modern Pharmacy", 
-      ownerName: "Abdul Karim", 
-      licenseNumber: "LIC-2024-003", 
-      email: "admin@modernpharma.com", 
-      phone: "+880 1712-345680", 
-      address: "789 Market Avenue, Banani", 
-      city: "Dhaka", 
-      status: "inactive" 
-    },
-  ]);
+  const [chemistShops, setChemistShops] = useState<ChemistShop[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -80,8 +47,55 @@ export default function ChemistShop() {
     city: "",
   });
 
+  const mapChemistShop = (row: any): ChemistShop => ({
+    id: String(row.id),
+    code: row.code || "",
+    name: row.name || "",
+    ownerName: row.owner_name || "",
+    licenseNumber: row.license_number || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    address: row.address || "",
+    city: row.city || "",
+    status: row.is_active === false ? "inactive" : "active",
+  });
+
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item: any) => item?.msg || JSON.stringify(item))
+        .join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadChemistShops = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await apiEndpoints.chemistShops.getAll();
+      setChemistShops(Array.isArray(rows) ? rows.map(mapChemistShop) : []);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setChemistShops([]);
+      toast({
+        title: "Failed to load chemist shops",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.title = "Chemist Shop | Renata";
+    loadChemistShops();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateChemistShopCode = (): string => {
@@ -97,32 +111,54 @@ export default function ChemistShop() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
 
-  const handleAdd = () => {
-    if (editMode && selectedChemistShop) {
-      setChemistShops(prev => prev.map(c => 
-        c.id === selectedChemistShop.id 
-          ? { ...c, ...formData }
-          : c
-      ));
+  const handleAdd = async () => {
+    if (!formData.name.trim() || !formData.ownerName.trim()) {
       toast({
-        title: "Chemist Shop updated",
-        description: "Chemist shop information has been updated successfully.",
+        title: "Missing required fields",
+        description: "Shop name and owner name are required.",
+        variant: "destructive",
       });
-    } else {
-      const newCode = generateChemistShopCode();
-      const newChemistShop: ChemistShop = {
-        id: Date.now().toString(),
-        code: newCode,
-        ...formData,
-        status: "active",
-      };
-      setChemistShops(prev => [...prev, newChemistShop]);
-      toast({
-        title: "Chemist Shop added",
-        description: `New chemist shop created with code ${newCode}.`,
-      });
+      return;
     }
-    resetForm();
+    const payload = {
+      name: formData.name.trim(),
+      owner_name: formData.ownerName.trim(),
+      license_number: formData.licenseNumber || null,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      address: formData.address || null,
+      city: formData.city || null,
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedChemistShop) {
+        await apiEndpoints.chemistShops.update(Number(selectedChemistShop.id), payload);
+        toast({
+          title: "Chemist Shop updated",
+          description: "Chemist shop information has been updated successfully.",
+        });
+      } else {
+        const created = await apiEndpoints.chemistShops.create({
+          ...payload,
+          code: newChemistShopCode || undefined,
+          is_active: true,
+        });
+        toast({
+          title: "Chemist Shop added",
+          description: `New chemist shop created with code ${created.code}.`,
+        });
+      }
+      await loadChemistShops();
+      resetForm();
+    } catch (err) {
+      toast({
+        title: editMode ? "Failed to update chemist shop" : "Failed to create chemist shop",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (chemistShop: ChemistShop) => {
@@ -140,13 +176,23 @@ export default function ChemistShop() {
     setShowAddForm(true);
   };
 
-  const handleDelete = (chemistShop: ChemistShop) => {
-    setChemistShops(prev => prev.filter(c => c.id !== chemistShop.id));
-    toast({
-      title: "Chemist Shop deleted",
-      description: "The chemist shop has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (chemistShop: ChemistShop) => {
+    if (!window.confirm(`Delete chemist shop ${chemistShop.name}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.chemistShops.delete(Number(chemistShop.id));
+      toast({
+        title: "Chemist Shop deleted",
+        description: "The chemist shop has been removed.",
+        variant: "destructive",
+      });
+      await loadChemistShops();
+    } catch (err) {
+      toast({
+        title: "Failed to delete chemist shop",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -353,8 +399,8 @@ export default function ChemistShop() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Chemist Shop" : "Create Chemist Shop"}
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Chemist Shop" : "Create Chemist Shop"}
                 </Button>
               </div>
             </div>
@@ -374,6 +420,10 @@ export default function ChemistShop() {
         variant="slate"
       />
 
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+
       <MasterDataTable
         title="All Chemist Shops"
         description={`Total shops: ${chemistShops.length}`}
@@ -385,7 +435,7 @@ export default function ChemistShop() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No chemist shops found"
+        emptyMessage={loading ? "Loading chemist shops..." : "No chemist shops found"}
         showCode={true}
         codeKey="code"
       />

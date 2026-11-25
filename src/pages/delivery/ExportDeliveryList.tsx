@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusCircle, RefreshCw, Eye, Printer, Loader2, Globe } from "lucide-react";
+import { RefreshCw, Eye, Printer, Loader2, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useDraftCapabilities } from "@/hooks/useDraftCapabilities";
+import { DraftWritesNotice } from "@/pages/delivery/DraftWritesNotice";
 
 interface ExportDelivery {
   id: number;
@@ -21,13 +23,16 @@ interface ExportDelivery {
   shipping_line?: string;
   container_number?: string;
   total_items: number;
-  total_quantity: number;
-  total_value: number;
+  total_quantity: number | string;
+  total_value: number | string;
   created_at?: string;
 }
 
 const statusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Draft: "secondary",
+  Submitted: "outline",
+  Approved: "default",
+  Rejected: "destructive",
   Pending: "outline",
   CustomsCleared: "outline",
   InTransit: "outline",
@@ -36,31 +41,38 @@ const statusVariant: Record<string, "default" | "secondary" | "outline" | "destr
   Cancelled: "destructive",
 };
 
+function isUnavailable(err: any) {
+  return err?.status === 503;
+}
+
 export default function ExportDeliveryList() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const capabilities = useDraftCapabilities();
   const [deliveries, setDeliveries] = useState<ExportDelivery[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const canCreate = !capabilities.loading && capabilities.export.can_create && !unavailable;
 
   const fetchDeliveries = async () => {
     try {
       setLoading(true);
-      // In production, this would call a specific API endpoint for export deliveries
-      // const result = await apiEndpoints.orderDeliveries.getExportDeliveries();
-      // For now, using mock data
-      const mockDeliveries: ExportDelivery[] = [
-        { id: 1, delivery_number: "EX-2026-001", status: "InTransit", delivery_date: "2026-04-15", destination_country: "Malaysia", port_of_loading: "Chattogram", port_of_discharge: "Port Klang", shipping_line: "Maersk Line", container_number: "MSKU1234567", total_items: 25, total_quantity: 5000, total_value: 125000 },
-        { id: 2, delivery_number: "EX-2026-002", status: "CustomsCleared", delivery_date: "2026-04-14", destination_country: "India", port_of_loading: "Mongla", port_of_discharge: "Kolkata", shipping_line: "CMA CGM", container_number: "CMAU9876543", total_items: 18, total_quantity: 3600, total_value: 95000 },
-        { id: 3, delivery_number: "EX-2026-003", status: "Shipped", delivery_date: "2026-04-13", destination_country: "Nepal", port_of_loading: "Benapole", port_of_discharge: "Birgunj", shipping_line: "Himalaya Logistics", container_number: "HMLU4455667", total_items: 12, total_quantity: 2400, total_value: 62000 },
-        { id: 4, delivery_number: "EX-2026-004", status: "Draft", delivery_date: "2026-04-16", destination_country: "Sri Lanka", port_of_loading: "Chattogram", port_of_discharge: "Colombo", shipping_line: "Bay Line Shipping", container_number: "BLSU7788990", total_items: 20, total_quantity: 4000, total_value: 108000 },
-        { id: 5, delivery_number: "EX-2026-005", status: "Delivered", delivery_date: "2026-04-10", destination_country: "Singapore", port_of_loading: "Chattogram", port_of_discharge: "Singapore", shipping_line: "Evergreen Marine", container_number: "EVGU3344556", total_items: 30, total_quantity: 6000, total_value: 185000 },
-        { id: 6, delivery_number: "EX-2026-006", status: "Pending", delivery_date: "2026-04-17", destination_country: "UAE", port_of_loading: "Chattogram", port_of_discharge: "Jebel Ali", shipping_line: "MSC", container_number: "MSCU1122334", total_items: 22, total_quantity: 4400, total_value: 142000 },
-      ];
-      setDeliveries(mockDeliveries);
-    } catch (error) {
-      console.error("Failed to load export deliveries", error);
-      toast({ title: "Unable to load export deliveries", variant: "destructive" });
+      setError(null);
+      setUnavailable(false);
+      const result = await apiEndpoints.exportDeliveries.getAll(
+        searchTerm.trim() ? { q: searchTerm.trim() } : undefined
+      );
+      const rows = Array.isArray(result) ? result : result?.data || [];
+      setDeliveries(rows);
+    } catch (err: any) {
+      console.error("Failed to load export deliveries", err);
+      setDeliveries([]);
+      const message = err?.message || "Unable to load export deliveries";
+      setError(message);
+      setUnavailable(isUnavailable(err));
+      toast({ title: "Unable to load export deliveries", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -68,10 +80,12 @@ export default function ExportDeliveryList() {
 
   useEffect(() => {
     fetchDeliveries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredDeliveries = deliveries.filter((delivery) => {
     const term = searchTerm.toLowerCase();
+    if (!term) return true;
     return (
       delivery.delivery_number.toLowerCase().includes(term) ||
       delivery.destination_country?.toLowerCase().includes(term) ||
@@ -112,13 +126,27 @@ export default function ExportDeliveryList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+          {canCreate ? (
           <Button onClick={() => navigate("/delivery/export/new")}>
             <Globe className="h-4 w-4 mr-2" />
             New Export
           </Button>
+          ) : null}
         </div>
         )}
       />
+      {!capabilities.loading && !capabilities.export.can_create && (
+        <DraftWritesNotice>
+          Draft creation is currently unavailable.
+        </DraftWritesNotice>
+      )}
+
+      {error && (
+        <div className="flex items-center justify-between gap-4 text-sm text-destructive">
+          <span>{unavailable ? `Migration required. ${error}` : error}</span>
+          <Button variant="outline" size="sm" onClick={fetchDeliveries}>Retry</Button>
+        </div>
+      )}
 
       {loading ? (
         <Card>
@@ -130,7 +158,11 @@ export default function ExportDeliveryList() {
       ) : filteredDeliveries.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            {searchTerm ? "No deliveries found matching your search." : "No export deliveries yet."}
+            {unavailable
+              ? "Export draft storage is not available until the approved Alembic revision is applied."
+              : searchTerm
+                ? "No deliveries found matching your search."
+                : "No export deliveries yet."}
           </CardContent>
         </Card>
       ) : (
@@ -167,8 +199,8 @@ export default function ExportDeliveryList() {
                     <TableCell>{delivery.shipping_line || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{delivery.container_number || "—"}</TableCell>
                     <TableCell>{delivery.total_items}</TableCell>
-                    <TableCell className="text-right">{delivery.total_quantity.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{delivery.total_value.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{Number(delivery.total_quantity).toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{Number(delivery.total_value).toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge(delivery.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -176,7 +208,7 @@ export default function ExportDeliveryList() {
                           <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" disabled title="Print is not available until a document print endpoint exists">
                           <Printer className="h-4 w-4 mr-1" />
                           Print
                         </Button>
@@ -192,4 +224,3 @@ export default function ExportDeliveryList() {
     </main>
   );
 }
-

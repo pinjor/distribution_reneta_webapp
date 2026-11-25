@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PlusCircle, RefreshCw, Eye, Printer, Loader2, Gift } from "lucide-react";
+import { RefreshCw, Eye, Printer, Loader2, Gift } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useDraftCapabilities } from "@/hooks/useDraftCapabilities";
+import { DraftWritesNotice } from "@/pages/delivery/DraftWritesNotice";
 
 interface SampleGiftDelivery {
   id: number;
@@ -18,6 +20,7 @@ interface SampleGiftDelivery {
   recipient_name?: string;
   recipient_type?: string;
   gift_type?: string;
+  document_kind?: string;
   total_items: number;
   total_quantity: number;
   created_at?: string;
@@ -25,6 +28,9 @@ interface SampleGiftDelivery {
 
 const statusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Draft: "secondary",
+  Submitted: "outline",
+  Approved: "default",
+  Rejected: "destructive",
   Pending: "outline",
   Prepared: "outline",
   Dispatched: "default",
@@ -35,28 +41,28 @@ const statusVariant: Record<string, "default" | "secondary" | "outline" | "destr
 export default function SampleGiftDeliveryList() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const capabilities = useDraftCapabilities();
+  const canCreate = !capabilities.loading && capabilities.sample_gift.can_create;
   const [deliveries, setDeliveries] = useState<SampleGiftDelivery[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchDeliveries = async () => {
     try {
       setLoading(true);
-      // In production, this would call a specific API endpoint for sample gift deliveries
-      // const result = await apiEndpoints.orderDeliveries.getSampleGiftDeliveries();
-      // For now, using mock data
-      const mockDeliveries: SampleGiftDelivery[] = [
-        { id: 1, delivery_number: "SG-2026-001", status: "Dispatched", delivery_date: "2026-04-15", recipient_name: "Dr. Mohammad Rahman", recipient_type: "Doctor", gift_type: "Product Samples", total_items: 5, total_quantity: 50 },
-        { id: 2, delivery_number: "SG-2026-002", status: "Prepared", delivery_date: "2026-04-14", recipient_name: "Green Pharmacy", recipient_type: "Chemist Shop", gift_type: "Promotional Items", total_items: 3, total_quantity: 30 },
-        { id: 3, delivery_number: "SG-2026-003", status: "Delivered", delivery_date: "2026-04-12", recipient_name: "Dr. Fatema Khatun", recipient_type: "Doctor", gift_type: "Vaccine Samples", total_items: 4, total_quantity: 40 },
-        { id: 4, delivery_number: "SG-2026-004", status: "Pending", delivery_date: "2026-04-16", recipient_name: "City Medical Store", recipient_type: "Chemist Shop", gift_type: "Product Samples", total_items: 6, total_quantity: 60 },
-        { id: 5, delivery_number: "SG-2026-005", status: "Draft", delivery_date: "2026-04-17", recipient_name: "Dr. Abdul Karim", recipient_type: "Doctor", gift_type: "Conference Kit", total_items: 2, total_quantity: 20 },
-        { id: 6, delivery_number: "SG-2026-006", status: "Dispatched", delivery_date: "2026-04-11", recipient_name: "Popular Pharmacy", recipient_type: "Chemist Shop", gift_type: "Promotional Items", total_items: 5, total_quantity: 45 },
-      ];
-      setDeliveries(mockDeliveries);
-    } catch (error) {
-      console.error("Failed to load sample gift deliveries", error);
-      toast({ title: "Unable to load sample gift deliveries", variant: "destructive" });
+      setError(null);
+      const result = await apiEndpoints.sampleGiftDeliveries.getAll(
+        searchTerm.trim() ? { q: searchTerm.trim() } : undefined
+      );
+      const rows = Array.isArray(result) ? result : result?.data || [];
+      setDeliveries(rows);
+    } catch (err: any) {
+      console.error("Failed to load sample gift deliveries", err);
+      setDeliveries([]);
+      const message = err?.message || "Unable to load sample gift deliveries";
+      setError(message);
+      toast({ title: "Unable to load sample gift deliveries", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -64,15 +70,18 @@ export default function SampleGiftDeliveryList() {
 
   useEffect(() => {
     fetchDeliveries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredDeliveries = deliveries.filter((delivery) => {
     const term = searchTerm.toLowerCase();
+    if (!term) return true;
     return (
       delivery.delivery_number.toLowerCase().includes(term) ||
       delivery.recipient_name?.toLowerCase().includes(term) ||
       delivery.recipient_type?.toLowerCase().includes(term) ||
-      delivery.gift_type?.toLowerCase().includes(term)
+      delivery.gift_type?.toLowerCase().includes(term) ||
+      delivery.document_kind?.toLowerCase().includes(term)
     );
   });
 
@@ -103,13 +112,27 @@ export default function SampleGiftDeliveryList() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button onClick={() => navigate("/delivery/sample-gift/new")}>
-              <Gift className="h-4 w-4 mr-2" />
-              New Sample Gift
-            </Button>
+            {canCreate ? (
+              <Button onClick={() => navigate("/delivery/sample-gift/new")}>
+                <Gift className="h-4 w-4 mr-2" />
+                New Sample Gift
+              </Button>
+            ) : null}
           </div>
         )}
       />
+      {!capabilities.loading && !capabilities.sample_gift.can_create && (
+        <DraftWritesNotice>
+          Draft creation is currently unavailable.
+        </DraftWritesNotice>
+      )}
+
+      {error && (
+        <div className="flex items-center justify-between gap-4 text-sm text-destructive">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={fetchDeliveries}>Retry</Button>
+        </div>
+      )}
 
       {loading ? (
         <Card>
@@ -153,7 +176,7 @@ export default function SampleGiftDeliveryList() {
                     <TableCell>{delivery.recipient_type || "—"}</TableCell>
                     <TableCell>{delivery.gift_type || "—"}</TableCell>
                     <TableCell>{delivery.total_items}</TableCell>
-                    <TableCell className="text-right">{delivery.total_quantity.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{Number(delivery.total_quantity).toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge(delivery.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -161,7 +184,7 @@ export default function SampleGiftDeliveryList() {
                           <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" disabled title="Print is not available until a document print endpoint exists">
                           <Printer className="h-4 w-4 mr-1" />
                           Print
                         </Button>
@@ -177,4 +200,3 @@ export default function SampleGiftDeliveryList() {
     </main>
   );
 }
-

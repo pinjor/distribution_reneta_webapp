@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route } from "react-router-dom";
 import { MainLayout } from "./components/layout/MainLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -51,9 +51,11 @@ import DepotDeliveryDetail from "./pages/delivery/DepotDeliveryDetail";
 import SampleGiftDeliveryList from "./pages/delivery/SampleGiftDeliveryList";
 import SampleGiftDeliveryForm from "./pages/delivery/SampleGiftDeliveryForm";
 import SampleGiftDeliveryDetail from "./pages/delivery/SampleGiftDeliveryDetail";
+import SampleGiftDraftPreview from "./pages/delivery/SampleGiftDraftPreview";
 import ExportDeliveryList from "./pages/delivery/ExportDeliveryList";
 import ExportDeliveryForm from "./pages/delivery/ExportDeliveryForm";
 import ExportDeliveryDetail from "./pages/delivery/ExportDeliveryDetail";
+import ExportDraftPreview from "./pages/delivery/ExportDraftPreview";
 import Company from "./pages/settings/Company";
 import Depot from "./pages/settings/Depot";
 import Employees from "./pages/settings/Employees";
@@ -80,15 +82,9 @@ import ProfilePage from "./pages/ProfilePage";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<MainLayout><Dashboard /></MainLayout>} />
               <Route path="/warehouse/receipt" element={<MainLayout><StockReceipt /></MainLayout>} />
@@ -117,9 +113,13 @@ const App = () => (
               <Route path="/delivery/depot/:id" element={<MainLayout><DepotDeliveryDetail /></MainLayout>} />
               <Route path="/delivery/sample-gift" element={<MainLayout><SampleGiftDeliveryList /></MainLayout>} />
               <Route path="/delivery/sample-gift/new" element={<MainLayout><SampleGiftDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/sample-gift/:id/edit" element={<MainLayout><SampleGiftDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/sample-gift/:id/preview" element={<MainLayout><SampleGiftDraftPreview /></MainLayout>} />
               <Route path="/delivery/sample-gift/:id" element={<MainLayout><SampleGiftDeliveryDetail /></MainLayout>} />
               <Route path="/delivery/export" element={<MainLayout><ExportDeliveryList /></MainLayout>} />
               <Route path="/delivery/export/new" element={<MainLayout><ExportDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/export/:id/edit" element={<MainLayout><ExportDeliveryForm /></MainLayout>} />
+              <Route path="/delivery/export/:id/preview" element={<MainLayout><ExportDraftPreview /></MainLayout>} />
               <Route path="/delivery/export/:id" element={<MainLayout><ExportDeliveryDetail /></MainLayout>} />
               <Route path="/receive/factory" element={<MainLayout><ReceiveFactory /></MainLayout>} />
               <Route path="/receive/depot" element={<MainLayout><ReceiveDepot /></MainLayout>} />
@@ -162,8 +162,18 @@ const App = () => (
               <Route path="/transport/reports" element={<MainLayout><TransportReports /></MainLayout>} />
               <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
               <Route path="*" element={<MainLayout><NotFound /></MainLayout>} />
-            </Routes>
-          </BrowserRouter>
+    </>
+  )
+);
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <RouterProvider router={router} />
         </TooltipProvider>
       </ThemeProvider>
     </AuthProvider>

@@ -30,17 +30,12 @@ target_metadata = Base.metadata
 LIVE_DATABASE = "swift_distro_hub"
 
 # Present in PostgreSQL and intentionally absent from SQLAlchemy metadata.
-# Autogenerate must not propose dropping them.
-LEGACY_UNMAPPED_TABLES = {
-    "doctors",
-    "chemist_shops",
-    "delivery_allocation_outcomes",
-    "return_verifications",
-}
-
+# Autogenerate must not propose dropping them. Phase E should add models that
+# match the live columns, then these names can leave this set.
+LEGACY_UNMAPPED_TABLES = set()
 
 def include_object(obj, name, type_, reflected, compare_to):
-    """Keep unmapped legacy tables out of autogenerate drop proposals."""
+    """Keep known unmapped live objects out of autogenerate drop proposals."""
     if type_ == "table" and name in LEGACY_UNMAPPED_TABLES:
         if reflected and compare_to is None:
             return False

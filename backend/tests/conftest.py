@@ -6,6 +6,9 @@ os.environ.setdefault("ENVIRONMENT", "development")
 os.environ.setdefault("REQUIRE_AUTH", "true")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+# Pytest must not inherit Compose write-off flags from the API container.
+os.environ["SAMPLE_GIFT_DRAFT_WRITES"] = "yes"
+os.environ["EXPORT_DRAFT_WRITES"] = "yes"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

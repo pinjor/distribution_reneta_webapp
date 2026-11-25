@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.deps import require_role
 from app.database import get_db
 from app.models import UOM
 from app.schemas import UOMCreate, UOMUpdate, UOM as UOMSchema
 
 router = APIRouter()
+WRITE_ROLES = require_role("admin", "manager")
 
 def generate_uom_code(db: Session) -> str:
     """Generate a unique UOM code in format UOM-XXXX"""
@@ -51,7 +53,7 @@ def get_uom(uom_id: int, db: Session = Depends(get_db)):
     return uom
 
 @router.post("/", response_model=UOMSchema)
-def create_uom(uom: UOMCreate, db: Session = Depends(get_db)):
+def create_uom(uom: UOMCreate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     # Auto-generate code if not provided
     if not uom.code:
         uom.code = generate_uom_code(db)
@@ -68,7 +70,7 @@ def create_uom(uom: UOMCreate, db: Session = Depends(get_db)):
     return db_uom
 
 @router.put("/{uom_id}", response_model=UOMSchema)
-def update_uom(uom_id: int, uom: UOMUpdate, db: Session = Depends(get_db)):
+def update_uom(uom_id: int, uom: UOMUpdate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_uom = db.query(UOM).filter(UOM.id == uom_id).first()
     if not db_uom:
         raise HTTPException(status_code=404, detail="UOM not found")
@@ -88,7 +90,7 @@ def update_uom(uom_id: int, uom: UOMUpdate, db: Session = Depends(get_db)):
     return db_uom
 
 @router.delete("/{uom_id}")
-def delete_uom(uom_id: int, db: Session = Depends(get_db)):
+def delete_uom(uom_id: int, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_uom = db.query(UOM).filter(UOM.id == uom_id).first()
     if not db_uom:
         raise HTTPException(status_code=404, detail="UOM not found")

@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.deps import require_role
+from app.core.depot_scope import hide_foreign_depot
 from app.database import get_db
-from app.models import RouteShippingPoint, Route, ShippingPoint
+from app.models import Employee, RouteShippingPoint, Route, ShippingPoint
 from app.schemas import (
     RouteShippingPointCreate, RouteShippingPointUpdate, RouteShippingPoint as RouteShippingPointSchema
 )
 
 router = APIRouter()
+WRITE_ROLES = require_role("admin", "manager")
 
 @router.get("", response_model=List[RouteShippingPointSchema])
 def get_route_shipping_points(route_id: int = None, db: Session = Depends(get_db)):
@@ -37,12 +40,17 @@ def get_route_shipping_point(route_shipping_point_id: int, db: Session = Depends
     return route_sp
 
 @router.post("", response_model=RouteShippingPointSchema)
-def create_route_shipping_point(data: RouteShippingPointCreate, db: Session = Depends(get_db)):
+def create_route_shipping_point(
+    data: RouteShippingPointCreate,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(WRITE_ROLES),
+):
     """Create a new route shipping point"""
     # Verify route exists
     route = db.query(Route).filter(Route.id == data.route_id).first()
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
+    hide_foreign_depot(user, route.depot_id)
     
     # Verify shipping point exists
     shipping_point = db.query(ShippingPoint).filter(ShippingPoint.id == data.shipping_point_id).first()
@@ -67,12 +75,15 @@ def create_route_shipping_point(data: RouteShippingPointCreate, db: Session = De
 def update_route_shipping_point(
     route_shipping_point_id: int,
     data: RouteShippingPointUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Employee = Depends(WRITE_ROLES),
 ):
     """Update a route shipping point"""
     route_sp = db.query(RouteShippingPoint).filter(RouteShippingPoint.id == route_shipping_point_id).first()
     if not route_sp:
         raise HTTPException(status_code=404, detail="Route shipping point not found")
+    route = db.query(Route).filter(Route.id == route_sp.route_id).first()
+    hide_foreign_depot(user, route.depot_id if route else None)
     
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(route_sp, field, value)
@@ -82,11 +93,17 @@ def update_route_shipping_point(
     return route_sp
 
 @router.delete("/{route_shipping_point_id}")
-def delete_route_shipping_point(route_shipping_point_id: int, db: Session = Depends(get_db)):
+def delete_route_shipping_point(
+    route_shipping_point_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(WRITE_ROLES),
+):
     """Delete a route shipping point"""
     route_sp = db.query(RouteShippingPoint).filter(RouteShippingPoint.id == route_shipping_point_id).first()
     if not route_sp:
         raise HTTPException(status_code=404, detail="Route shipping point not found")
+    route = db.query(Route).filter(Route.id == route_sp.route_id).first()
+    hide_foreign_depot(user, route.depot_id if route else None)
     
     db.delete(route_sp)
     db.commit()

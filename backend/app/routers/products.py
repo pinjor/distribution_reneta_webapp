@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.deps import require_role
 from app.database import get_db
 from app.models import Product
 from app.schemas import ProductCreate, ProductUpdate, Product as ProductSchema
 
 router = APIRouter()
+WRITE_ROLES = require_role("admin", "manager")
 
 def generate_product_sku(db: Session) -> str:
     """Generate a unique product SKU in format PRD-XXXX"""
@@ -54,7 +56,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 @router.post("/", response_model=ProductSchema)
-def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+def create_product(product: ProductCreate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     # Auto-generate SKU if not provided
     if not product.sku:
         product.sku = generate_product_sku(db)
@@ -70,7 +72,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     return db_product
 
 @router.put("/{product_id}", response_model=ProductSchema)
-def update_product(product_id: int, product: ProductUpdate, db: Session = Depends(get_db)):
+def update_product(product_id: int, product: ProductUpdate, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_product = db.query(Product).filter(Product.id == product_id).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -84,7 +86,7 @@ def update_product(product_id: int, product: ProductUpdate, db: Session = Depend
     return db_product
 
 @router.delete("/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+def delete_product(product_id: int, db: Session = Depends(get_db), _user=Depends(WRITE_ROLES)):
     db_product = db.query(Product).filter(Product.id == product_id).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")

@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Company {
   id: string;
@@ -32,47 +33,10 @@ export default function Company() {
   const [editMode, setEditMode] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [newCompanyCode, setNewCompanyCode] = useState<string>("");
-  const [companies, setCompanies] = useState<Company[]>([
-    { 
-      id: "1", 
-      code: "COMP-0001",
-      name: "Acme Corporation", 
-      registrationNumber: "REG-2024-001", 
-      taxId: "TAX-123456789", 
-      email: "contact@acme.com", 
-      phone: "+1 (555) 123-4567", 
-      address: "123 Business St, Suite 100", 
-      city: "New York", 
-      country: "United States", 
-      status: "active" 
-    },
-    { 
-      id: "2", 
-      code: "COMP-0002",
-      name: "Global Industries Ltd", 
-      registrationNumber: "REG-2024-002", 
-      taxId: "TAX-987654321", 
-      email: "info@global.com", 
-      phone: "+1 (555) 234-5678", 
-      address: "456 Commerce Ave", 
-      city: "Boston", 
-      country: "United States", 
-      status: "active" 
-    },
-    { 
-      id: "3", 
-      code: "COMP-0003",
-      name: "Tech Logistics Inc", 
-      registrationNumber: "REG-2024-003", 
-      taxId: "TAX-456789123", 
-      email: "admin@techlog.com", 
-      phone: "+1 (555) 345-6789", 
-      address: "789 Innovation Dr", 
-      city: "San Francisco", 
-      country: "United States", 
-      status: "inactive" 
-    },
-  ]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -85,8 +49,50 @@ export default function Company() {
     country: "",
   });
 
+  const mapCompany = (row: any): Company => ({
+    id: String(row.id),
+    code: row.code || "",
+    name: row.name || "",
+    registrationNumber: "",
+    taxId: row.gstin || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    address: row.address || "",
+    city: row.city || "",
+    country: row.country || "",
+    status: row.is_active === false ? "inactive" : "active",
+  });
+
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item: any) => item?.msg || JSON.stringify(item)).join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadCompanies = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await apiEndpoints.companies.getAll();
+      setCompanies(Array.isArray(rows) ? rows.map(mapCompany) : []);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setCompanies([]);
+      toast({ title: "Failed to load companies", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.title = "Company Settings | Renata";
+    loadCompanies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateCompanyCode = (): string => {
@@ -102,32 +108,44 @@ export default function Company() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
 
-  const handleAdd = () => {
-    if (editMode && selectedCompany) {
-      setCompanies(prev => prev.map(c => 
-        c.id === selectedCompany.id 
-          ? { ...c, ...formData }
-          : c
-      ));
-      toast({
-        title: "Company updated",
-        description: "Company information has been updated successfully.",
-      });
-    } else {
-      const newCode = generateCompanyCode();
-      const newCompany: Company = {
-        id: Date.now().toString(),
-        code: newCode,
-        ...formData,
-        status: "active",
-      };
-      setCompanies(prev => [...prev, newCompany]);
-      toast({
-        title: "Company added",
-        description: `New company created with code ${newCode}.`,
-      });
+  const handleAdd = async () => {
+    if (!formData.name.trim()) {
+      toast({ title: "Missing required fields", description: "Company name is required.", variant: "destructive" });
+      return;
     }
-    resetForm();
+    const payload = {
+      name: formData.name.trim(),
+      address: formData.address || null,
+      city: formData.city || null,
+      country: formData.country || null,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      gstin: formData.taxId || null,
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedCompany) {
+        await apiEndpoints.companies.update(Number(selectedCompany.id), payload);
+        toast({ title: "Company updated", description: "Company information has been updated successfully." });
+      } else {
+        const created = await apiEndpoints.companies.create({
+          ...payload,
+          code: newCompanyCode || generateCompanyCode(),
+          is_active: true,
+        });
+        toast({ title: "Company added", description: `New company created with code ${created.code}.` });
+      }
+      await loadCompanies();
+      resetForm();
+    } catch (err) {
+      toast({
+        title: editMode ? "Failed to update company" : "Failed to create company",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (company: Company) => {
@@ -146,13 +164,15 @@ export default function Company() {
     setShowAddForm(true);
   };
 
-  const handleDelete = (company: Company) => {
-    setCompanies(prev => prev.filter(c => c.id !== company.id));
-    toast({
-      title: "Company deleted",
-      description: "The company has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (company: Company) => {
+    if (!window.confirm(`Delete company ${company.name}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.companies.delete(Number(company.id));
+      toast({ title: "Company deleted", description: "The company has been removed.", variant: "destructive" });
+      await loadCompanies();
+    } catch (err) {
+      toast({ title: "Failed to delete company", description: formatApiError(err), variant: "destructive" });
+    }
   };
 
   const handleCancel = () => {
@@ -295,6 +315,7 @@ export default function Company() {
                     onChange={(e) => handleChange("registrationNumber", e.target.value)}
                     placeholder="REG-XXXX-XXX"
                   />
+                  <p className="text-xs text-muted-foreground">Not stored in the database. Tax ID is saved as GSTIN.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="taxId">Tax ID / EIN</Label>
@@ -368,8 +389,8 @@ export default function Company() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Company" : "Create Company"}
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Company" : "Create Company"}
                 </Button>
               </div>
             </div>
@@ -389,6 +410,8 @@ export default function Company() {
         variant="slate"
       />
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <MasterDataTable
         title="All Companies"
         description={`Total entities: ${companies.length}`}
@@ -400,7 +423,7 @@ export default function Company() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No companies found"
+        emptyMessage={loading ? "Loading companies..." : "No companies found"}
         showCode={true}
         codeKey="code"
       />

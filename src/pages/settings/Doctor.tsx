@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Doctor {
   id: string;
@@ -32,47 +33,10 @@ export default function Doctor() {
   const [editMode, setEditMode] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [newDoctorCode, setNewDoctorCode] = useState<string>("");
-  const [doctors, setDoctors] = useState<Doctor[]>([
-    { 
-      id: "1", 
-      code: "DOC-0001",
-      name: "Dr. Mohammad Rahman", 
-      specialization: "Cardiology", 
-      registrationNumber: "BMDC-12345", 
-      qualification: "MBBS, FCPS", 
-      email: "dr.rahman@example.com", 
-      phone: "+880 1712-345678", 
-      address: "123 Medical Tower, Dhanmondi", 
-      city: "Dhaka", 
-      status: "active" 
-    },
-    { 
-      id: "2", 
-      code: "DOC-0002",
-      name: "Dr. Fatema Khatun", 
-      specialization: "Pediatrics", 
-      registrationNumber: "BMDC-12346", 
-      qualification: "MBBS, MD", 
-      email: "dr.fatema@example.com", 
-      phone: "+880 1712-345679", 
-      address: "456 Health Center, Gulshan", 
-      city: "Dhaka", 
-      status: "active" 
-    },
-    { 
-      id: "3", 
-      code: "DOC-0003",
-      name: "Dr. Abdul Karim", 
-      specialization: "Orthopedics", 
-      registrationNumber: "BMDC-12347", 
-      qualification: "MBBS, MS", 
-      email: "dr.karim@example.com", 
-      phone: "+880 1712-345680", 
-      address: "789 Clinic Road, Banani", 
-      city: "Dhaka", 
-      status: "inactive" 
-    },
-  ]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -85,8 +49,56 @@ export default function Doctor() {
     city: "",
   });
 
+  const mapDoctor = (row: any): Doctor => ({
+    id: String(row.id),
+    code: row.code || "",
+    name: row.name || "",
+    specialization: row.specialization || "",
+    registrationNumber: row.registration_number || "",
+    qualification: row.qualification || "",
+    email: row.email || "",
+    phone: row.phone || "",
+    address: row.address || "",
+    city: row.city || "",
+    status: row.is_active === false ? "inactive" : "active",
+  });
+
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item: any) => item?.msg || JSON.stringify(item))
+        .join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadDoctors = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await apiEndpoints.doctors.getAll();
+      setDoctors(Array.isArray(rows) ? rows.map(mapDoctor) : []);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setDoctors([]);
+      toast({
+        title: "Failed to load doctors",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.title = "Doctor | Renata";
+    loadDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateDoctorCode = (): string => {
@@ -102,32 +114,55 @@ export default function Doctor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
 
-  const handleAdd = () => {
-    if (editMode && selectedDoctor) {
-      setDoctors(prev => prev.map(d => 
-        d.id === selectedDoctor.id 
-          ? { ...d, ...formData }
-          : d
-      ));
+  const handleAdd = async () => {
+    if (!formData.name.trim() || !formData.specialization.trim() || !formData.registrationNumber.trim()) {
       toast({
-        title: "Doctor updated",
-        description: "Doctor information has been updated successfully.",
+        title: "Missing required fields",
+        description: "Name, specialization, and registration number are required.",
+        variant: "destructive",
       });
-    } else {
-      const newCode = generateDoctorCode();
-      const newDoctor: Doctor = {
-        id: Date.now().toString(),
-        code: newCode,
-        ...formData,
-        status: "active",
-      };
-      setDoctors(prev => [...prev, newDoctor]);
-      toast({
-        title: "Doctor added",
-        description: `New doctor created with code ${newCode}.`,
-      });
+      return;
     }
-    resetForm();
+    const payload = {
+      name: formData.name.trim(),
+      specialization: formData.specialization.trim(),
+      registration_number: formData.registrationNumber.trim(),
+      qualification: formData.qualification || null,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      address: formData.address || null,
+      city: formData.city || null,
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedDoctor) {
+        await apiEndpoints.doctors.update(Number(selectedDoctor.id), payload);
+        toast({
+          title: "Doctor updated",
+          description: "Doctor information has been updated successfully.",
+        });
+      } else {
+        const created = await apiEndpoints.doctors.create({
+          ...payload,
+          code: newDoctorCode || undefined,
+          is_active: true,
+        });
+        toast({
+          title: "Doctor added",
+          description: `New doctor created with code ${created.code}.`,
+        });
+      }
+      await loadDoctors();
+      resetForm();
+    } catch (err) {
+      toast({
+        title: editMode ? "Failed to update doctor" : "Failed to create doctor",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (doctor: Doctor) => {
@@ -146,13 +181,23 @@ export default function Doctor() {
     setShowAddForm(true);
   };
 
-  const handleDelete = (doctor: Doctor) => {
-    setDoctors(prev => prev.filter(d => d.id !== doctor.id));
-    toast({
-      title: "Doctor deleted",
-      description: "The doctor has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (doctor: Doctor) => {
+    if (!window.confirm(`Delete doctor ${doctor.name}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.doctors.delete(Number(doctor.id));
+      toast({
+        title: "Doctor deleted",
+        description: "The doctor has been removed.",
+        variant: "destructive",
+      });
+      await loadDoctors();
+    } catch (err) {
+      toast({
+        title: "Failed to delete doctor",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -385,8 +430,8 @@ export default function Doctor() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Doctor" : "Create Doctor"}
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Doctor" : "Create Doctor"}
                 </Button>
               </div>
             </div>
@@ -406,6 +451,10 @@ export default function Doctor() {
         variant="slate"
       />
 
+      {error && (
+        <p className="text-sm text-destructive">{error}</p>
+      )}
+
       <MasterDataTable
         title="All Doctors"
         description={`Total doctors: ${doctors.length}`}
@@ -417,7 +466,7 @@ export default function Doctor() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No doctors found"
+        emptyMessage={loading ? "Loading doctors..." : "No doctors found"}
         showCode={true}
         codeKey="code"
       />

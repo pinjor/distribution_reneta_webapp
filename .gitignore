@@ -33,3 +33,12 @@ redis_data/
 
 # Local DB dumps (do not commit)
 swift_backup.dump
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+e2e/.env.isolated
+e2e/.isolation.json
+e2e/logs/

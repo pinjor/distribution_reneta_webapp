@@ -160,6 +160,8 @@ export default function OrderListPage() {
         })));
       } catch (error) {
         console.error("Failed to load master data for filters", error);
+        setPsoList([]);
+        setCustomerList([]);
       } finally {
         setLoadingMasterData(false);
       }

@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from app.core.deps import require_role
 from app.database import get_db
-from app.models import Customer
+from app.models import Customer, Invoice, Order, RouteStop, StockIssuance
+from app.models_platform import CustomerCreditBalance
 from app.schemas import CustomerCreate, Customer as CustomerSchema
 
 router = APIRouter()
+WRITE_ROLES = require_role("admin", "manager")
 
 def generate_customer_code(db: Session) -> str:
     """Generate a unique customer code in format CUST-XXXX"""
@@ -46,7 +49,7 @@ def generate_customer_code(db: Session) -> str:
     return code
 
 @router.get("/", response_model=List[CustomerSchema])
-def get_customers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_customers(skip: int = 0, limit: int = 10000, db: Session = Depends(get_db)):
     customers = db.query(Customer).offset(skip).limit(limit).all()
     return customers
 
@@ -57,8 +60,20 @@ def get_customer_by_code(code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer
 
+
+@router.get("/{customer_id}", response_model=CustomerSchema)
+def get_customer(customer_id: int, db: Session = Depends(get_db)):
+    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return customer
+
 @router.post("/", response_model=CustomerSchema)
-def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
+def create_customer(
+    customer: CustomerCreate,
+    db: Session = Depends(get_db),
+    _user=Depends(WRITE_ROLES),
+):
     customer_data = customer.model_dump()
     
     # Auto-generate code if not provided
@@ -79,7 +94,12 @@ def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
     return db_customer
 
 @router.put("/{customer_id}", response_model=CustomerSchema)
-def update_customer(customer_id: int, customer: CustomerCreate, db: Session = Depends(get_db)):
+def update_customer(
+    customer_id: int,
+    customer: CustomerCreate,
+    db: Session = Depends(get_db),
+    _user=Depends(WRITE_ROLES),
+):
     db_customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not db_customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -106,11 +126,38 @@ def update_customer(customer_id: int, customer: CustomerCreate, db: Session = De
     return db_customer
 
 @router.delete("/{customer_id}")
-def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+def delete_customer(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(WRITE_ROLES),
+):
     db_customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not db_customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-    
+    refs = [
+        (db.query(Invoice).filter(Invoice.customer_id == customer_id).first(), "invoices"),
+        (db.query(StockIssuance).filter(StockIssuance.customer_id == customer_id).first(), "stock issuances"),
+        (db.query(RouteStop).filter(RouteStop.customer_id == customer_id).first(), "route stops"),
+        (
+            db.query(CustomerCreditBalance).filter(CustomerCreditBalance.customer_id == customer_id).first(),
+            "credit balances",
+        ),
+        (
+            db.query(Order)
+            .filter(
+                (Order.customer_id == str(customer_id))
+                | (Order.customer_id == (db_customer.code or ""))
+            )
+            .first(),
+            "orders",
+        ),
+    ]
+    for row, label in refs:
+        if row is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Cannot delete customer: it is referenced by {label}",
+            )
     db.delete(db_customer)
     db.commit()
     return {"message": "Customer deleted successfully"}

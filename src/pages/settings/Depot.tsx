@@ -28,48 +28,12 @@ interface Depot {
   location: string;
   capacity: string;
   status: "active" | "inactive";
+  companyId?: string;
   warehouse?: string;
   zone?: string;
   storageType?: "General Store" | "Cold" | "Cool";
 }
 
-const STORAGE_KEY = "depotMasterData";
-
-const defaultDepots: Depot[] = [
-  {
-    id: "120",
-    code: "120",
-    name: "Kushtia Depot",
-    location: "Kushtia",
-    capacity: "45,000 sq ft",
-    status: "active",
-    warehouse: "Warehouse-KU",
-    zone: "Zone-01",
-    storageType: "General Store",
-  },
-  {
-    id: "107",
-    code: "107",
-    name: "Khulna Depot",
-    location: "Khulna",
-    capacity: "38,000 sq ft",
-    status: "active",
-    warehouse: "Warehouse-KH",
-    zone: "Zone-02",
-    storageType: "Cool",
-  },
-  {
-    id: "DEPT-0001",
-    code: "DEPT-0001",
-    name: "Main Warehouse",
-    location: "New York, NY",
-    capacity: "50,000 sq ft",
-    status: "active",
-    warehouse: "Warehouse-1",
-    zone: "Zone-1",
-    storageType: "General Store",
-  },
-];
 
 export default function Depot() {
   const { toast } = useToast();
@@ -81,6 +45,9 @@ export default function Depot() {
   const [storageType, setStorageType] = useState<"General Store" | "Cold" | "Cool">("General Store");
   const [companies, setCompanies] = useState<Array<{ id: number; name: string; code: string }>>([]);
   const [companyId, setCompanyId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     code: "",
@@ -89,49 +56,62 @@ export default function Depot() {
     capacity: "",
   });
 
-  const [depots, setDepots] = useState<Depot[]>(() => {
-    if (typeof window === "undefined") {
-      return defaultDepots;
-    }
+  const [depots, setDepots] = useState<Depot[]>([]);
 
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Depot[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to parse depot master data from storage", error);
-    }
-
-    return defaultDepots;
+  const mapDepot = (row: any): Depot => ({
+    id: String(row.id),
+    code: row.code || "",
+    name: row.name || "",
+    location: row.city || row.address || "",
+    capacity: "",
+    status: row.is_active === false ? "inactive" : "active",
+    companyId: row.company_id != null ? String(row.company_id) : "",
+    warehouse: "",
+    zone: "",
+    storageType: "General Store",
   });
+
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item: any) => item?.msg || JSON.stringify(item)).join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadDepots = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await apiEndpoints.depots.getAll();
+      setDepots(Array.isArray(rows) ? rows.map(mapDepot) : []);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setDepots([]);
+      toast({ title: "Failed to load depots", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     document.title = "Depot Settings | Renata";
     fetchCompanies();
+    loadDepots();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCompanies = async () => {
     try {
       const data = await apiEndpoints.companies.getAll();
-      setCompanies(data);
+      setCompanies(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch companies:", error);
     }
   };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(depots));
-      window.dispatchEvent(new Event("depot-data-updated"));
-    } catch (error) {
-      console.warn("Failed to persist depot master data", error);
-    }
-  }, [depots]);
 
   const resetForm = () => {
     setFormData({
@@ -143,6 +123,7 @@ export default function Depot() {
     setWarehouse("");
     setZone("");
     setStorageType("General Store");
+    setCompanyId("");
     setEditMode(false);
     setSelectedDepot(null);
     setShowAddForm(false);
@@ -178,50 +159,44 @@ export default function Depot() {
     return true;
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!validateDepot()) return;
-
-    if (editMode && selectedDepot) {
-      setDepots((prev) =>
-        prev.map((depot) =>
-          depot.id === selectedDepot.id
-            ? {
-                ...depot,
-                code: formData.code.trim(),
-                name: formData.name,
-                location: formData.location,
-                capacity: formData.capacity,
-                warehouse,
-                zone,
-                storageType,
-              }
-            : depot,
-        ),
-      );
+    if (!companyId) {
       toast({
-        title: "Depot updated",
-        description: "Depot information has been updated successfully.",
+        title: "Missing information",
+        description: "Company is required.",
+        variant: "destructive",
       });
-    } else {
-      const newDepot: Depot = {
-        id: formData.code.trim(),
-        code: formData.code.trim(),
-        name: formData.name,
-        location: formData.location,
-        capacity: formData.capacity,
-        status: "active",
-        warehouse,
-        zone,
-        storageType,
-      };
-      setDepots((prev) => [...prev, newDepot]);
-      toast({
-        title: "Depot added",
-        description: `New depot created with code ${newDepot.code}.`,
-      });
+      return;
     }
-
-    resetForm();
+    const payload = {
+      code: formData.code.trim(),
+      name: formData.name.trim(),
+      city: formData.location.trim(),
+      address: formData.location.trim(),
+      company_id: Number(companyId),
+      is_active: true,
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedDepot) {
+        await apiEndpoints.depots.update(Number(selectedDepot.id), payload);
+        toast({ title: "Depot updated", description: "Depot information has been updated successfully." });
+      } else {
+        const created = await apiEndpoints.depots.create(payload);
+        toast({ title: "Depot added", description: `New depot created with code ${created.code}.` });
+      }
+      await loadDepots();
+      resetForm();
+    } catch (err) {
+      toast({
+        title: editMode ? "Failed to update depot" : "Failed to create depot",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (depot: Depot) => {
@@ -235,17 +210,20 @@ export default function Depot() {
     setWarehouse(depot.warehouse || "");
     setZone(depot.zone || "");
     setStorageType(depot.storageType || "General Store");
+    setCompanyId(depot.companyId || "");
     setEditMode(true);
     setShowAddForm(true);
   };
 
-  const handleDelete = (depot: Depot) => {
-    setDepots((prev) => prev.filter((item) => item.id !== depot.id));
-    toast({
-      title: "Depot deleted",
-      description: "The depot has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (depot: Depot) => {
+    if (!window.confirm(`Delete depot ${depot.name}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.depots.delete(Number(depot.id));
+      toast({ title: "Depot deleted", description: "The depot has been removed.", variant: "destructive" });
+      await loadDepots();
+    } catch (err) {
+      toast({ title: "Failed to delete depot", description: formatApiError(err), variant: "destructive" });
+    }
   };
 
   const handleCancel = () => {
@@ -377,6 +355,7 @@ export default function Depot() {
                     value={formData.capacity}
                     onChange={(e) => handleChange("capacity", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">Not stored in the database.</p>
                 </div>
               </div>
 
@@ -388,29 +367,29 @@ export default function Depot() {
 
                 <div className="space-y-4 pl-4 border-l-2 border-primary/20">
                   <div className="space-y-2">
-                    <Label htmlFor="depot-warehouse">Warehouse *</Label>
+                    <Label htmlFor="depot-warehouse">Warehouse</Label>
                     <Input
                       id="depot-warehouse"
                       placeholder="e.g., Warehouse-1"
                       value={warehouse}
                       onChange={(e) => setWarehouse(e.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">The warehouse name under this depot</p>
+                    <p className="text-xs text-muted-foreground">Not stored in the database.</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="depot-zone">Zone *</Label>
+                    <Label htmlFor="depot-zone">Zone</Label>
                     <Input
                       id="depot-zone"
                       placeholder="e.g., Zone-1"
                       value={zone}
                       onChange={(e) => setZone(e.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">The zone within the warehouse</p>
+                    <p className="text-xs text-muted-foreground">Not stored in the database.</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="depot-storage-type">Storage Type *</Label>
+                    <Label htmlFor="depot-storage-type">Storage Type</Label>
                     <Select value={storageType} onValueChange={(value: "General Store" | "Cold" | "Cool") => setStorageType(value)}>
                       <SelectTrigger id="depot-storage-type">
                         <SelectValue placeholder="Select storage type" />
@@ -421,7 +400,7 @@ export default function Depot() {
                         <SelectItem value="Cool">Cool</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">The storage type for this zone (General Store, Cold, or Cool)</p>
+                    <p className="text-xs text-muted-foreground">Not stored in the database.</p>
                   </div>
                 </div>
               </div>
@@ -430,7 +409,9 @@ export default function Depot() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>{editMode ? "Update Depot" : "Create Depot"}</Button>
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Depot" : "Create Depot"}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -448,6 +429,8 @@ export default function Depot() {
         variant="indigo"
       />
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <MasterDataTable
         title="All Depots"
         description={`Total locations: ${depots.length}`}
@@ -459,7 +442,7 @@ export default function Depot() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No depots found"
+        emptyMessage={loading ? "Loading depots..." : "No depots found"}
         showCode={true}
         codeKey="code"
       />

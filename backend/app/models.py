@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Text, Numeric, Date, DateTime, ForeignKey, Enum
+from sqlalchemy import CheckConstraint, Column, Index, Integer, String, Boolean, Text, Numeric, Date, DateTime, ForeignKey, Enum, text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -111,6 +111,41 @@ class Customer(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Doctor(Base):
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), unique=True, nullable=False)
+    specialization = Column(String(255), nullable=False)
+    registration_number = Column(String(100), nullable=False)
+    qualification = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    address = Column(Text, nullable=True)
+    city = Column(String(100), nullable=True)
+    is_active = Column(Boolean, nullable=True)
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
+
+class ChemistShop(Base):
+    __tablename__ = "chemist_shops"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), unique=True, nullable=False)
+    owner_name = Column(String(255), nullable=False)
+    license_number = Column(String(100), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    address = Column(Text, nullable=True)
+    city = Column(String(100), nullable=True)
+    is_active = Column(Boolean, nullable=True)
+    created_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=True)
+
 
 class Vendor(Base):
     __tablename__ = "vendors"
@@ -514,6 +549,9 @@ class Order(Base):
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    delivery_rejected = Column(Boolean, nullable=True, server_default=text("false"))
+    delivery_rejected_at = Column(DateTime, nullable=True)
+    delivery_rejected_reason = Column(Text, nullable=True)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     assigned_employee = relationship("Employee", foreign_keys=[assigned_to])
@@ -885,7 +923,9 @@ class CollectionDeposit(Base):
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    rejected = Column(Boolean, nullable=True, server_default=text("false"))
+    rejected_at = Column(DateTime, nullable=True)
+
     collection_person = relationship("Employee", foreign_keys=[collection_person_id])
     approver = relationship("Employee", foreign_keys=[approved_by])
 
@@ -997,3 +1037,125 @@ class TransportExpense(Base):
     
     trip = relationship("Trip", back_populates="expenses")
     route = relationship("Route")
+
+
+class SampleGiftDelivery(Base):
+    """Draft sample/gift delivery document. No stock or billing side effects."""
+    __tablename__ = "sample_gift_deliveries"
+    __table_args__ = (
+        CheckConstraint(
+            "document_kind IN ('sample', 'gift')",
+            name="ck_sample_gift_document_kind",
+        ),
+        Index("ix_sample_gift_deliveries_depot_status", "depot_id", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    delivery_number = Column(String(50), unique=True, nullable=False, index=True)
+    depot_id = Column(Integer, ForeignKey("depots.id"), nullable=False, index=True)
+    document_kind = Column(String(20), nullable=False)
+    gift_type = Column(String(100))
+    occasion = Column(String(255))
+    status = Column(String(50), nullable=False, default="Draft", index=True)
+    delivery_date = Column(Date, nullable=False)
+    recipient_name = Column(String(255), nullable=False)
+    recipient_type = Column(String(50), nullable=False)
+    recipient_address = Column(Text)
+    recipient_phone = Column(String(50))
+    recipient_email = Column(String(255))
+    remarks = Column(Text)
+    created_by = Column(Integer, ForeignKey("employees.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    depot = relationship("Depot")
+    creator = relationship("Employee", foreign_keys=[created_by])
+    items = relationship(
+        "SampleGiftDeliveryItem",
+        back_populates="delivery",
+        cascade="all, delete-orphan",
+    )
+
+
+class SampleGiftDeliveryItem(Base):
+    __tablename__ = "sample_gift_delivery_items"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_sample_gift_item_quantity_positive"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    delivery_id = Column(
+        Integer,
+        ForeignKey("sample_gift_deliveries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Numeric(12, 2), nullable=False)
+    gift_type = Column(String(100))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    delivery = relationship("SampleGiftDelivery", back_populates="items")
+    product = relationship("Product")
+
+
+class ExportDelivery(Base):
+    """Draft export delivery document. No stock, customs, or billing side effects."""
+    __tablename__ = "export_deliveries"
+    __table_args__ = (
+        Index("ix_export_deliveries_depot_status", "depot_id", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    delivery_number = Column(String(50), unique=True, nullable=False, index=True)
+    depot_id = Column(Integer, ForeignKey("depots.id"), nullable=False, index=True)
+    status = Column(String(50), nullable=False, default="Draft", index=True)
+    delivery_date = Column(Date, nullable=False)
+    destination_country = Column(String(100), nullable=False)
+    port_of_loading = Column(String(150), nullable=False)
+    port_of_discharge = Column(String(150), nullable=False)
+    shipping_line = Column(String(150))
+    container_number = Column(String(50))
+    bl_number = Column(String(100))
+    invoice_number = Column(String(100))
+    lc_number = Column(String(100))
+    incoterms = Column(String(20))
+    payment_terms = Column(String(50))
+    remarks = Column(Text)
+    created_by = Column(Integer, ForeignKey("employees.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    depot = relationship("Depot")
+    creator = relationship("Employee", foreign_keys=[created_by])
+    items = relationship(
+        "ExportDeliveryItem",
+        back_populates="delivery",
+        cascade="all, delete-orphan",
+    )
+
+
+class ExportDeliveryItem(Base):
+    __tablename__ = "export_delivery_items"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_export_item_quantity_positive"),
+        CheckConstraint("unit_price >= 0", name="ck_export_item_unit_price_non_negative"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    delivery_id = Column(
+        Integer,
+        ForeignKey("export_deliveries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    batch_number = Column(String(100))
+    expiry_date = Column(Date)
+    quantity = Column(Numeric(12, 2), nullable=False)
+    unit_price = Column(Numeric(14, 4), nullable=False, default=0)
+    hsn_code = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    delivery = relationship("ExportDelivery", back_populates="items")
+    product = relationship("Product")

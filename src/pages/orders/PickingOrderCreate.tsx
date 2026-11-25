@@ -159,31 +159,9 @@ export default function PickingOrderCreate() {
             }))
           : [];
 
-        const fallbackEmployees =
-          employeeOptions.length === 0
-            ? [
-                { value: "employee-sample-1", label: "Parvez Baksa", description: "Driver · TURAG" },
-                { value: "employee-sample-2", label: "Sajid Khan", description: "Delivery · DHAKA" },
-              ]
-            : [];
-        const fallbackVehicles =
-          vehicleOptions.length === 0
-            ? [
-                { value: "vehicle-sample-4045", label: "Van No. 4045", description: "Mini Truck · 1.5 Ton" },
-                { value: "vehicle-sample-4046", label: "Truck 4046", description: "Refrigerated" },
-              ]
-            : [];
-        const fallbackRoutes =
-          routeOptions.length === 0
-            ? [
-                { value: "route-sample-turag", label: "TURAG Depot", description: "Area: PAIKPARA" },
-                { value: "route-sample-mirpur", label: "Mirpur Zone", description: "Area: Dhaka" },
-              ]
-            : [];
-
-        setEmployees(employeeOptions.length > 0 ? employeeOptions : fallbackEmployees);
-        setVehicles(vehicleOptions.length > 0 ? vehicleOptions : fallbackVehicles);
-        setRoutes(routeOptions.length > 0 ? routeOptions : fallbackRoutes);
+        setEmployees(employeeOptions);
+        setVehicles(vehicleOptions);
+        setRoutes(routeOptions);
         setMasterError(null);
       } catch (error) {
         console.error("Failed to load master data for picking order", error);

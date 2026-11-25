@@ -55,7 +55,26 @@ class ApiClient {
           throw new Error("Authentication required");
         }
         if (response.status === 403) {
-          throw new Error("You do not have permission to perform this action");
+          const error = new Error("You do not have permission to perform this action");
+          (error as any).status = 403;
+          throw error;
+        }
+        if (response.status === 409) {
+          let conflict = "This document cannot be updated";
+          try {
+            const body = await response.json();
+            const detail = body?.detail;
+            conflict = typeof detail === "string" ? detail : conflict;
+            const error = new Error(conflict);
+            (error as any).status = 409;
+            (error as any).details = body;
+            throw error;
+          } catch (inner: any) {
+            if (inner?.status === 409) throw inner;
+            const error = new Error(conflict);
+            (error as any).status = 409;
+            throw error;
+          }
         }
 
         let message = `Request failed with status ${response.status}`;
@@ -146,6 +165,8 @@ export const apiEndpoints = {
     getAll: () => api.get('/depots'),
     getById: (id: number) => api.get(`/depots/${id}`),
     create: (data: any) => api.post('/depots', data),
+    update: (id: number, data: any) => api.put(`/depots/${id}`, data),
+    delete: (id: number) => api.delete(`/depots/${id}`),
   },
   
   employees: {
@@ -158,12 +179,35 @@ export const apiEndpoints = {
   
   customers: {
     getAll: () => api.get('/customers'),
+    getById: (id: number) => api.get(`/customers/${id}`),
+    getByCode: (code: string) => api.get(`/customers/code/${code}`),
     create: (data: any) => api.post('/customers', data),
+    update: (id: number, data: any) => api.put(`/customers/${id}`, data),
+    delete: (id: number) => api.delete(`/customers/${id}`),
   },
   
   vendors: {
     getAll: () => api.get('/vendors'),
+    getById: (id: number) => api.get(`/vendors/${id}`),
     create: (data: any) => api.post('/vendors', data),
+    update: (id: number, data: any) => api.put(`/vendors/${id}`, data),
+    delete: (id: number) => api.delete(`/vendors/${id}`),
+  },
+
+  doctors: {
+    getAll: (params?: Record<string, any>) => api.get(`/doctors${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/doctors/${id}`),
+    create: (data: any) => api.post('/doctors', data),
+    update: (id: number, data: any) => api.put(`/doctors/${id}`, data),
+    delete: (id: number) => api.delete(`/doctors/${id}`),
+  },
+
+  chemistShops: {
+    getAll: (params?: Record<string, any>) => api.get(`/chemist-shops${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/chemist-shops/${id}`),
+    create: (data: any) => api.post('/chemist-shops', data),
+    update: (id: number, data: any) => api.put(`/chemist-shops/${id}`, data),
+    delete: (id: number) => api.delete(`/chemist-shops/${id}`),
   },
   
   products: {
@@ -175,7 +219,11 @@ export const apiEndpoints = {
   },
   
   shippingPoints: {
-    getAll: () => api.get('/shipping-points'),
+    getAll: (params?: Record<string, any>) => api.get(`/shipping-points${buildQuery(params)}`),
+    getById: (id: number) => api.get(`/shipping-points/${id}`),
+    create: (data: any) => api.post('/shipping-points', data),
+    update: (id: number, data: any) => api.put(`/shipping-points/${id}`, data),
+    delete: (id: number) => api.delete(`/shipping-points/${id}`),
   },
   
   routeShippingPoints: {
@@ -266,6 +314,24 @@ export const apiEndpoints = {
     report: (id: number | string) => api.get(`/product-receipts/${id}/report`),
   },
 
+  draftModules: {
+    capabilities: () => api.get("/draft-modules/capabilities"),
+  },
+
+  sampleGiftDeliveries: {
+    getAll: (params?: Record<string, any>) => api.get(`/sample-gift-deliveries${buildQuery(params)}`),
+    getById: (id: number | string) => api.get(`/sample-gift-deliveries/${id}`),
+    create: (data: any) => api.post('/sample-gift-deliveries', data),
+    update: (id: number | string, data: any) => api.put(`/sample-gift-deliveries/${id}`, data),
+  },
+
+  exportDeliveries: {
+    getAll: (params?: Record<string, any>) => api.get(`/export-deliveries${buildQuery(params)}`),
+    getById: (id: number | string) => api.get(`/export-deliveries/${id}`),
+    create: (data: any) => api.post('/export-deliveries', data),
+    update: (id: number | string, data: any) => api.put(`/export-deliveries/${id}`, data),
+  },
+
   orderDeliveries: {
     getAll: (params?: Record<string, any>) => api.get(`/order-deliveries${buildQuery(params)}`),
     getById: (id: number | string) => api.get(`/order-deliveries/${id}`),
@@ -298,6 +364,10 @@ export const apiEndpoints = {
   
   routes: {
     getAll: () => api.get('/routes'),
+    getById: (id: number) => api.get(`/routes/${id}`),
+    create: (data: any) => api.post('/routes', data),
+    update: (id: number, data: any) => api.put(`/routes/${id}`, data),
+    delete: (id: number) => api.delete(`/routes/${id}`),
   },
 
   masterData: {

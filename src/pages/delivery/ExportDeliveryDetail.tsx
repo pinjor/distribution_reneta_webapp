@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Printer, Loader2 } from "lucide-react";
+import { ArrowLeft, Printer, Loader2, Pencil } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { apiEndpoints } from "@/lib/api";
+import { canShowDraftEdit } from "@/lib/draftDocumentUi";
+import { useDraftCapabilities } from "@/hooks/useDraftCapabilities";
 
 interface ExportDelivery {
   id: number;
@@ -18,15 +21,32 @@ interface ExportDelivery {
   port_of_discharge?: string;
   shipping_line?: string;
   container_number?: string;
+  bl_number?: string;
+  invoice_number?: string;
+  lc_number?: string;
+  incoterms?: string;
+  payment_terms?: string;
+  remarks?: string;
+  total_items?: number;
+  total_quantity?: number | string;
+  total_value?: number | string;
   items?: Array<{
-    product_name: string;
-    quantity: number;
-    unit_value?: number;
+    product_name?: string;
+    product_id: number;
+    quantity: number | string;
+    unit_price?: number | string;
+    line_total?: number | string;
+    batch_number?: string;
+    expiry_date?: string;
+    hsn_code?: string;
   }>;
 }
 
 const statusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Draft: "secondary",
+  Submitted: "outline",
+  Approved: "default",
+  Rejected: "destructive",
   Pending: "outline",
   CustomsCleared: "outline",
   InTransit: "outline",
@@ -39,42 +59,33 @@ export default function ExportDeliveryDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const capabilities = useDraftCapabilities();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<ExportDelivery | null>(null);
 
-  useEffect(() => {
-    const fetchDelivery = async () => {
-      try {
-        setLoading(true);
-        // Mock data
-        const mockDelivery: ExportDelivery = {
-          id: Number(id),
-          delivery_number: `EX-2025-${String(id).padStart(3, '0')}`,
-          status: "InTransit",
-          delivery_date: "2025-01-15",
-          destination_country: "USA",
-          port_of_loading: "Mumbai",
-          port_of_discharge: "Los Angeles",
-          shipping_line: "Maersk Line",
-          container_number: "MSKU1234567",
-          items: [
-            { product_name: "Paracetamol 500mg", quantity: 2000, unit_value: 25 },
-            { product_name: "Amoxicillin 250mg", quantity: 1500, unit_value: 30 },
-          ],
-        };
-        setDelivery(mockDelivery);
-      } catch (error) {
-        console.error("Failed to load export delivery", error);
-        toast({ title: "Unable to load delivery details", variant: "destructive" });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchDelivery();
+  const fetchDelivery = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const row = await apiEndpoints.exportDeliveries.getById(id);
+      setDelivery(row);
+    } catch (err: any) {
+      console.error("Failed to load export delivery", err);
+      setDelivery(null);
+      const message = err?.message || "Unable to load delivery details";
+      setError(message);
+      toast({ title: "Unable to load delivery details", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-  }, [id, toast]);
+  };
+
+  useEffect(() => {
+    fetchDelivery();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   if (loading) {
     return (
@@ -91,17 +102,24 @@ export default function ExportDeliveryDetail() {
 
   if (!delivery) {
     return (
-      <main className="p-6">
+      <main className="p-6 space-y-4">
         <Card>
           <CardContent className="py-16 text-center text-muted-foreground">
-            Delivery not found.
+            {error || "Delivery not found."}
           </CardContent>
         </Card>
+        {error && (
+          <Button variant="outline" onClick={fetchDelivery}>Retry</Button>
+        )}
+        <Button variant="outline" onClick={() => navigate("/delivery/export")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
       </main>
     );
   }
 
-  const totalValue = delivery.items?.reduce((sum, item) => sum + (item.quantity * (item.unit_value || 0)), 0) || 0;
+  const totalValue = delivery.total_value != null ? Number(delivery.total_value) : 0;
 
   return (
     <main className="p-6 space-y-6">
@@ -111,15 +129,35 @@ export default function ExportDeliveryDetail() {
         icon={Printer}
         variant="teal"
         actions={(
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate("/delivery/export")}
-           
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
+          <div className="flex gap-2">
+            {canShowDraftEdit(capabilities.export.can_edit, delivery.status) && (
+              <Button
+                size="sm"
+                data-testid="export-edit"
+                onClick={() => navigate(`/delivery/export/${delivery.id}/edit`)}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="export-preview"
+              onClick={() => navigate(`/delivery/export/${delivery.id}/preview`)}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Preview Draft
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/delivery/export")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
         )}
       />
 
@@ -159,6 +197,30 @@ export default function ExportDeliveryDetail() {
               <span className="text-muted-foreground">Container:</span>
               <span className="font-mono text-xs">{delivery.container_number || "—"}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">B/L Number:</span>
+              <span>{delivery.bl_number || "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Invoice reference:</span>
+              <span>{delivery.invoice_number || "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">L/C Number:</span>
+              <span>{delivery.lc_number || "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Incoterms:</span>
+              <span>{delivery.incoterms || "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Payment Terms:</span>
+              <span>{delivery.payment_terms || "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Remarks:</span>
+              <span>{delivery.remarks || "—"}</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -169,11 +231,11 @@ export default function ExportDeliveryDetail() {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Items:</span>
-              <span>{delivery.items?.length || 0}</span>
+              <span>{delivery.total_items ?? delivery.items?.length ?? 0}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Quantity:</span>
-              <span>{delivery.items?.reduce((sum, item) => sum + item.quantity, 0) || 0}</span>
+              <span>{Number(delivery.total_quantity ?? 0).toLocaleString()}</span>
             </div>
             <div className="flex justify-between font-semibold">
               <span>Total Value:</span>
@@ -186,29 +248,31 @@ export default function ExportDeliveryDetail() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Export Items</CardTitle>
-          <Button variant="outline" size="sm">
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Product Name</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead>HSN</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Unit Value</TableHead>
+                <TableHead className="text-right">Unit Price</TableHead>
                 <TableHead className="text-right">Total Value</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {delivery.items?.map((item, index) => (
                 <TableRow key={index}>
-                  <TableCell className="font-medium">{item.product_name}</TableCell>
-                  <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">{item.unit_value?.toLocaleString() || "—"}</TableCell>
+                  <TableCell className="font-medium">{item.product_name || item.product_id}</TableCell>
+                  <TableCell>{item.batch_number || "—"}</TableCell>
+                  <TableCell>{item.expiry_date || "—"}</TableCell>
+                  <TableCell>{item.hsn_code || "—"}</TableCell>
+                  <TableCell className="text-right">{Number(item.quantity).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{Number(item.unit_price ?? 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    {(item.quantity * (item.unit_value || 0)).toLocaleString()}
+                    {Number(item.line_total ?? 0).toLocaleString()}
                   </TableCell>
                 </TableRow>
               ))}
@@ -219,4 +283,3 @@ export default function ExportDeliveryDetail() {
     </main>
   );
 }
-

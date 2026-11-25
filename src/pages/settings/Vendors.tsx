@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
 import { generateCode } from "@/utils/codeGenerator";
 import { getBadgeVariant } from "@/utils/badgeColors";
+import { apiEndpoints } from "@/lib/api";
 
 interface Vendor {
   id: string;
@@ -28,12 +29,10 @@ export default function Vendors() {
   const [editMode, setEditMode] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [newVendorCode, setNewVendorCode] = useState<string>("");
-  const [vendors, setVendors] = useState<Vendor[]>([
-    { id: "1", code: "VEND-0001", name: "Logistics Pro Inc", category: "Transportation", email: "sales@logisticspro.com", phone: "+1 555-2001", rating: 4.8, status: "active" },
-    { id: "2", code: "VEND-0002", name: "PackMasters Supply", category: "Packaging", email: "info@packmasters.com", phone: "+1 555-2002", rating: 4.5, status: "active" },
-    { id: "3", code: "VEND-0003", name: "Tech Equipment Co", category: "Equipment", email: "contact@techequip.com", phone: "+1 555-2003", rating: 4.2, status: "pending" },
-    { id: "4", code: "VEND-0004", name: "Global Freight", category: "Freight", email: "orders@globalfreight.com", phone: "+1 555-2004", rating: 3.9, status: "active" },
-  ]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -43,8 +42,47 @@ export default function Vendors() {
     rating: "",
   });
 
+  const mapVendor = (row: any): Vendor => ({
+    id: String(row.id),
+    code: row.code || "",
+    name: row.name || "",
+    category: "",
+    email: row.email || "",
+    phone: row.phone || "",
+    rating: 0,
+    status: row.is_active === false ? "inactive" : "active",
+  });
+
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item: any) => item?.msg || JSON.stringify(item)).join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadVendors = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await apiEndpoints.vendors.getAll();
+      setVendors(Array.isArray(rows) ? rows.map(mapVendor) : []);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setVendors([]);
+      toast({ title: "Failed to load vendors", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.title = "Vendors | Renata";
+    loadVendors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const generateVendorCode = (): string => {
@@ -60,43 +98,40 @@ export default function Vendors() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm, editMode]);
 
-  const handleAdd = () => {
-    if (editMode && selectedVendor) {
-      setVendors(prev => prev.map(v => 
-        v.id === selectedVendor.id 
-          ? { 
-              ...v, 
-              name: formData.name,
-              category: formData.category,
-              email: formData.email,
-              phone: formData.phone,
-              rating: formData.rating ? parseFloat(formData.rating) : v.rating,
-            }
-          : v
-      ));
-      toast({
-        title: "Vendor updated",
-        description: "Vendor information has been updated successfully.",
-      });
-    } else {
-      const newCode = generateVendorCode();
-      const newVendor: Vendor = {
-        id: Date.now().toString(),
-        code: newCode,
-        name: formData.name,
-        category: formData.category,
-        email: formData.email,
-        phone: formData.phone,
-        rating: formData.rating ? parseFloat(formData.rating) : 0,
-        status: "active",
-      };
-      setVendors(prev => [...prev, newVendor]);
-      toast({
-        title: "Vendor added",
-        description: `New vendor created with code ${newCode}.`,
-      });
+  const handleAdd = async () => {
+    if (!formData.name.trim()) {
+      toast({ title: "Missing required fields", description: "Vendor name is required.", variant: "destructive" });
+      return;
     }
-    resetForm();
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email || null,
+      phone: formData.phone || null,
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedVendor) {
+        await apiEndpoints.vendors.update(Number(selectedVendor.id), payload);
+        toast({ title: "Vendor updated", description: "Vendor information has been updated successfully." });
+      } else {
+        const created = await apiEndpoints.vendors.create({
+          ...payload,
+          code: newVendorCode || generateVendorCode(),
+          is_active: true,
+        });
+        toast({ title: "Vendor added", description: `New vendor created with code ${created.code}.` });
+      }
+      await loadVendors();
+      resetForm();
+    } catch (err) {
+      toast({
+        title: editMode ? "Failed to update vendor" : "Failed to create vendor",
+        description: formatApiError(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEdit = (vendor: Vendor) => {
@@ -112,13 +147,15 @@ export default function Vendors() {
     setShowAddForm(true);
   };
 
-  const handleDelete = (vendor: Vendor) => {
-    setVendors(prev => prev.filter(v => v.id !== vendor.id));
-    toast({
-      title: "Vendor deleted",
-      description: "The vendor has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (vendor: Vendor) => {
+    if (!window.confirm(`Delete vendor ${vendor.name}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.vendors.delete(Number(vendor.id));
+      toast({ title: "Vendor deleted", description: "The vendor has been removed.", variant: "destructive" });
+      await loadVendors();
+    } catch (err) {
+      toast({ title: "Failed to delete vendor", description: formatApiError(err), variant: "destructive" });
+    }
   };
 
   const handleCancel = () => {
@@ -243,6 +280,7 @@ export default function Vendors() {
                     onChange={(e) => handleChange("category", e.target.value)}
                     placeholder="Transportation, Equipment, etc."
                   />
+                  <p className="text-xs text-muted-foreground">Not stored in the database.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="vendor-email" className="flex items-center gap-2">
@@ -285,6 +323,7 @@ export default function Vendors() {
                     onChange={(e) => handleChange("rating", e.target.value)}
                     placeholder="4.5"
                   />
+                  <p className="text-xs text-muted-foreground">Not stored in the database.</p>
                 </div>
               </div>
 
@@ -292,8 +331,8 @@ export default function Vendors() {
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>
-                  {editMode ? "Update Vendor" : "Create Vendor"}
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Vendor" : "Create Vendor"}
                 </Button>
               </div>
             </div>
@@ -313,6 +352,8 @@ export default function Vendors() {
         variant="slate"
       />
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <MasterDataTable
         title="All Vendors"
         description={`Total suppliers: ${vendors.length}`}
@@ -324,7 +365,7 @@ export default function Vendors() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No vendors found"
+        emptyMessage={loading ? "Loading vendors..." : "No vendors found"}
         showCode={true}
         codeKey="code"
       />

@@ -8,6 +8,7 @@ import { MapPinned, ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { MasterDataTable, ColumnDef } from "@/components/master-data/MasterDataTable";
+import { apiEndpoints } from "@/lib/api";
 
 interface DepotRoute {
   id: string;
@@ -18,102 +19,79 @@ interface DepotRoute {
 }
 
 interface DepotOption {
+  id: number;
   code: string;
   name: string;
 }
-
-const DEPOT_STORAGE_KEY = "depotMasterData";
-
-const defaultDepotOptions: DepotOption[] = [
-  { code: "120", name: "Kushtia Depot" },
-  { code: "107", name: "Khulna Depot" },
-];
-
-const initialRoutes: DepotRoute[] = [
-  { id: "20045", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20045", routeName: "Vangura - 2" },
-  { id: "20046", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20046", routeName: "Rajbari - 1" },
-  { id: "20047", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20047", routeName: "Rajbari - 2" },
-  { id: "20048", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20048", routeName: "Pangsha - 1" },
-  { id: "20049", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20049", routeName: "Pangsha - 2" },
-  { id: "20050", depotCode: "120", depotName: "Kushtia Depot", routeCode: "20050", routeName: "Baliakandi" },
-  { id: "07001", depotCode: "107", depotName: "Khulna Depot", routeCode: "07001", routeName: "Heraj Market" },
-  { id: "07002", depotCode: "107", depotName: "Khulna Depot", routeCode: "07002", routeName: "Moylapota" },
-  { id: "07003", depotCode: "107", depotName: "Khulna Depot", routeCode: "07003", routeName: "Gollamari Sachibunia" },
-  { id: "07004", depotCode: "107", depotName: "Khulna Depot", routeCode: "07004", routeName: "Shishu Hospital+ Rupsha" },
-  { id: "07005", depotCode: "107", depotName: "Khulna Depot", routeCode: "07005", routeName: "Shantidham" },
-  { id: "07006", depotCode: "107", depotName: "Khulna Depot", routeCode: "07006", routeName: "KMCH" },
-];
 
 export default function ShippingPoints() {
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<DepotRoute | null>(null);
-  const [routes, setRoutes] = useState<DepotRoute[]>(initialRoutes);
-  const [depotOptions, setDepotOptions] = useState<DepotOption[]>(() => {
-    if (typeof window === "undefined") {
-      return defaultDepotOptions;
-    }
-    try {
-      const stored = window.localStorage.getItem(DEPOT_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Array<{ code?: string; name?: string }>;
-        if (Array.isArray(parsed)) {
-          const mapped = parsed
-            .filter((item) => item?.code && item?.name)
-            .map((item) => ({ code: String(item.code), name: String(item.name) }));
-          if (mapped.length > 0) {
-            return mapped;
-          }
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to parse depot options", error);
-    }
-    return defaultDepotOptions;
-  });
+  const [routes, setRoutes] = useState<DepotRoute[]>([]);
+  const [depotOptions, setDepotOptions] = useState<DepotOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     depotCode: "",
     routeCode: "",
     routeName: "",
   });
 
+  const formatApiError = (err: unknown): string => {
+    const anyErr = err as { message?: string; details?: { detail?: unknown } };
+    const detail = anyErr?.details?.detail;
+    if (Array.isArray(detail)) {
+      return detail.map((item: any) => item?.msg || JSON.stringify(item)).join("; ");
+    }
+    if (typeof detail === "string") return detail;
+    return anyErr?.message || "Request failed";
+  };
+
+  const loadPageData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [depotRows, routeRows] = await Promise.all([
+        apiEndpoints.depots.getAll(),
+        apiEndpoints.routes.getAll(),
+      ]);
+      const depots: DepotOption[] = Array.isArray(depotRows)
+        ? depotRows
+            .filter((item: any) => item?.code && item?.name)
+            .map((item: any) => ({ id: Number(item.id), code: String(item.code), name: String(item.name) }))
+        : [];
+      setDepotOptions(depots);
+      const byId = new Map(depots.map((d) => [d.id, d]));
+      const mapped: DepotRoute[] = Array.isArray(routeRows)
+        ? routeRows.map((row: any) => {
+            const depot = byId.get(Number(row.depot_id));
+            return {
+              id: String(row.id),
+              depotCode: depot?.code || "",
+              depotName: depot?.name || "",
+              routeCode: row.code || row.route_id || "",
+              routeName: row.name || "",
+            };
+          })
+        : [];
+      setRoutes(mapped);
+    } catch (err) {
+      const message = formatApiError(err);
+      setError(message);
+      setRoutes([]);
+      toast({ title: "Failed to load shipping routes", description: message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     document.title = "Shipping Routes | Renata";
-  }, []);
-
-  const refreshDepotOptions = useCallback(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = window.localStorage.getItem(DEPOT_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Array<{ code?: string; name?: string }>;
-        if (Array.isArray(parsed)) {
-          const mapped = parsed
-            .filter((item) => item?.code && item?.name)
-            .map((item) => ({ code: String(item.code), name: String(item.name) }));
-          if (mapped.length > 0) {
-            setDepotOptions(mapped);
-            return;
-          }
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to refresh depot options", error);
-    }
-    setDepotOptions(defaultDepotOptions);
-  }, []);
-
-  useEffect(() => {
-    refreshDepotOptions();
-    if (typeof window === "undefined") return;
-    window.addEventListener("depot-data-updated", refreshDepotOptions);
-    window.addEventListener("storage", refreshDepotOptions);
-    return () => {
-      window.removeEventListener("depot-data-updated", refreshDepotOptions);
-      window.removeEventListener("storage", refreshDepotOptions);
-    };
-  }, [refreshDepotOptions]);
+    loadPageData();
+  }, [loadPageData]);
 
   const resetForm = () => {
     setFormData({ depotCode: "", routeCode: "", routeName: "" });
@@ -126,7 +104,7 @@ export default function ShippingPoints() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!formData.depotCode || !formData.routeCode || !formData.routeName) {
       toast({
         title: "Missing information",
@@ -146,51 +124,38 @@ export default function ShippingPoints() {
       return;
     }
 
-    if (editMode && selectedRoute) {
-      setRoutes((prev) =>
-        prev.map((route) =>
-          route.id === selectedRoute.id
-            ? {
-                ...route,
-                depotCode: depotInfo.code,
-                depotName: depotInfo.name,
-                routeCode: formData.routeCode,
-                routeName: formData.routeName,
-              }
-            : route,
-        ),
-      );
-      toast({
-        title: "Route updated",
-        description: "Depot route information has been updated successfully.",
-      });
-    } else {
-      const exists = routes.some((route) => route.routeCode === formData.routeCode);
-      if (exists) {
+    const payload = {
+      route_id: formData.routeCode.trim(),
+      name: formData.routeName.trim(),
+      depot_id: depotInfo.id,
+      status: "Active",
+    };
+    setSaving(true);
+    try {
+      if (editMode && selectedRoute) {
+        await apiEndpoints.routes.update(Number(selectedRoute.id), payload);
         toast({
-          title: "Duplicate route code",
-          description: "This route code already exists. Please use a different code.",
-          variant: "destructive",
+          title: "Route updated",
+          description: "Depot route information has been updated successfully.",
         });
-        return;
+      } else {
+        await apiEndpoints.routes.create(payload);
+        toast({
+          title: "Route added",
+          description: `New route ${payload.route_id} - ${payload.name} created for ${depotInfo.name}.`,
+        });
       }
-
-      const newRoute: DepotRoute = {
-        id: formData.routeCode,
-        depotCode: depotInfo.code,
-        depotName: depotInfo.name,
-        routeCode: formData.routeCode,
-        routeName: formData.routeName,
-      };
-
-      setRoutes((prev) => [...prev, newRoute]);
+      await loadPageData();
+      resetForm();
+    } catch (err) {
       toast({
-        title: "Route added",
-        description: `New route ${newRoute.routeCode} - ${newRoute.routeName} created for ${depotInfo.name}.`,
+        title: editMode ? "Failed to update route" : "Failed to create route",
+        description: formatApiError(err),
+        variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
   };
 
   const handleEdit = (route: DepotRoute) => {
@@ -204,13 +169,15 @@ export default function ShippingPoints() {
     setShowAddForm(true);
   };
 
-  const handleDelete = (route: DepotRoute) => {
-    setRoutes((prev) => prev.filter((item) => item.id !== route.id));
-    toast({
-      title: "Route deleted",
-      description: "The depot route has been removed.",
-      variant: "destructive",
-    });
+  const handleDelete = async (route: DepotRoute) => {
+    if (!window.confirm(`Delete route ${route.routeCode} - ${route.routeName}? This cannot be undone.`)) return;
+    try {
+      await apiEndpoints.routes.delete(Number(route.id));
+      toast({ title: "Route deleted", description: "The depot route has been removed.", variant: "destructive" });
+      await loadPageData();
+    } catch (err) {
+      toast({ title: "Failed to delete route", description: formatApiError(err), variant: "destructive" });
+    }
   };
 
   const columns: ColumnDef<DepotRoute>[] = [
@@ -311,7 +278,9 @@ export default function ShippingPoints() {
                 <Button variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button onClick={handleAdd}>{editMode ? "Update Route" : "Create Route"}</Button>
+                <Button onClick={handleAdd} disabled={saving}>
+                  {saving ? "Saving..." : editMode ? "Update Route" : "Create Route"}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -329,6 +298,8 @@ export default function ShippingPoints() {
         variant="indigo"
       />
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
       <MasterDataTable
         title="Depot Shipping Routes"
         description={`Total routes: ${routes.length}`}
@@ -340,7 +311,7 @@ export default function ShippingPoints() {
         onAdd={() => setShowAddForm(true)}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        emptyMessage="No routes found"
+        emptyMessage={loading ? "Loading routes..." : "No routes found"}
         showCode={true}
         codeKey="routeCode"
       />

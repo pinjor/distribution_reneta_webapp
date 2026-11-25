@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import StockAdjustment, StockAdjustmentItem, Employee
 from app.schemas import StockAdjustmentCreate, StockAdjustment as StockAdjustmentSchema
 from app.core.deps import require_permission
-from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write
+from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, hide_foreign_depot
 
 router = APIRouter()
 
@@ -47,6 +47,21 @@ def get_stock_adjustments(
     query = apply_depot_id_filter(db.query(StockAdjustment), user, StockAdjustment.depot_id)
     adjustments = query.offset(skip).limit(limit).all()
     return adjustments
+
+
+@router.get("/{adjustment_id}", response_model=StockAdjustmentSchema)
+def get_stock_adjustment(
+    adjustment_id: int,
+    db: Session = Depends(get_db),
+    user: Employee = Depends(require_permission("inventory.read")),
+):
+    """Get a single stock adjustment without changing quantities or approval state."""
+    adjustment = db.query(StockAdjustment).filter(StockAdjustment.id == adjustment_id).first()
+    if not adjustment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock adjustment not found")
+    hide_foreign_depot(user, adjustment.depot_id)
+    return adjustment
+
 
 @router.post("/", response_model=StockAdjustmentSchema, status_code=status.HTTP_201_CREATED)
 def create_stock_adjustment(

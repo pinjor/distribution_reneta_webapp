@@ -37,8 +37,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       <AppSidebar />
       <SidebarInset className="min-w-0">
         <AppHeader />
-        <div className="relative flex-1 p-6 overflow-auto bg-gradient-to-br from-background via-brand-tile-from/20 to-background">
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="relative flex-1 p-6 overflow-auto bg-gradient-to-br from-background via-brand-tile-from/20 to-background print:p-0 print:bg-white">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden print:hidden">
             <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-brand-from/5 blur-3xl" />
             <div className="absolute bottom-0 left-1/4 h-48 w-48 rounded-full bg-brand-tile-to/30 blur-3xl" />
           </div>

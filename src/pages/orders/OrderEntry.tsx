@@ -283,9 +283,15 @@ export default function OrderEntry() {
         setShippingPoints(transformedRoutes);
       } catch (error) {
         console.error("Failed to load master data", error);
+        if (mounted) {
+          setCustomers([]);
+          setEmployees([]);
+          setProducts([]);
+          setShippingPoints([]);
+        }
         toast({
           title: "Master data unavailable",
-          description: "Some dropdowns are using fallback values. Check your network connection.",
+          description: "Customers, employees, or products could not be loaded. Dropdowns will stay empty until you retry.",
           variant: "destructive",
         });
       } finally {
