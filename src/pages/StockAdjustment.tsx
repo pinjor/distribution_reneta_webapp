@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FileText, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,14 +14,9 @@ import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 
-const adjustmentRequests = [
-  { id: "ADJ-001", product: "Paracetamol 500mg", batch: "6000001", qty: -50, reason: "Damaged", status: "pending", date: "2025-01-15", submittedBy: "Mohammad Rahman" },
-  { id: "ADJ-002", product: "Amoxicillin 250mg", batch: "7000001", qty: 100, reason: "Found", status: "approved", date: "2025-01-14", submittedBy: "Fatema Khatun" },
-  { id: "ADJ-003", product: "Insulin Vials", batch: "9000001", qty: -25, reason: "Expired", status: "rejected", date: "2025-01-13", submittedBy: "Abdul Karim" },
-];
-
 export default function StockAdjustment() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     product: "",
     batch: "",
@@ -42,7 +38,41 @@ export default function StockAdjustment() {
     queryFn: apiEndpoints.stockMaintenance.getLedger,
   });
 
+  const { data: adjustmentsResponse, isLoading: adjLoading } = useQuery({
+    queryKey: ["stock-adjustments"],
+    queryFn: apiEndpoints.stockAdjustments.getAll,
+  });
+  const { data: me } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: apiEndpoints.auth.me,
+  });
+
   const products = productsResponse?.data || productsResponse || [];
+  const adjustmentRequests = (Array.isArray(adjustmentsResponse) ? adjustmentsResponse : []).map((adj: any) => {
+    const first = (adj.items || [])[0];
+    return {
+      id: adj.adjustment_number || String(adj.id),
+      product: first ? `Product #${first.product_id}` : "—",
+      batch: first?.batch || "—",
+      qty: first ? Number(first.quantity_change) : 0,
+      reason: adj.reason || "",
+      status: String(adj.status || "pending").toLowerCase(),
+      date: adj.adjustment_date,
+      submittedBy: adj.submitted_by || "",
+    };
+  });
+
+  const createAdjustment = useMutation({
+    mutationFn: apiEndpoints.stockAdjustments.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock-adjustments"] });
+      toast({ title: "Adjustment request submitted", description: "Saved as Pending. Stock quantities are unchanged until approval." });
+      setFormData({ product: "", batch: "", qty: "", reason: "", remarks: "" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Could not submit adjustment", description: error?.message || "Request failed", variant: "destructive" });
+    },
+  });
   
   // Extract unique batches from stock ledger
   useEffect(() => {
@@ -61,8 +91,29 @@ export default function StockAdjustment() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ title: "Adjustment request submitted", description: "Pending manager approval" });
-    setFormData({ product: "", batch: "", qty: "", reason: "", remarks: "" });
+    if (!formData.product || !formData.qty) {
+      toast({ title: "Validation Error", description: "Product and quantity are required", variant: "destructive" });
+      return;
+    }
+    const depotId = me?.depot_id;
+    if (!depotId) {
+      toast({ title: "Depot required", description: "Your user account has no depot. Adjustment cannot be saved.", variant: "destructive" });
+      return;
+    }
+    createAdjustment.mutate({
+      adjustment_date: new Date().toISOString().slice(0, 10),
+      depot_id: depotId,
+      adjustment_type: formData.reason || "Correction",
+      reason: formData.remarks || formData.reason,
+      status: "Pending",
+      items: [
+        {
+          product_id: Number(formData.product),
+          batch: formData.batch || null,
+          quantity_change: Number(formData.qty),
+        },
+      ],
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -182,7 +233,9 @@ export default function StockAdjustment() {
               />
             </div>
 
-            <Button type="submit" className="w-full">Submit Request</Button>
+            <Button type="submit" className="w-full" disabled={createAdjustment.isPending}>
+              {createAdjustment.isPending ? "Submitting…" : "Submit Request"}
+            </Button>
           </form>
         </Card>
 

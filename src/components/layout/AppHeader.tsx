@@ -49,6 +49,7 @@ export function AppHeader() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isDashboard = pathname === "/";
+  const isCockpit = pathname === "/distribution/cockpit" || pathname === "/orders/distribution-cockpit";
 
   const displayName = getUserDisplayName(user);
   const dashboardName = user?.first_name
@@ -90,6 +91,13 @@ export function AppHeader() {
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
                 {dashboardName}
+              </h1>
+            </div>
+          )}
+          {isCockpit && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Distribution Cockpit
               </h1>
             </div>
           )}

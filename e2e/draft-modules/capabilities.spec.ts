@@ -126,7 +126,13 @@ test.describe("Draft module capabilities", () => {
 
   test("capability request failure fails closed", async ({ page }) => {
     await login(page, e2eEnv("E2E_ADMIN_EMAIL"));
-    await page.route("**/draft-modules/capabilities", (route) => route.abort("failed"));
+    await page.route("**/draft-modules/capabilities", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "capability probe failed" }),
+      }),
+    );
     await page.goto("/delivery/sample-gift");
     await expect(page.getByRole("button", { name: "New Sample Gift" })).toHaveCount(0);
     await expect(page.getByTestId("draft-writes-unavailable")).toBeVisible();

@@ -83,35 +83,13 @@ export default function VehicleLoading() {
       const challan = challans.find((c) => c.id === challanId);
       if (!challan) return;
 
-      // For now, we'll create a mock structure. In production, this would call an API
-      // that groups deliveries by customer and returns invoices
-      const customerGroups: Record<number, any[]> = {};
-      
-      challan.deliveries?.forEach((delivery: any) => {
-        // Assuming delivery has customer info or we need to fetch it
-        const customerId = delivery.customer?.id || delivery.customer_id;
-        if (!customerGroups[customerId]) {
-          customerGroups[customerId] = [];
-        }
-        customerGroups[customerId].push(delivery);
+      const allInvoices = await apiEndpoints.invoices.getAll();
+      const list = Array.isArray(allInvoices) ? allInvoices : [];
+      const related = list.filter((inv: any) => {
+        const loading = inv.loading_number || inv.loading_no || inv.challan_id;
+        return loading === challan.loading_no || loading === challanId || inv.challan_id === challanId;
       });
-
-      // Mock invoices - in production, fetch from API
-      const mockInvoices: Invoice[] = Object.entries(customerGroups).map(([customerId, deliveries]) => {
-        const totalAmount = deliveries.reduce((sum, d) => sum + Number(d.value || 0), 0);
-        const firstDelivery = deliveries[0];
-        return {
-          id: parseInt(customerId) * 1000 + challanId, // Mock ID
-          invoice_number: `INV-${challan.loading_no || challan.order_number}-${customerId}`,
-          invoice_date: challan.loading_date || new Date().toISOString().split('T')[0],
-          customer_id: parseInt(customerId),
-          customer_name: firstDelivery.customer?.name || `Customer ${customerId}`,
-          amount: totalAmount,
-          status: "Pending",
-        };
-      });
-
-      setInvoices((prev) => ({ ...prev, [challanId]: mockInvoices }));
+      setInvoices((prev) => ({ ...prev, [challanId]: related }));
     } catch (error) {
       console.error("Failed to load invoices", error);
       toast({ title: "Unable to load invoices", variant: "destructive" });

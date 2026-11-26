@@ -11,7 +11,9 @@ from app.core.config import get_settings
 from app.core.deps import require_auth, require_role
 from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, hide_foreign_depot
 from app.core.draft_modules import require_export_schema
+from app.isolated_runtime import isolated_workflow_active
 from app.models import Employee, ExportDelivery, ExportDeliveryItem, Product
+from app.services.draft_product_eligibility import require_eligible_products
 from app.services.draft_document_lock import (
     abort_unlocked,
     commit_draft_write,
@@ -66,7 +68,13 @@ def _number_taken(db: Session, number: str, exclude_id: Optional[int] = None) ->
 
 
 def _require_products(db: Session, items: List[schemas.ExportDeliveryItemCreate]) -> dict:
-    # Existence only. Flag eligibility is pending (draft_product_eligibility.POLICY_APPROVED).
+    # Isolated F.4B.2-DEV app enforces proposed flags. Production remains existence-only.
+    if isolated_workflow_active():
+        return require_eligible_products(
+            db,
+            [item.product_id for item in items],
+            "export",
+        )
     ids = {item.product_id for item in items}
     rows = db.query(Product).filter(Product.id.in_(ids)).all()
     found = {row.id: row for row in rows}

@@ -8,8 +8,11 @@ import sys
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from datetime import date
+
 from app.auth import get_password_hash
 from app.models import Depot, Employee, Product
+from app.services.isolated_inventory_simulation import IsoLotRow, create_isolated_schema
 
 LIVE_NAME = "swift_distro_hub"
 ALLOWED_NAMES = frozenset({"reneta_e2e", "f4b1b_iso"})
@@ -77,6 +80,14 @@ def main() -> None:
         upsert_user("E2E-MGR", "e2e.manager.f4b1b@example.com", "E2EManager", "manager", depot_a.id)
         upsert_user("E2E-PSO", "e2e.pso.f4b1b@example.com", "E2EPSO", "user", depot_a.id)
         upsert_user("E2E-FRN", "e2e.foreign.f4b1b@example.com", "E2EForeign", "user", depot_b.id)
+        upsert_user(
+            "E2E-FRN-MGR",
+            "e2e.foreign.manager.f4b1b@example.com",
+            "E2EForeignMgr",
+            "manager",
+            depot_b.id,
+        )
+        upsert_user("E2E-BILL", "e2e.billing.f4b1b@example.com", "E2EBilling", "billing", depot_a.id)
 
         sample = db.query(Product).filter(Product.code == "E2E-SAMPLE-SKU").first()
         if sample is None:
@@ -108,6 +119,103 @@ def main() -> None:
             export.product_type_export = True
             export.is_active = True
 
+        db.flush()
+        create_isolated_schema(engine)
+        today = date.today()
+        existing_lot = db.query(IsoLotRow).filter(IsoLotRow.batch_no == "SG-EARLY").first()
+        if existing_lot is None:
+            db.add_all(
+                [
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=sample.id,
+                        batch_no="SG-EXPIRED",
+                        expiry_date=date(today.year - 1, 1, 1),
+                        quantity=100,
+                        available=100,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=sample.id,
+                        batch_no="SG-EARLY",
+                        expiry_date=date(today.year + 1, 1, 15),
+                        quantity=20,
+                        available=20,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=sample.id,
+                        batch_no="SG-LATE",
+                        expiry_date=date(today.year + 2, 6, 1),
+                        quantity=80,
+                        available=80,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=sample.id,
+                        batch_no="SG-NULL",
+                        expiry_date=None,
+                        quantity=40,
+                        available=40,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=sample.id,
+                        batch_no="SG-HOLD",
+                        expiry_date=date(today.year + 1, 3, 1),
+                        quantity=30,
+                        available=30,
+                        reserved=0,
+                        status="Restricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=export.id,
+                        batch_no="EX-EARLY",
+                        expiry_date=date(today.year + 1, 2, 1),
+                        quantity=15,
+                        available=15,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=export.id,
+                        batch_no="EX-LATE",
+                        expiry_date=date(today.year + 3, 1, 1),
+                        quantity=60,
+                        available=60,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                    IsoLotRow(
+                        depot_id=depot_a.id,
+                        product_id=export.id,
+                        batch_no="EX-EXPIRED",
+                        expiry_date=date(today.year - 1, 5, 1),
+                        quantity=50,
+                        available=50,
+                        reserved=0,
+                        status="Unrestricted",
+                        product_active=1,
+                    ),
+                ]
+            )
         db.commit()
         db.refresh(sample)
         db.refresh(export)

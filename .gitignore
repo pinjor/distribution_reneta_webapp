@@ -8,6 +8,7 @@ backend/.venv/
 
 # Build outputs
 dist/
+dist-isolated-workflow/
 build/
 *.log
 

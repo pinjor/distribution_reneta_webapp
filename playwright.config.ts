@@ -19,9 +19,10 @@ if (fs.existsSync(envFile)) {
 }
 
 const baseURL = process.env.E2E_BASE_URL || "http://127.0.0.1:15174";
+const workflowBaseURL = process.env.E2E_WORKFLOW_BASE_URL || "http://127.0.0.1:15175";
 
 export default defineConfig({
-  testDir: "./e2e/draft-modules",
+  testDir: "./e2e",
   timeout: 90_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
@@ -32,13 +33,22 @@ export default defineConfig({
     ["html", { open: "never", outputFolder: "playwright-report" }],
     ["junit", { outputFile: "test-results/junit.xml" }],
   ],
-  testMatch: "**/*.spec.ts",
   use: {
-    baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      testMatch: /draft-modules\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], baseURL },
+    },
+    {
+      name: "isolated-workflow",
+      testMatch: /isolated-workflow\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], baseURL: workflowBaseURL },
+    },
+  ],
   globalSetup: "./e2e/draft-modules/global-setup.ts",
 });

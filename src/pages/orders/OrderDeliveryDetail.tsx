@@ -184,9 +184,8 @@ export default function OrderDeliveryDetail() {
           const productId = safeNumber(row.product_id ?? row.productId ?? row.product?.id, 0);
           if (!productId) return;
           const rawId = Number(row.id);
-          const entryId = Number.isFinite(rawId)
-            ? rawId
-            : Number(`${productId}${Math.floor(Math.random() * 10000)}`);
+          if (!Number.isFinite(rawId)) return;
+          const entryId = rawId;
           const depotCandidate = safeNumber(row.depot_id ?? row.depotId ?? row.depot?.id, Number.NaN);
           const entry: LedgerEntry = {
             id: entryId,

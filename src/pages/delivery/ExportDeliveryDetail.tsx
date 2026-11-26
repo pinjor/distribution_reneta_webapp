@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { apiEndpoints } from "@/lib/api";
 import { canShowDraftEdit } from "@/lib/draftDocumentUi";
 import { useDraftCapabilities } from "@/hooks/useDraftCapabilities";
+import { DraftWorkflowSlot } from "@/components/delivery/DraftWorkflowSlot";
 
 interface ExportDelivery {
   id: number;
@@ -157,6 +158,7 @@ export default function ExportDeliveryDetail() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
+            <DraftWorkflowSlot />
           </div>
         )}
       />

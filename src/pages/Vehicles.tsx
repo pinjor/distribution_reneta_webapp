@@ -51,12 +51,7 @@ export default function Vehicles() {
           description: vendor.city || vendor.state || vendor.address || "",
         }))
       : [];
-    if (options.length > 0) return options;
-    return [
-      { value: "vendor-renata-logistics", label: "Renata Logistics", description: "Primary transport partner" },
-      { value: "vendor-north-star", label: "North Star Transport", description: "Covers northern region" },
-      { value: "vendor-cool-chain", label: "Cool Chain Ltd.", description: "Refrigerated fleet specialist" },
-    ];
+    return options;
   }, [vendors]);
 
   const vehicles = useMemo(() => {
@@ -66,38 +61,7 @@ export default function Vehicles() {
     if (optimisticVehicles.length > 0) {
       return optimisticVehicles;
     }
-    return [
-      {
-        id: "VH-0001",
-        vehicle_id: "VH-0001",
-        vehicle_type: "Refrigerated Truck",
-        registration_number: "DHAKA-4045",
-        capacity: 3.5,
-        depot: { name: "TURAG DC" },
-        vendor: "Renata Logistics",
-        status: "active",
-      },
-      {
-        id: "VH-0002",
-        vehicle_id: "VH-0002",
-        vehicle_type: "Mini Truck",
-        registration_number: "CTG-5123",
-        capacity: 2,
-        depot: { name: "Chattogram DC" },
-        vendor: "North Star Transport",
-        status: "Active",
-      },
-      {
-        id: "VH-0003",
-        vehicle_id: "VH-0003",
-        vehicle_type: "Dry Van",
-        registration_number: "RAJ-9981",
-        capacity: 5,
-        depot: { name: "Rajshahi DC" },
-        vendor: "Renata Logistics",
-        status: "Inactive",
-      },
-    ];
+    return [];
   }, [vehiclesResponse, optimisticVehicles]);
 
   const createVehicle = useMutation({

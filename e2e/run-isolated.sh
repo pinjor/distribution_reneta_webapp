@@ -11,6 +11,8 @@ KEEP="${E2E_KEEP:-0}"
 PG_CONTAINER="reneta_e2e_pg"
 API_CONTAINER="reneta_e2e_api"
 API_FLAGS_CONTAINER="reneta_e2e_api_flags"
+API_WORKFLOW_CONTAINER="reneta_e2e_api_workflow"
+API_WORKFLOW_FLAGS_CONTAINER="reneta_e2e_api_workflow_flags"
 NETWORK="reneta_e2e_net"
 API_IMAGE="${E2E_API_IMAGE:-reneta_e2e_api:local}"
 DB_NAME="reneta_e2e"
@@ -21,10 +23,16 @@ SECRET="e2e-f4b1c-isolated-secret-not-production"
 PG_HOST_PORT="${E2E_PG_PORT:-15432}"
 API_PORT="${E2E_API_PORT:-18010}"
 API_FLAGS_PORT="${E2E_API_FLAGS_PORT:-18011}"
+API_WORKFLOW_PORT="${E2E_WORKFLOW_API_PORT:-18012}"
+API_WORKFLOW_FLAGS_PORT="${E2E_WORKFLOW_FLAGS_API_PORT:-18013}"
 VITE_PORT="${E2E_VITE_PORT:-15174}"
+VITE_WORKFLOW_PORT="${E2E_WORKFLOW_VITE_PORT:-15175}"
 VITE_PID=""
+VITE_WF_PID=""
 HOST_API_PID=""
 HOST_FLAGS_PID=""
+HOST_WF_PID=""
+HOST_WF_FLAGS_PID=""
 STARTED_DOCKER=0
 STARTED_NETWORK=0
 
@@ -49,7 +57,7 @@ sanitize_log() {
 
 owned_name() {
   case "$1" in
-    reneta_e2e_pg|reneta_e2e_api|reneta_e2e_api_flags) return 0 ;;
+    reneta_e2e_pg|reneta_e2e_api|reneta_e2e_api_flags|reneta_e2e_api_workflow|reneta_e2e_api_workflow_flags) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -72,6 +80,12 @@ cleanup() {
     wait "$VITE_PID" 2>/dev/null || true
   fi
   pkill -f "vite --host 127.0.0.1 --port ${VITE_PORT}" >/dev/null 2>&1 || true
+  if [[ -n "$VITE_WF_PID" ]]; then
+    kill "$VITE_WF_PID" 2>/dev/null || true
+    pkill -P "$VITE_WF_PID" 2>/dev/null || true
+    wait "$VITE_WF_PID" 2>/dev/null || true
+  fi
+  pkill -f "vite --config vite.isolated.config.ts" >/dev/null 2>&1 || true
   if [[ -n "$HOST_API_PID" ]] && kill -0 "$HOST_API_PID" 2>/dev/null; then
     kill "$HOST_API_PID" 2>/dev/null
     wait "$HOST_API_PID" 2>/dev/null
@@ -80,13 +94,27 @@ cleanup() {
     kill "$HOST_FLAGS_PID" 2>/dev/null
     wait "$HOST_FLAGS_PID" 2>/dev/null
   fi
+  if [[ -n "$HOST_WF_PID" ]] && kill -0 "$HOST_WF_PID" 2>/dev/null; then
+    kill "$HOST_WF_PID" 2>/dev/null
+    wait "$HOST_WF_PID" 2>/dev/null
+  fi
+  if [[ -n "$HOST_WF_FLAGS_PID" ]] && kill -0 "$HOST_WF_FLAGS_PID" 2>/dev/null; then
+    kill "$HOST_WF_FLAGS_PID" 2>/dev/null
+    wait "$HOST_WF_FLAGS_PID" 2>/dev/null
+  fi
   if [[ "$STARTED_DOCKER" -eq 1 && "$KEEP" != "1" ]]; then
     docker logs "$API_CONTAINER" >"$LOG_DIR/api.raw.log" 2>&1 || true
     docker logs "$API_FLAGS_CONTAINER" >"$LOG_DIR/api-flags.raw.log" 2>&1 || true
+    docker logs "$API_WORKFLOW_CONTAINER" >"$LOG_DIR/api-workflow.raw.log" 2>&1 || true
+    docker logs "$API_WORKFLOW_FLAGS_CONTAINER" >"$LOG_DIR/api-workflow-flags.raw.log" 2>&1 || true
     sanitize_log "$LOG_DIR/api.raw.log" "$LOG_DIR/api.log"
     sanitize_log "$LOG_DIR/api-flags.raw.log" "$LOG_DIR/api-flags.log"
+    sanitize_log "$LOG_DIR/api-workflow.raw.log" "$LOG_DIR/api-workflow.log"
+    sanitize_log "$LOG_DIR/api-workflow-flags.raw.log" "$LOG_DIR/api-workflow-flags.log"
     stop_owned_container "$API_CONTAINER"
     stop_owned_container "$API_FLAGS_CONTAINER"
+    stop_owned_container "$API_WORKFLOW_CONTAINER"
+    stop_owned_container "$API_WORKFLOW_FLAGS_CONTAINER"
     stop_owned_container "$PG_CONTAINER"
     if [[ "$STARTED_NETWORK" -eq 1 ]]; then
       docker network rm "$NETWORK" >/dev/null 2>&1 || true
@@ -164,7 +192,10 @@ fi
 
 port_free "$API_PORT"
 port_free "$API_FLAGS_PORT"
+port_free "$API_WORKFLOW_PORT"
+port_free "$API_WORKFLOW_FLAGS_PORT"
 port_free "$VITE_PORT"
+port_free "$VITE_WORKFLOW_PORT"
 
 HOST_PG_URL="${E2E_DATABASE_URL:-}"
 if [[ "$RUNTIME" == "host" ]]; then
@@ -184,6 +215,8 @@ else
   fi
   stop_owned_container "$API_CONTAINER"
   stop_owned_container "$API_FLAGS_CONTAINER"
+  stop_owned_container "$API_WORKFLOW_CONTAINER"
+  stop_owned_container "$API_WORKFLOW_FLAGS_CONTAINER"
   stop_owned_container "$PG_CONTAINER"
   docker run -d --name "$PG_CONTAINER" --network "$NETWORK" \
     -e POSTGRES_USER="$DB_USER" \
@@ -203,7 +236,7 @@ export E2E_DATABASE_URL="$DATABASE_URL"
 refuse_live "$DATABASE_URL"
 
 DOCKER_DB_URL="postgresql://${DB_USER}:${DB_PASS}@${PG_CONTAINER}:5432/${DB_NAME}"
-CORS="http://127.0.0.1:${VITE_PORT},http://localhost:${VITE_PORT}"
+CORS="http://127.0.0.1:${VITE_PORT},http://localhost:${VITE_PORT},http://127.0.0.1:${VITE_WORKFLOW_PORT},http://localhost:${VITE_WORKFLOW_PORT}"
 
 run_alembic_and_seed_host() {
   refuse_live "$1"
@@ -246,6 +279,22 @@ if [[ "$RUNTIME" == "host" ]]; then
       python3 -m uvicorn main:app --host 127.0.0.1 --port "$API_FLAGS_PORT"
   ) >"$LOG_DIR/api-flags.host.log" 2>&1 &
   HOST_FLAGS_PID=$!
+  (
+    cd "$ROOT/backend"
+    DATABASE_URL="$DATABASE_URL" SECRET_KEY="$SECRET" ENVIRONMENT=development DEBUG=true \
+      CORS_ORIGINS="$CORS" REQUIRE_AUTH=true \
+      SAMPLE_GIFT_DRAFT_WRITES=yes EXPORT_DRAFT_WRITES=yes \
+      python3 -m uvicorn isolated_workflow_app:app --host 127.0.0.1 --port "$API_WORKFLOW_PORT"
+  ) >"$LOG_DIR/api-workflow.host.log" 2>&1 &
+  HOST_WF_PID=$!
+  (
+    cd "$ROOT/backend"
+    DATABASE_URL="$DATABASE_URL" SECRET_KEY="$SECRET" ENVIRONMENT=development DEBUG=true \
+      CORS_ORIGINS="$CORS" REQUIRE_AUTH=true \
+      SAMPLE_GIFT_DRAFT_WRITES=no EXPORT_DRAFT_WRITES=no \
+      python3 -m uvicorn isolated_workflow_app:app --host 127.0.0.1 --port "$API_WORKFLOW_FLAGS_PORT"
+  ) >"$LOG_DIR/api-workflow-flags.host.log" 2>&1 &
+  HOST_WF_FLAGS_PID=$!
 else
   docker run --rm --network "$NETWORK" \
     -v "$ROOT/backend:/app" \
@@ -281,6 +330,7 @@ else
     -p "${API_PORT}:8000" \
     "$API_IMAGE" \
     uvicorn main:app --host 0.0.0.0 --port 8000 >/dev/null
+  wait_http "http://127.0.0.1:${API_PORT}/health" "api"
   docker run -d --name "$API_FLAGS_CONTAINER" --network "$NETWORK" \
     -v "$ROOT/backend:/app" \
     -e "DATABASE_URL=${DOCKER_DB_URL}" \
@@ -294,6 +344,34 @@ else
     -p "${API_FLAGS_PORT}:8000" \
     "$API_IMAGE" \
     uvicorn main:app --host 0.0.0.0 --port 8000 >/dev/null
+  wait_http "http://127.0.0.1:${API_FLAGS_PORT}/health" "api-flags"
+  docker run -d --name "$API_WORKFLOW_CONTAINER" --network "$NETWORK" \
+    -v "$ROOT/backend:/app" \
+    -e "DATABASE_URL=${DOCKER_DB_URL}" \
+    -e "SECRET_KEY=${SECRET}" \
+    -e "ENVIRONMENT=development" \
+    -e "DEBUG=true" \
+    -e "CORS_ORIGINS=${CORS}" \
+    -e "REQUIRE_AUTH=true" \
+    -e "SAMPLE_GIFT_DRAFT_WRITES=yes" \
+    -e "EXPORT_DRAFT_WRITES=yes" \
+    -p "${API_WORKFLOW_PORT}:8000" \
+    "$API_IMAGE" \
+    uvicorn isolated_workflow_app:app --host 0.0.0.0 --port 8000 >/dev/null
+  wait_http "http://127.0.0.1:${API_WORKFLOW_PORT}/health" "api-workflow"
+  docker run -d --name "$API_WORKFLOW_FLAGS_CONTAINER" --network "$NETWORK" \
+    -v "$ROOT/backend:/app" \
+    -e "DATABASE_URL=${DOCKER_DB_URL}" \
+    -e "SECRET_KEY=${SECRET}" \
+    -e "ENVIRONMENT=development" \
+    -e "DEBUG=true" \
+    -e "CORS_ORIGINS=${CORS}" \
+    -e "REQUIRE_AUTH=true" \
+    -e "SAMPLE_GIFT_DRAFT_WRITES=no" \
+    -e "EXPORT_DRAFT_WRITES=no" \
+    -p "${API_WORKFLOW_FLAGS_PORT}:8000" \
+    "$API_IMAGE" \
+    uvicorn isolated_workflow_app:app --host 0.0.0.0 --port 8000 >/dev/null
 fi
 
 python3 - <<PY
@@ -308,6 +386,16 @@ PY
 
 wait_http "http://127.0.0.1:${API_PORT}/health" "api"
 wait_http "http://127.0.0.1:${API_FLAGS_PORT}/health" "api-flags"
+wait_http "http://127.0.0.1:${API_WORKFLOW_PORT}/health" "api-workflow"
+wait_http "http://127.0.0.1:${API_WORKFLOW_FLAGS_PORT}/health" "api-workflow-flags"
+python3 - <<PY
+import json, urllib.request
+wf = json.loads(urllib.request.urlopen("http://127.0.0.1:${API_WORKFLOW_PORT}/health").read())
+assert wf.get("isolated_workflow") is True, wf
+prod = json.loads(urllib.request.urlopen("http://127.0.0.1:${API_PORT}/health").read())
+assert prod.get("isolated_workflow") in (None, False), prod
+print("workflow_health_ok")
+PY
 
 RUNNING_DB="$(
   if [[ "$RUNTIME" == "host" ]]; then
@@ -324,15 +412,30 @@ fi
 (
   cd "$ROOT"
   VITE_API_URL="http://127.0.0.1:${API_PORT}/api" \
+    VITE_DISABLE_HMR=1 \
     npm run dev -- --host 127.0.0.1 --port "$VITE_PORT" --strictPort
 ) >"$LOG_DIR/vite.log" 2>&1 &
 VITE_PID=$!
 wait_http "http://127.0.0.1:${VITE_PORT}/login" "vite"
 
+(
+  cd "$ROOT"
+  VITE_API_URL="http://127.0.0.1:${API_WORKFLOW_PORT}/api" \
+    VITE_ISOLATED_WORKFLOW=1 \
+    VITE_ISOLATED_DATABASE=reneta_e2e \
+    VITE_DEV_PORT="$VITE_WORKFLOW_PORT" \
+    npm run dev:isolated-workflow
+) >"$LOG_DIR/vite-workflow.log" 2>&1 &
+VITE_WF_PID=$!
+wait_http "http://127.0.0.1:${VITE_WORKFLOW_PORT}/login" "vite-workflow"
+
 cat >"$E2E_DIR/.env.isolated" <<EOF
 E2E_API_URL=http://127.0.0.1:${API_PORT}/api
 E2E_API_FLAGS_OFF_URL=http://127.0.0.1:${API_FLAGS_PORT}/api
+E2E_WORKFLOW_API_URL=http://127.0.0.1:${API_WORKFLOW_PORT}/api
+E2E_WORKFLOW_FLAGS_OFF_URL=http://127.0.0.1:${API_WORKFLOW_FLAGS_PORT}/api
 E2E_BASE_URL=http://127.0.0.1:${VITE_PORT}
+E2E_WORKFLOW_BASE_URL=http://127.0.0.1:${VITE_WORKFLOW_PORT}
 E2E_DATABASE_URL=${DATABASE_URL}
 E2E_PG_CONTAINER=${PG_CONTAINER}
 E2E_RUNTIME=${RUNTIME}
@@ -341,15 +444,18 @@ E2E_ADMIN_EMAIL=e2e.admin.f4b1b@example.com
 E2E_MANAGER_EMAIL=e2e.manager.f4b1b@example.com
 E2E_PSO_EMAIL=e2e.pso.f4b1b@example.com
 E2E_FOREIGN_EMAIL=e2e.foreign.f4b1b@example.com
+E2E_FOREIGN_MANAGER_EMAIL=e2e.foreign.manager.f4b1b@example.com
+E2E_BILLING_EMAIL=e2e.billing.f4b1b@example.com
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:${VITE_PORT}
 EOF
 
 (
   cd "$ROOT"
-  npx playwright test --project=chromium
+  npx playwright test
 )
 PLAY_STATUS=$?
 sanitize_log "$LOG_DIR/vite.log" "$LOG_DIR/vite.sanitized.log"
+sanitize_log "$LOG_DIR/vite-workflow.log" "$LOG_DIR/vite-workflow.sanitized.log"
 if [[ "$RUNTIME" == "host" ]]; then
   sanitize_log "$LOG_DIR/api.host.log" "$LOG_DIR/api.log"
   sanitize_log "$LOG_DIR/api-flags.host.log" "$LOG_DIR/api-flags.log"

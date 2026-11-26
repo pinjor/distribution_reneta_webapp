@@ -11,7 +11,12 @@ from app.core.config import get_settings
 from app.core.deps import require_auth, require_role
 from app.core.depot_scope import apply_depot_id_filter, assign_depot_for_write, hide_foreign_depot
 from app.core.draft_modules import require_sample_gift_schema
+from app.isolated_runtime import isolated_workflow_active
 from app.models import Employee, Product, SampleGiftDelivery, SampleGiftDeliveryItem
+from app.services.draft_product_eligibility import (
+    category_for_sample_gift,
+    require_eligible_products,
+)
 from app.services.draft_document_lock import (
     abort_unlocked,
     commit_draft_write,
@@ -66,8 +71,18 @@ def _number_taken(db: Session, number: str, exclude_id: Optional[int] = None) ->
     return query.first() is not None
 
 
-def _require_products(db: Session, items: List[schemas.SampleGiftDeliveryItemCreate]) -> dict:
-    # Existence only. Flag eligibility is pending (draft_product_eligibility.POLICY_APPROVED).
+def _require_products(
+    db: Session,
+    items: List[schemas.SampleGiftDeliveryItemCreate],
+    document_kind: str,
+) -> dict:
+    # Isolated F.4B.2-DEV app enforces proposed flags. Production remains existence-only.
+    if isolated_workflow_active():
+        return require_eligible_products(
+            db,
+            [item.product_id for item in items],
+            category_for_sample_gift(document_kind),
+        )
     ids = {item.product_id for item in items}
     rows = db.query(Product).filter(Product.id.in_(ids)).all()
     found = {row.id: row for row in rows}
@@ -202,7 +217,7 @@ def create_sample_gift_delivery(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="depot_id is required. The authenticated user has no depot assignment.",
         )
-    products = _require_products(db, payload.items)
+    products = _require_products(db, payload.items, payload.document_kind)
     number = (payload.delivery_number or "").strip() or generate_delivery_number(db)
     if _number_taken(db, number):
         raise HTTPException(
@@ -263,7 +278,7 @@ def update_sample_gift_delivery(
                 detail="depot_id is required. The authenticated user has no depot assignment.",
             )
         hide_foreign_depot(user, depot_id)
-        products = _require_products(db, payload.items)
+        products = _require_products(db, payload.items, payload.document_kind)
         number = (payload.delivery_number or delivery.delivery_number).strip()
         if number != delivery.delivery_number and _number_taken(db, number, exclude_id=delivery.id):
             raise HTTPException(

@@ -41,44 +41,7 @@ export default function Drivers() {
   const displayDrivers = useMemo(() => {
     if (Array.isArray(drivers) && drivers.length > 0) return drivers;
     if (optimisticDrivers.length > 0) return optimisticDrivers;
-    return [
-      {
-        id: "DRV-0001",
-        driver_id: "DRV-0001",
-        first_name: "Tariq",
-        last_name: "Hasan",
-        contact: "01711-223344",
-        license_number: "LIC-9845123",
-        license_expiry: "2026-04-30",
-        vehicle_id: "VH-0001",
-        route: "Dhaka North",
-        status: "Available",
-      },
-      {
-        id: "DRV-0002",
-        driver_id: "DRV-0002",
-        first_name: "Manik",
-        last_name: "Khan",
-        contact: "01721-889944",
-        license_number: "LIC-9845789",
-        license_expiry: "2025-12-10",
-        vehicle_id: "VH-0002",
-        route: "Dhaka West",
-        status: "On Route",
-      },
-      {
-        id: "DRV-0003",
-        driver_id: "DRV-0003",
-        first_name: "Saidur",
-        last_name: "Rahman",
-        contact: "01781-112233",
-        license_number: "LIC-9845321",
-        license_expiry: "2024-11-15",
-        vehicle_id: "VH-0003",
-        route: "Gazipur",
-        status: "On Leave",
-      },
-    ];
+    return [];
   }, [drivers, optimisticDrivers]);
 
   const createDriver = useMutation({
@@ -113,20 +76,7 @@ export default function Drivers() {
         status: "Available",
       });
     },
-    onError: (error: any, variables) => {
-      setOptimisticDrivers((prev) => {
-        const id = variables.driver_id || variables.driverId;
-        const remaining = prev.filter((entry) => (entry.driver_id || entry.id) !== id);
-        return [
-          {
-            ...variables,
-            id,
-            driver_id: id,
-            status: variables.status || "Available",
-          },
-          ...remaining,
-        ];
-      });
+    onError: (error: any) => {
       toast({
         title: "Unable to add driver",
         description: error?.message || "Something went wrong while saving the driver.",

@@ -1,0 +1,114 @@
+# Disposable Opening Stock development stack.
+# Never points at swift_distro_hub. Do not merge into production docker-compose.yml.
+name: opening_stock_dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: opening_stock_dev_pg
+    environment:
+      POSTGRES_DB: opening_stock_dev
+      POSTGRES_USER: os_dev
+      POSTGRES_PASSWORD: os_dev_pass
+    ports:
+      - "127.0.0.1:15550:5432"
+    volumes:
+      - opening_stock_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U os_dev -d opening_stock_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    image: distribution_reneta_webapp-backend
+    container_name: opening_stock_dev_migrate
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://os_dev:os_dev_pass@opening_stock_dev_pg:5432/opening_stock_dev
+      ENVIRONMENT: development
+      SECRET_KEY: opening-stock-dev-not-production
+      REQUIRE_AUTH: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        case "$$DATABASE_URL" in *swift_distro_hub*) echo "refusing live db"; exit 1;; esac
+        alembic upgrade f3_export_draft
+        alembic -c alembic_opening_stock.ini upgrade head
+        PYTHONPATH=/app python db/seed_opening_stock_dev.py
+    restart: "no"
+
+  backend:
+    image: distribution_reneta_webapp-backend
+    container_name: opening_stock_dev_api
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://os_dev:os_dev_pass@opening_stock_dev_pg:5432/opening_stock_dev
+      REDIS_URL: redis://127.0.0.1:9/0
+      SECRET_KEY: your-secret-key-change-in-production
+      ENVIRONMENT: development
+      REQUIRE_AUTH: "true"
+      SAMPLE_GIFT_DRAFT_WRITES: "no"
+      EXPORT_DRAFT_WRITES: "no"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      CORS_ORIGINS: http://127.0.0.1:9180,http://localhost:9180,http://127.0.0.1:9080,http://localhost:9080,http://127.0.0.1,http://localhost,http://127.0.0.1:80,http://localhost:80
+    ports:
+      - "127.0.0.1:18050:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      default: {}
+      website:
+        aliases:
+          - opening_stock_dev_api
+
+  frontend:
+    image: distribution_reneta_webapp-frontend
+    container_name: opening_stock_dev_frontend
+    ports:
+      - "127.0.0.1:9180:8080"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./index.html:/app/index.html
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.app.json:/app/tsconfig.app.json
+      - ./tsconfig.node.json:/app/tsconfig.node.json
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      - ./postcss.config.js:/app/postcss.config.js
+      - ./eslint.config.js:/app/eslint.config.js
+      - ./components.json:/app/components.json
+      - ./docker-entrypoint.frontend.sh:/app/docker-entrypoint.frontend.sh
+      - opening_stock_frontend_node_modules:/app/node_modules
+    environment:
+      VITE_API_URL: http://127.0.0.1:18050/api
+      VITE_DEV_PORT: "8080"
+      NODE_ENV: development
+      VITE_DISABLE_HMR: "1"
+    depends_on:
+      - backend
+
+networks:
+  website:
+    name: distribution_reneta_webapp_swift_network
+    external: true
+
+volumes:
+  opening_stock_pg_data:
+  opening_stock_frontend_node_modules:

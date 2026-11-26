@@ -2027,3 +2027,114 @@ class ExportDeliveryResponse(BaseModel):
 
 class ExportDeliveryDetailResponse(ExportDeliveryResponse):
     items: List[ExportDeliveryItemResponse] = []
+
+
+class DraftWorkflowActionRequest(BaseModel):
+    """Isolated Submit/Approve/Reject body. Production does not mount these routes."""
+
+    reason: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class IsolatedReserveRequest(BaseModel):
+    """Isolated inventory reserve body. Production does not mount these routes."""
+
+    idempotency_key: str = Field(..., min_length=1, max_length=128)
+    remarks: Optional[str] = Field(None, max_length=500)
+
+
+class IsolatedReservationLineResponse(BaseModel):
+    document_item_id: int
+    product_id: int
+    requested_quantity: Decimal
+    reserved_quantity: Decimal
+
+
+class IsolatedReservationSliceResponse(BaseModel):
+    lot_id: int
+    batch_no: str
+    expiry_date: Optional[date] = None
+    allocated_quantity: Decimal
+    depot_id: int
+    product_id: Optional[int] = None
+    document_item_id: Optional[int] = None
+
+
+class IsolatedReservationResponse(BaseModel):
+    reservation_id: str
+    document_kind: str
+    document_id: int
+    depot_id: Optional[int] = None
+    status: str
+    idempotency_key: str
+    created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    released_by: Optional[int] = None
+    released_at: Optional[datetime] = None
+    remarks: Optional[str] = None
+    lines: List[IsolatedReservationLineResponse] = []
+    slices: List[IsolatedReservationSliceResponse] = []
+
+
+class IsolatedFulfillmentActionRequest(BaseModel):
+    idempotency_key: str = Field(..., min_length=1, max_length=128)
+    remarks: Optional[str] = Field(None, max_length=500)
+
+
+class IsolatedPickSliceInput(BaseModel):
+    lot_id: int
+    picked_quantity: Decimal
+
+
+class IsolatedConfirmPickRequest(IsolatedFulfillmentActionRequest):
+    slices: List[IsolatedPickSliceInput]
+
+
+class IsolatedDispatchRequest(IsolatedFulfillmentActionRequest):
+    transport_ref: Optional[str] = Field(None, max_length=150)
+
+
+class IsolatedDeliveryConfirmRequest(IsolatedFulfillmentActionRequest):
+    receiver_name: Optional[str] = Field(None, max_length=255)
+    delivered_quantity: Optional[Decimal] = None
+    confirmation_date: Optional[date] = None
+    pod_ref: Optional[str] = Field(None, max_length=150)
+
+
+class IsolatedDeliveryFailRequest(IsolatedFulfillmentActionRequest):
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class IsolatedFulfillmentSliceResponse(BaseModel):
+    lot_id: int
+    batch_no: str
+    expiry_date: Optional[date] = None
+    reserved_quantity: Decimal
+    picked_quantity: Decimal
+
+
+class IsolatedFulfillmentResponse(BaseModel):
+    fulfillment_id: str
+    reservation_id: str
+    document_kind: str
+    document_id: int
+    depot_id: int
+    status: str
+    issued_quantity: Decimal
+    dispatch_id: Optional[str] = None
+    delivery_id: Optional[str] = None
+    transport_ref: Optional[str] = None
+    receiver_name: Optional[str] = None
+    delivered_quantity: Optional[Decimal] = None
+    pod_ref: Optional[str] = None
+    fail_reason: Optional[str] = None
+    remarks: Optional[str] = None
+    slices: List[IsolatedFulfillmentSliceResponse] = []
+
+
+class IsolatedFulfillmentAuditResponse(BaseModel):
+    action: str
+    actor_id: Optional[int] = None
+    from_status: Optional[str] = None
+    to_status: str
+    created_at: Optional[datetime] = None

@@ -2,7 +2,7 @@
 
 **Overall approval:** **Incomplete**  
 **Engineering gate:** `F.4B Gate B: BLOCKED — BUSINESS APPROVAL REQUIRED`  
-**Date:** 25 November 2026  
+**Date:** 26 November 2026 (finalization pass; still no owner signatures)  
 
 Every row is **Pending** until a named owner records Approve, Reject, or Request changes in `docs/PHASE_F_4_BUSINESS_POLICY_APPROVAL.md` Section E / per-rule fields. Recommended defaults are engineering proposals, not decisions.
 

@@ -53,13 +53,17 @@ const Dashboard = () => {
     document.title = "Dashboard | Renata";
   }, []);
 
-  const { data: kpis, isLoading } = useQuery({
+  const { data: kpis, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard-kpis"],
     queryFn: apiEndpoints.dashboard.kpis,
+    retry: false,
   });
 
-  const formatNumber = (num: number | undefined) =>
-    num === undefined ? "0" : num.toLocaleString();
+  const formatNumber = (num: number | undefined) => {
+    if (isError) return "—";
+    if (isLoading) return "...";
+    return num === undefined ? "0" : num.toLocaleString();
+  };
 
   const om = kpis?.order_management;
 
@@ -84,6 +88,15 @@ const Dashboard = () => {
           New Order
         </Button>
       </div>
+
+      {isError && (
+        <Card className="border-destructive/40 p-4 flex items-center justify-between">
+          <p className="text-sm text-destructive">Dashboard KPIs could not be loaded. Values below are not live.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </Card>
+      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -181,7 +194,7 @@ const Dashboard = () => {
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <StockChart />
+        <StockChart data={kpis?.stock_by_depot} isLoading={isLoading} isError={isError} />
         <DispatchChart
           pending={om?.pending_validation}
           validated={om?.validated}
@@ -191,7 +204,7 @@ const Dashboard = () => {
       </div>
 
       {/* Expiry alerts */}
-      <ExpiryAlerts />
+      <ExpiryAlerts data={kpis?.expiry_alerts} isLoading={isLoading} isError={isError} />
     </div>
   );
 };

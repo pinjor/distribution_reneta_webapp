@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdjustmentRequest {
   id: string;
@@ -19,59 +20,8 @@ interface AdjustmentRequest {
   status: "pending" | "submitted";
 }
 
-const mockAdjustments: AdjustmentRequest[] = [
-  {
-    id: "1",
-    voucherNo: "ADJ411250947",
-    voucherDate: "23/11/2025",
-    store: "Hospital Dispensary Satkania",
-    status: "pending",
-  },
-  {
-    id: "2",
-    voucherNo: "ADJ406250935",
-    voucherDate: "18/06/2025",
-    store: "Medical Store(BGHS)",
-    status: "pending",
-  },
-  {
-    id: "3",
-    voucherNo: "ADJ406250934",
-    voucherDate: "18/06/2025",
-    store: "Medical Store(BGHS)",
-    status: "pending",
-  },
-  {
-    id: "4",
-    voucherNo: "ADJ406250933",
-    voucherDate: "18/06/2025",
-    store: "Medical Store(BGHS)",
-    status: "submitted",
-  },
-  {
-    id: "5",
-    voucherNo: "ADJ406250932",
-    voucherDate: "18/06/2025",
-    store: "Medical Store(BGHS)",
-    status: "pending",
-  },
-  {
-    id: "6",
-    voucherNo: "ADJ406250931",
-    voucherDate: "18/06/2025",
-    store: "Medical Store(BGHS)",
-    status: "submitted",
-  },
-  {
-    id: "7",
-    voucherNo: "ADJ406250930",
-    voucherDate: "16/06/2025",
-    store: "Hospital Dispensary Satkania",
-    status: "pending",
-  },
-];
-
 export default function AdjustmentRequest() {
+  const { toast } = useToast();
   const [selectedStore, setSelectedStore] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -86,7 +36,22 @@ export default function AdjustmentRequest() {
 
   const depots = depotsResponse?.data || depotsResponse || [];
 
-  const filteredAdjustments = mockAdjustments.filter((adj) => {
+  const { data: adjustmentsResponse, isLoading: adjLoading } = useQuery({
+    queryKey: ["stock-adjustments"],
+    queryFn: apiEndpoints.stockAdjustments.getAll,
+  });
+
+  const adjustments: AdjustmentRequest[] = (Array.isArray(adjustmentsResponse) ? adjustmentsResponse : []).map(
+    (adj: any) => ({
+      id: String(adj.id),
+      voucherNo: adj.adjustment_number || String(adj.id),
+      voucherDate: adj.adjustment_date || "",
+      store: String(adj.depot_id ?? ""),
+      status: String(adj.status || "pending").toLowerCase() === "pending" ? "pending" : "submitted",
+    }),
+  );
+
+  const filteredAdjustments = adjustments.filter((adj) => {
     const matchesStore = !selectedStore || adj.store.toLowerCase().includes(selectedStore.toLowerCase());
     // Map "approved" filter to "submitted" status in data
     const matchesStatus = statusFilter === "approved" 
@@ -115,18 +80,23 @@ export default function AdjustmentRequest() {
   };
 
   const handlePrint = (voucherNo: string) => {
-    console.log("Print voucher:", voucherNo);
-    // Implement print functionality
+    window.print();
+    void voucherNo;
   };
 
   const handleDelete = (id: string) => {
-    console.log("Delete adjustment:", id);
-    // Implement delete functionality
+    toast({
+      title: "Delete is not available",
+      description: `Stock adjustments have no delete API. Request ${id} was not changed.`,
+      variant: "destructive",
+    });
   };
 
   const handleSubmit = (id: string) => {
-    console.log("Submit adjustment:", id);
-    // Implement submit functionality
+    toast({
+      title: "Already stored",
+      description: `Adjustment ${id} is already a Pending record. Approval is a separate inventory policy.`,
+    });
   };
 
   return (

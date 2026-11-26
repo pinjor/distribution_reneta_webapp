@@ -4,6 +4,7 @@
 **Engineering gate:** `F.4B Gate B: BLOCKED — BUSINESS APPROVAL REQUIRED`  
 **Modules:** Sample/Gift Delivery and Export Delivery  
 **Recorded:** 25 November 2026  
+**Last finalization pass:** 26 November 2026 — a later reply used unfilled template tokens (`[Actual name]`, `[Date]`, `[Approve all / Specify individual decisions]`). Those are not owner evidence. Decisions remain Pending. Combined packet: `docs/PHASE_F_4B_4C_4D_CONSOLIDATED_APPROVAL_PACKET.md` (53 rules still Pending).  
 
 This package is for Product Owner and Operations Owner review. **Section E is unsigned.** A proposal is not approval. This file does not authorize implementation, live Draft writes, product-flag changes, stock, billing, or F.4C.
 
@@ -113,7 +114,11 @@ Those require separate, named approvals.
 
 ## E. Approval Record
 
-Finalization review 25 November 2026: searched this file, the F.4 checklist, F.4A/F.4B reports, and the rest of `docs/` for named Product Owner, Operations Owner, or Authorization Policy signatures on A1–A6, B1–B6, and C1–C8. **None found.** The only repo sentences of the form “I approve …” are D.5 Alembic stamp and F.3.2 live migration, which do not cover this workflow. No owner names, dates, or Approve/Reject/Request-changes marks were invented.
+Finalization review 25 November 2026: searched this file, the F.4 checklist, F.4A/F.4B reports, and the rest of `docs/` for named Product Owner, Operations Owner, or Authorization Policy signatures on A1–A6, B1–B6, and C1–C8. **None found.** The only repo sentences of the form “I approve …” are D.5 Alembic stamp and F.3.2 live migration, which do not cover this workflow.
+
+Finalization pass 26 November 2026: the F.4 approval-finalization task asked for Product Owner, Authorization Policy Owner, and Operations Owner names and per-rule decisions. **That user message did not contain those names, dates, or Approve/Reject/Request-changes marks.** A Cursor prompt is not business approval.
+
+Same-day follow-up: a decision form was submitted with placeholder tokens only (`[Actual name]`, `[Date]`, `[Approve all / Specify individual decisions]`, `[Optional]`). A confirmation sentence that “authorized owners” decided is not a substitute for names and per-rule marks. **Those tokens were not recorded as names, dates, or Approve.** No owner names, dates, or decision marks were invented. A1–C8 and this table remain Pending.
 
 | Field | Value |
 |---|---|

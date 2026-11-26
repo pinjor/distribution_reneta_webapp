@@ -38,4 +38,32 @@ export default async function globalSetup() {
   if (probe.status === 200) {
     throw new Error("Unauthenticated Draft list returned 200; isolated API auth is misconfigured");
   }
+  const workflowApi = process.env.E2E_WORKFLOW_API_URL;
+  if (workflowApi) {
+    if (workflowApi.includes(LIVE)) {
+      throw new Error("E2E_WORKFLOW_API_URL includes the live database name");
+    }
+    const wfHealth = await fetch(workflowApi.replace(/\/api$/, "") + "/health");
+    if (!wfHealth.ok) {
+      throw new Error(`Isolated workflow API health failed: ${wfHealth.status}`);
+    }
+    const wfBody = await wfHealth.json();
+    if (wfBody.isolated_workflow !== true) {
+      throw new Error("E2E_WORKFLOW_API_URL is not isolated_workflow_app");
+    }
+  }
+  const workflowUi = process.env.E2E_WORKFLOW_BASE_URL;
+  if (workflowUi) {
+    const origin = workflowUi.replace(/\/$/, "");
+    for (const path of ["/", "/delivery/sample-gift/new", "/delivery/export/1"]) {
+      const page = await fetch(origin + path);
+      const html = await page.text();
+      if (!html.includes("isolated-workflow")) {
+        throw new Error(`Isolated Vite ${path} did not serve isolated-workflow.html`);
+      }
+      if (html.includes("/src/main.tsx")) {
+        throw new Error(`Isolated Vite ${path} served the production entrypoint`);
+      }
+    }
+  }
 }

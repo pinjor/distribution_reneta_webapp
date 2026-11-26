@@ -15,27 +15,43 @@ import { toast } from "sonner";
 import { DataTable } from "@/components/ui/data-table";
 import { useTableSort } from "@/hooks/useTableSort";
 import { useTableFilter } from "@/hooks/useTableFilter";
-import { recentReceipts } from "@/lib/mockData";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useQuery } from "@tanstack/react-query";
+import { apiEndpoints } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { masterData, type ProductOption } from "@/lib/masterData";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 const StockReceipt = () => {
-  const [challanVerified, setChallanVerified] = useState(false);
-  const [verifying, setVerifying] = useState(false);
+  const navigate = useNavigate();
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
-  const { sortedData, sortKey, sortOrder, handleSort } = useTableSort(recentReceipts, "date" as any);
+  const [depots, setDepots] = useState<{ code: string; name: string }[]>([]);
+  const { data: receiptsResponse, isLoading: receiptsLoading, isError: receiptsError } = useQuery({
+    queryKey: ["stock-receipts"],
+    queryFn: apiEndpoints.stockReceipts.getAll,
+  });
+  const receipts = (Array.isArray(receiptsResponse) ? receiptsResponse : []).map((row: any) => ({
+    id: row.receipt_number || String(row.id),
+    date: row.receipt_date,
+    challan: row.challan_number || "—",
+    product: "—",
+    batch: "—",
+    qty: Number(row.total_quantity || 0),
+    source: row.status || "Completed",
+  }));
+  const { sortedData, sortKey, sortOrder, handleSort } = useTableSort(receipts, "date" as any);
   const { filteredData, searchTerm, setSearchTerm } = useTableFilter(sortedData);
 
   useEffect(() => {
     const loadProducts = async () => {
       try {
         setLoadingProducts(true);
-        const productData = await masterData.getProducts();
+        const [productData, depotData] = await Promise.all([masterData.getProducts(), masterData.getDepots()]);
         setProducts(productData);
+        setDepots(depotData);
       } catch (error) {
         console.error("Failed to load products", error);
         toast.error("Failed to load products. Please try again.");
@@ -47,21 +63,13 @@ const StockReceipt = () => {
   }, []);
 
   const handleChallanVerify = async () => {
-    setVerifying(true);
-    // Simulate EBS verification
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setChallanVerified(true);
-    setVerifying(false);
-    toast.success("Challan verified successfully from Oracle EBS");
+    toast.error("Oracle EBS challan verification is not connected. Use Receive from Factory to record inbound stock.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!challanVerified) {
-      toast.error("Please verify challan number from Oracle EBS first");
-      return;
-    }
-    toast.success("Stock receipt recorded successfully");
+    toast.error("This page cannot persist a warehouse receipt. Use Receive from Factory, which writes product_receipts.");
+    navigate("/receive/factory");
   };
 
   const columns = [
@@ -104,7 +112,7 @@ const StockReceipt = () => {
           <div className="p-4 bg-muted/50 rounded-lg space-y-4">
             <h3 className="font-medium flex items-center gap-2">
               EBS Challan Verification
-              {challanVerified && <CheckCircle className="h-5 w-5 text-success animate-scale-in" />}
+              <span className="text-xs font-normal text-muted-foreground">EBS is not integrated</span>
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -120,31 +128,19 @@ const StockReceipt = () => {
                     type="button"
                     onClick={handleChallanVerify}
                     variant="outline"
-                    disabled={verifying || challanVerified}
+                    disabled
                     className="hover-scale"
                   >
-                    {verifying ? (
-                      <>
-                        <LoadingSpinner size="sm" className="mr-2" />
-                        Verifying...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="h-4 w-4 mr-2" />
-                        Verify
-                      </>
-                    )}
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Verify
+                    </>
                   </Button>
                 </div>
               </div>
-              {challanVerified && (
-                <div className="flex items-end animate-fade-in">
-                  <div className="px-4 py-2 bg-success-bg text-success rounded-lg flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">Verified from Oracle EBS</span>
-                  </div>
-                </div>
-              )}
+              <p className="text-xs text-muted-foreground col-span-2">
+                Inbound receipts that persist are created under Receive from Factory.
+              </p>
             </div>
           </div>
 
@@ -240,11 +236,15 @@ const StockReceipt = () => {
                   <SelectValue placeholder="Select source" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mumbai">Mumbai Central</SelectItem>
-                  <SelectItem value="delhi">Delhi Main</SelectItem>
-                  <SelectItem value="bangalore">Bangalore Hub</SelectItem>
-                  <SelectItem value="chennai">Chennai Depot</SelectItem>
-                  <SelectItem value="hyderabad">Hyderabad Warehouse</SelectItem>
+                  {depots.length === 0 ? (
+                    <SelectItem value="none" disabled>No depots from API</SelectItem>
+                  ) : (
+                    depots.map((depot) => (
+                      <SelectItem key={depot.code} value={depot.code}>
+                        {depot.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -285,7 +285,7 @@ const StockReceipt = () => {
           sortKey={sortKey}
           sortOrder={sortOrder}
           onSort={handleSort}
-          emptyMessage="No recent receipts found"
+          emptyMessage={receiptsError ? "Could not load receipts" : receiptsLoading ? "Loading…" : "No stock receipts in the database"}
         />
       </Card>
     </div>

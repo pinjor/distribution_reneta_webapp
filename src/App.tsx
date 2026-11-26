@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "./components/layout/MainLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -26,6 +26,9 @@ import ReceiveDepot from "./pages/receive/ReceiveDepot";
 import ReceiveReturn from "./pages/receive/ReceiveReturn";
 import ReceiveList from "./pages/receive/ReceiveList";
 import ReceiveReport from "./pages/receive/ReceiveReport";
+import OpeningStockList from "./pages/receive/OpeningStockList";
+import OpeningStockForm from "./pages/receive/OpeningStockForm";
+import OpeningStockDetail from "./pages/receive/OpeningStockDetail";
 import OrderDeliveryList from "./pages/orders/OrderDeliveryList";
 import OrderDeliveryDetail from "./pages/orders/OrderDeliveryDetail";
 import OrderTrackingPage from "./pages/orders/OrderTrackingPage";
@@ -124,6 +127,11 @@ const router = createBrowserRouter(
               <Route path="/receive/factory" element={<MainLayout><ReceiveFactory /></MainLayout>} />
               <Route path="/receive/depot" element={<MainLayout><ReceiveDepot /></MainLayout>} />
               <Route path="/receive/return" element={<MainLayout><ReceiveReturn /></MainLayout>} />
+              <Route path="/receive/opening-stock" element={<MainLayout><OpeningStockList /></MainLayout>} />
+              <Route path="/receive/opening-stock/new" element={<MainLayout><OpeningStockForm /></MainLayout>} />
+              <Route path="/receive/opening-stock/:id/edit" element={<MainLayout><OpeningStockForm /></MainLayout>} />
+              <Route path="/receive/opening-stock/:id" element={<MainLayout><OpeningStockDetail /></MainLayout>} />
+              <Route path="/stock-receive/opening-stock" element={<Navigate to="/receive/opening-stock" replace />} />
               <Route path="/receive/list" element={<MainLayout><ReceiveList /></MainLayout>} />
               <Route path="/receive/report/:id" element={<MainLayout><ReceiveReport /></MainLayout>} />
               <Route path="/warehouse/issuance/loading" element={<MainLayout><VehicleLoading /></MainLayout>} />

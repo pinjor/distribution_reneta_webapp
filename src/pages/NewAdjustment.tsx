@@ -75,21 +75,8 @@ export default function NewAdjustment() {
   const products = productsResponse?.data || productsResponse || [];
   const stockLedger = stockLedgerResponse?.data || stockLedgerResponse || [];
 
-  // Mock adjusted records data
   useEffect(() => {
-    setRecords([
-      {
-        id: 1,
-        itemCode: "M01000002",
-        packType: "Tab",
-        itemName: "Acarbose 50 mg",
-        unit: "Nos",
-        category: "MEDICINE",
-        adjustedQty: 2,
-        adjustType: "Write off",
-        expireDate: "",
-      },
-    ]);
+    setRecords([]);
   }, []);
 
   // Get FEFO batches for a product (sorted by expiry date, earliest first)

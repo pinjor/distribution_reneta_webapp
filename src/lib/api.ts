@@ -64,7 +64,12 @@ class ApiClient {
           try {
             const body = await response.json();
             const detail = body?.detail;
-            conflict = typeof detail === "string" ? detail : conflict;
+            conflict =
+              typeof detail === "string"
+                ? detail
+                : typeof detail?.message === "string"
+                  ? detail.message
+                  : conflict;
             const error = new Error(conflict);
             (error as any).status = 409;
             (error as any).details = body;
@@ -84,7 +89,13 @@ class ApiClient {
           if (contentType.includes("application/json")) {
             const body = await response.json();
             errorDetails = body;
-            message = body?.detail || body?.message || body?.error || JSON.stringify(body) || message;
+            const detail = body?.detail;
+            message =
+              typeof detail === "string"
+                ? detail
+                : typeof detail?.message === "string"
+                  ? detail.message
+                  : body?.message || body?.error || (detail ? JSON.stringify(detail) : JSON.stringify(body)) || message;
           } else {
             const text = await response.text();
             if (text) message = text;
@@ -302,6 +313,18 @@ export const apiEndpoints = {
     getRemainingCashList: (params?: Record<string, any>) => api.get(`/orders/remaining-cash-list${buildQuery(params)}`),
     collectRemainingCash: (loadingNumber: string, payload?: any) => api.post(`/orders/remaining-cash/collect/${loadingNumber}`, payload || {}),
     approveCollectionByLoading: (loadingNumber: string) => api.post(`/orders/collection-approval/approve-loading/${loadingNumber}`, {}),
+  },
+
+  openingStock: {
+    summary: () => api.get("/opening-stock/summary"),
+    getAll: (params?: Record<string, any>) => api.get(`/opening-stock${buildQuery(params)}`),
+    getById: (id: number | string) => api.get(`/opening-stock/${id}`),
+    history: (id: number | string) => api.get(`/opening-stock/${id}/history`),
+    create: (data: any) => api.post("/opening-stock", data),
+    update: (id: number | string, data: any) => api.patch(`/opening-stock/${id}`, data),
+    submit: (id: number | string) => api.post(`/opening-stock/${id}/submit`, {}),
+    approve: (id: number | string) => api.post(`/opening-stock/${id}/approve`, {}),
+    reject: (id: number | string, reason: string) => api.post(`/opening-stock/${id}/reject`, { reason }),
   },
 
   productReceipts: {

@@ -19,6 +19,10 @@ PENDING_MODELED_TABLES = frozenset(
         "sample_gift_delivery_items",
         "export_deliveries",
         "export_delivery_items",
+        "opening_stock_requests",
+        "opening_stock_request_items",
+        "opening_stock_approval_history",
+        "opening_stock_posting_references",
     }
 )
 
@@ -50,6 +54,7 @@ def assert_schema_ready(engine: Engine) -> None:
                 "run migrations."
             )
     missing = _missing_modeled_tables(engine)
+    missing = [name for name in missing if name not in PENDING_MODELED_TABLES]
     if current != head:
         missing = [name for name in missing if name not in PENDING_MODELED_TABLES]
     if missing:

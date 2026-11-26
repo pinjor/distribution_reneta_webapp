@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:isolated-workflow": "vite --config vite.isolated.config.ts",
     "build": "vite build",
+    "build:isolated-workflow": "vite build --config vite.isolated.config.ts",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",

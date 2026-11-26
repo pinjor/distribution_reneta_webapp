@@ -2,13 +2,15 @@ import { Card } from "@/components/ui/card";
 import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
-const expiryData = [
-  { product: "Paracetamol 500mg", batch: "PCM2024-11", expiry: "2025-01-15", days: 7, severity: "error" as const },
-  { product: "Amoxicillin 250mg", batch: "AMX2024-08", expiry: "2025-01-20", days: 12, severity: "warning" as const },
-  { product: "Ibuprofen 400mg", batch: "IBU2024-09", expiry: "2025-01-25", days: 17, severity: "warning" as const },
-  { product: "Vitamin C 1000mg", batch: "VTC2024-12", expiry: "2025-02-01", days: 24, severity: "info" as const },
-];
+export interface ExpiryAlertRow {
+  product: string;
+  batch: string;
+  expiry?: string | null;
+  days: number;
+  severity: "error" | "warning" | "info";
+}
 
 const SEVERITY = {
   error: {
@@ -34,43 +36,64 @@ const SEVERITY = {
   },
 };
 
-export function ExpiryAlerts() {
+interface ExpiryAlertsProps {
+  data?: ExpiryAlertRow[];
+  isLoading?: boolean;
+  isError?: boolean;
+}
+
+export function ExpiryAlerts({ data = [], isLoading = false, isError = false }: ExpiryAlertsProps) {
+  const navigate = useNavigate();
+
   return (
     <Card className="border border-[#D5E1F2] bg-white p-6 shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold">Expiry Alerts</h3>
-          <p className="text-xs text-muted-foreground">Products nearing expiry</p>
+          <p className="text-xs text-muted-foreground">Batches expiring within 60 days</p>
         </div>
-        <Button variant="ghost" size="sm" className="text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]">
-          View All
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+          onClick={() => navigate("/warehouse/maintenance")}
+        >
+          View stock
         </Button>
       </div>
-      <div className="space-y-2">
-        {expiryData.map((item, index) => {
-          const cfg = SEVERITY[item.severity];
-          const Icon = cfg.icon;
-          return (
-            <div
-              key={index}
-              className={cn(
-                "flex items-start gap-3 p-3 rounded-lg border transition-colors hover:shadow-sm",
-                cfg.border,
-                cfg.bg,
-              )}
-            >
-              <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", cfg.iconColor)} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{item.product}</p>
-                <p className="text-xs text-muted-foreground">Batch: {item.batch}</p>
+      {isError ? (
+        <p className="text-sm text-destructive">Could not load expiry alerts.</p>
+      ) : isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : data.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No batches nearing expiry in the current depot scope.</p>
+      ) : (
+        <div className="space-y-2">
+          {data.map((item, index) => {
+            const cfg = SEVERITY[item.severity] || SEVERITY.info;
+            const Icon = cfg.icon;
+            return (
+              <div
+                key={`${item.batch}-${index}`}
+                className={cn(
+                  "flex items-start gap-3 p-3 rounded-lg border transition-colors hover:shadow-sm",
+                  cfg.border,
+                  cfg.bg,
+                )}
+              >
+                <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", cfg.iconColor)} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.product}</p>
+                  <p className="text-xs text-muted-foreground">Batch: {item.batch}</p>
+                </div>
+                <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full shrink-0", cfg.badge)}>
+                  {item.days}d
+                </span>
               </div>
-              <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full shrink-0", cfg.badge)}>
-                {item.days}d
-              </span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }

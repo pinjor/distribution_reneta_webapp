@@ -367,8 +367,27 @@ def get_assigned_orders(
                 "loading_date": order.loading_date.isoformat() if order.loading_date else None,
                 "area": order.area,
                 "status": order_status,
+                "mobile_accepted": bool(order.mobile_accepted),
+                "collection_status": order.collection_status,
+                "delivery_status": (
+                    "Fully Delivered"
+                    if order.collection_status == "Fully Collected"
+                    else "Partial Delivered"
+                    if order.collection_status == "Partially Collected"
+                    else "Postponed"
+                    if order.collection_status == "Postponed"
+                    else None
+                ),
                 "items_count": len(order.items),
                 "total_value": float(total_value),
+                "items": [
+                    {
+                        "product_code": item.product_code,
+                        "product_name": item.product_name,
+                        "total_quantity": float(item.total_quantity or item.quantity or 0),
+                    }
+                    for item in (order.items or [])
+                ],
             }
             result.append(order_response)
         

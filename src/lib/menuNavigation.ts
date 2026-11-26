@@ -79,6 +79,7 @@ export const SIDEBAR_MENU = [
       { title: "Receive from Factory", icon: PlusCircle, path: "/receive/factory", description: "Record factory incoming stock", permission: "inventory.read" },
       { title: "Receive from Depot", icon: PackagePlus, path: "/receive/depot", description: "Receive transfers from other depots", permission: "inventory.read" },
       { title: "Stock Return Receive", icon: PackageMinus, path: "/receive/return", description: "Process returned stock receipts", permission: "inventory.read" },
+      { title: "Opening Stock", icon: PackagePlus, path: "/receive/opening-stock", description: "Create and track initial stock requests", permission: "inventory.read" },
       { title: "All Receipts", icon: ClipboardList, path: "/receive/list", description: "Browse all receipt records", permission: "inventory.read" },
     ],
   },

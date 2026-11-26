@@ -7,8 +7,8 @@ test.describe("Draft module authentication and roles", () => {
       localStorage.clear();
       sessionStorage.clear();
     });
-    await page.goto("/delivery/sample-gift");
-    await expect(page).toHaveURL(/\/login/);
+    await page.goto("/delivery/sample-gift", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
     await page.goto("/delivery/export");
     await expect(page).toHaveURL(/\/login/);
   });

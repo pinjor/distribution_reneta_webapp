@@ -221,53 +221,9 @@ export default function AssignedOrderList() {
       return b.loading_number.localeCompare(a.loading_number); // Then by loading number
     });
     
-    // Determine status for each group after sorting (for demo purposes)
-    sortedGroups.forEach((group, index) => {
-      // For demo: Show "Accepted" on some groups, rest as "Out for Delivery"
-      // Use a combination of index and loading number to ensure variety
-      // Show "Accepted" on odd indices (1, 3, 5...), "Out for Delivery" on even indices (0, 2, 4...)
-      // Later, this will be based on actual acceptance status from database field
-      
-      // Determine status: every other group shows "Accepted"
-      if (index % 2 === 1) {
-        (group as any).status = "Accepted";
-        
-        // Add demo delivery statuses to orders in Accepted groups
-        // Mix of Fully Delivered, Partial Delivered, and Postponed to test all scenarios
-        group.orders = group.orders.map((order, orderIndex) => {
-          let deliveryStatus: "Fully Delivered" | "Partial Delivered" | "Postponed" = "Fully Delivered";
-          
-          // Create variety: first is full, second is partial, third is postponed, then cycle
-          if (group.orders.length > 1) {
-            if (orderIndex === 1) {
-              deliveryStatus = "Partial Delivered";
-            } else if (orderIndex === 2) {
-              deliveryStatus = "Postponed";
-            } else if (orderIndex > 2) {
-              // Cycle: 3=partial, 4=postponed, 5=partial, etc.
-              const statusIndex = orderIndex % 3;
-              if (statusIndex === 0) deliveryStatus = "Fully Delivered";
-              else if (statusIndex === 1) deliveryStatus = "Partial Delivered";
-              else deliveryStatus = "Postponed";
-            }
-          }
-          
-          // Add demo items if not available
-          const items = order.items || [
-            { product_code: "PROD001", product_name: "Product A", total_quantity: 100 },
-            { product_code: "PROD002", product_name: "Product B", total_quantity: 50 },
-            { product_code: "PROD003", product_name: "Product C", total_quantity: 75 },
-          ];
-          
-          return {
-            ...order,
-            delivery_status: deliveryStatus,
-            items: items,
-          };
-        });
-      } else {
-        (group as any).status = "Out for Delivery";
-      }
+    sortedGroups.forEach((group) => {
+      const accepted = group.orders.length > 0 && group.orders.every((order: any) => order.mobile_accepted);
+      (group as any).status = accepted ? "Accepted" : "Out for Delivery";
     });
     
     return sortedGroups;

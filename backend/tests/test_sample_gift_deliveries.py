@@ -395,3 +395,16 @@ def test_put_replace_failure_rolls_back(client, auth_headers, db_session, monkey
     stored = db_session.query(SampleGiftDelivery).filter(SampleGiftDelivery.id == cid).first()
     assert stored.recipient_name == "Stable"
     assert len(stored.items) == 1
+
+
+def test_production_create_allows_unflagged_existing_sku(client, auth_headers, db_session):
+    depot = Depot(name="SG Unflagged Depot", code="SGD-UNF")
+    product = Product(name="Unflagged SKU", code="UNF-SKU", sku="UNF-SKU", product_type_sample=False)
+    db_session.add_all([depot, product])
+    db_session.commit()
+    resp = client.post(
+        "/api/sample-gift-deliveries",
+        json=_payload(product.id, depot_id=depot.id, delivery_number="SG-UNFLAGGED"),
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
