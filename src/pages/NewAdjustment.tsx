@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,6 @@ import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
 import SearchableCombobox, { SearchableOption } from "@/components/SearchableCombobox";
 import { useNavigate } from "react-router-dom";
-import { PageHeader } from "@/components/layout/PageHeader";
 
 interface AdjustmentItem {
   id: number;
@@ -76,6 +75,7 @@ export default function NewAdjustment() {
   const stockLedger = stockLedgerResponse?.data || stockLedgerResponse || [];
 
   useEffect(() => {
+    document.title = "Adjust Stock Entry | Renata";
     setRecords([]);
   }, []);
 
@@ -321,22 +321,31 @@ export default function NewAdjustment() {
     setRecords(records.filter((record) => record.id !== id));
   };
 
+  const fieldClass =
+    "border-[#D5E1F2] bg-white text-[#0B1B33] placeholder:text-[#8AA0BE] focus-visible:ring-[#0C4CA1]/30";
+
   return (
     <div className="space-y-6 p-6">
-      <PageHeader
-        title="Adjust Stock Entry"
-        subtitle="Create and submit stock adjustment entries."
-        icon={PlusCircle}
-        variant="blue"
-      />
-
       {/* Form Section */}
-      <Card className="border-t-0 rounded-t-none">
-        <div className="p-6 space-y-6">
+      <Card className="card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+              <PlusCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="block text-[#0C4CA1]">Adjust Stock Entry</span>
+              <span className="text-sm font-normal text-[#2C4A73]">
+                Create and submit stock adjustment entries.
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
           {/* General Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="chalanDate" className="text-sm font-medium">
+              <Label htmlFor="chalanDate" className="text-sm font-medium text-[#2C4A73]">
                 Chalan Date <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -345,15 +354,15 @@ export default function NewAdjustment() {
                 value={chalanDate}
                 onChange={(e) => setChalanDate(e.target.value)}
                 placeholder="DD/MM/YYYY"
-                className="mt-1"
+                className={`mt-1 ${fieldClass}`}
               />
             </div>
             <div>
-              <Label htmlFor="store" className="text-sm font-medium">
+              <Label htmlFor="store" className="text-sm font-medium text-[#2C4A73]">
                 Store <span className="text-red-500">*</span>
               </Label>
               <Select value={selectedStore} onValueChange={setSelectedStore} disabled={depotsLoading}>
-                <SelectTrigger id="store" className="mt-1">
+                <SelectTrigger id="store" className={`mt-1 ${fieldClass}`}>
                   <SelectValue placeholder="Select Store" />
                 </SelectTrigger>
                 <SelectContent>
@@ -376,14 +385,19 @@ export default function NewAdjustment() {
           {/* Item Adjustment Details Table */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Item Adjustment Details</h3>
-              <Button onClick={handleAddItem} size="sm" variant="outline">
+              <h3 className="text-lg font-semibold text-[#0C4CA1]">Item Adjustment Details</h3>
+              <Button
+                onClick={handleAddItem}
+                size="sm"
+                variant="outline"
+                className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+              >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
             </div>
 
-            <div className="border rounded-lg overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border border-[#D5E1F2]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -451,7 +465,7 @@ export default function NewAdjustment() {
                             value={item.packType}
                             onChange={(e) => handleItemChange(item.id, 'packType', e.target.value)}
                             placeholder="Pack Type"
-                            className="w-full"
+                            className={`w-full ${fieldClass}`}
                             readOnly
                           />
                         </TableCell>
@@ -460,7 +474,7 @@ export default function NewAdjustment() {
                             value={item.itemName}
                             onChange={(e) => handleItemChange(item.id, 'itemName', e.target.value)}
                             placeholder="Item Name"
-                            className="w-full"
+                            className={`w-full ${fieldClass}`}
                             readOnly
                           />
                         </TableCell>
@@ -487,7 +501,7 @@ export default function NewAdjustment() {
                                 }
                               }}
                               placeholder="Enter batch (numeric only)"
-                              className="w-full"
+                              className={`w-full ${fieldClass}`}
                               disabled={!item.productId}
                             />
                             {availableBatches.filter((b: any) => isNumericBatch(b.batch)).length > 0 && (
@@ -510,7 +524,7 @@ export default function NewAdjustment() {
                                   }
                                 }}
                               >
-                                <SelectTrigger className="w-[120px]">
+                                <SelectTrigger className={`w-[120px] ${fieldClass}`}>
                                   <SelectValue placeholder="Select" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -529,7 +543,7 @@ export default function NewAdjustment() {
                             type="number"
                             value={item.currentStock}
                             onChange={(e) => handleItemChange(item.id, 'currentStock', Number(e.target.value))}
-                            className="w-full"
+                            className={`w-full ${fieldClass}`}
                             readOnly
                           />
                         </TableCell>
@@ -538,7 +552,7 @@ export default function NewAdjustment() {
                             value={item.adjustType}
                             onValueChange={(val) => handleItemChange(item.id, 'adjustType', val)}
                           >
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className={`w-full ${fieldClass}`}>
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
                             <SelectContent>
@@ -556,7 +570,7 @@ export default function NewAdjustment() {
                             value={item.adjustedQty || ""}
                             onChange={(e) => handleItemChange(item.id, 'adjustedQty', Number(e.target.value))}
                             placeholder="0"
-                            className="w-full"
+                            className={`w-full ${fieldClass}`}
                           />
                         </TableCell>
                         <TableCell>
@@ -564,7 +578,7 @@ export default function NewAdjustment() {
                             value={item.adjustReason}
                             onValueChange={(val) => handleItemChange(item.id, 'adjustReason', val)}
                           >
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className={`w-full ${fieldClass}`}>
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
                             <SelectContent>
@@ -581,7 +595,7 @@ export default function NewAdjustment() {
                             value={item.remarks}
                             onChange={(e) => handleItemChange(item.id, 'remarks', e.target.value)}
                             placeholder="Remarks"
-                            className="w-full"
+                            className={`w-full ${fieldClass}`}
                           />
                         </TableCell>
                         <TableCell>
@@ -590,7 +604,7 @@ export default function NewAdjustment() {
                               variant="default"
                               size="sm"
                               onClick={() => handleAddToRecords(item.id)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                              className="bg-[#0C4CA1] text-white hover:bg-[#08357A]"
                             >
                               Add
                             </Button>
@@ -612,16 +626,22 @@ export default function NewAdjustment() {
               </Table>
             </div>
           </div>
-        </div>
+        </CardContent>
       </Card>
 
       {/* Adjusted Stock Records Section */}
-      <Card>
-        <div className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Adjusted Stock Records</h2>
-
+      <Card className="card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+              <PlusCircle className="h-4 w-4" />
+            </div>
+            <span className="block text-[#0C4CA1]">Adjusted Stock Records</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           {/* Records Table */}
-          <div className="border rounded-lg overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-[#D5E1F2]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -672,15 +692,19 @@ export default function NewAdjustment() {
               </TableBody>
             </Table>
           </div>
-        </div>
+        </CardContent>
       </Card>
 
       {/* Final Save Button */}
       <div className="flex justify-end gap-3 pt-4">
-        <Button variant="outline" onClick={handleCancel}>
+        <Button
+          variant="outline"
+          onClick={handleCancel}
+          className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+        >
           Cancel
         </Button>
-        <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+        <Button onClick={handleSave} className="bg-[#0C4CA1] text-white hover:bg-[#08357A]">
           Save
         </Button>
       </div>

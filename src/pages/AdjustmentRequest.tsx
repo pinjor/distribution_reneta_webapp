@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Printer, Trash2, CheckCircle } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQuery } from "@tanstack/react-query";
 import { apiEndpoints } from "@/lib/api";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 
 interface AdjustmentRequest {
@@ -99,23 +98,36 @@ export default function AdjustmentRequest() {
     });
   };
 
+  const fieldClass =
+    "border-[#D5E1F2] bg-white text-[#0B1B33] placeholder:text-[#8AA0BE] focus-visible:ring-[#0C4CA1]/30";
+
+  useEffect(() => {
+    document.title = "Stock Adjustment Work List | Renata";
+  }, []);
+
   return (
     <div className="space-y-6 p-6">
-      <PageHeader
-        title="Stock Adjustment Work List"
-        subtitle="Review, search, and submit stock adjustment requests."
-        icon={CheckCircle}
-        variant="blue"
-      />
-
       {/* Filter Section */}
-      <Card className="border-t-0 rounded-t-none bg-gray-50">
-        <div className="p-4 space-y-4">
+      <Card className="card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+              <CheckCircle className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="block text-[#0C4CA1]">Stock Adjustment Work List</span>
+              <span className="text-sm font-normal text-[#2C4A73]">
+                Review, search, and submit stock adjustment requests.
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="store" className="text-sm font-medium">Store</Label>
+              <Label htmlFor="store" className="text-sm font-medium text-[#2C4A73]">Store</Label>
               <Select value={selectedStore} onValueChange={setSelectedStore} disabled={depotsLoading}>
-                <SelectTrigger id="store" className="mt-1">
+                <SelectTrigger id="store" className={`mt-1 ${fieldClass}`}>
                   <SelectValue placeholder="Select Store" />
                 </SelectTrigger>
                 <SelectContent>
@@ -134,33 +146,37 @@ export default function AdjustmentRequest() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="fromDate" className="text-sm font-medium">From</Label>
+              <Label htmlFor="fromDate" className="text-sm font-medium text-[#2C4A73]">From</Label>
               <Input
                 id="fromDate"
                 type="text"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 placeholder="DD/MM/YYYY"
-                className="mt-1"
+                className={`mt-1 ${fieldClass}`}
               />
             </div>
             <div>
-              <Label htmlFor="toDate" className="text-sm font-medium">To</Label>
+              <Label htmlFor="toDate" className="text-sm font-medium text-[#2C4A73]">To</Label>
               <Input
                 id="toDate"
                 type="text"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 placeholder="DD/MM/YYYY"
-                className="mt-1"
+                className={`mt-1 ${fieldClass}`}
               />
             </div>
             <div className="flex items-end gap-2">
-              <Button onClick={handleSearch} className="bg-green-600 hover:bg-green-700 flex-1">
+              <Button onClick={handleSearch} className="flex-1 bg-[#0C4CA1] text-white hover:bg-[#08357A]">
                 <Search className="h-4 w-4 mr-2" />
                 Search
               </Button>
-              <Button onClick={handleClear} variant="outline" className="flex-1">
+              <Button
+                onClick={handleClear}
+                variant="outline"
+                className="flex-1 border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+              >
                 Clear
               </Button>
             </div>
@@ -168,7 +184,7 @@ export default function AdjustmentRequest() {
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4">
-              <Label className="text-sm font-medium">Status:</Label>
+              <Label className="text-sm font-medium text-[#2C4A73]">Status:</Label>
               <RadioGroup
                 value={statusFilter}
                 onValueChange={(value) => setStatusFilter(value as "pending" | "approved")}
@@ -176,34 +192,34 @@ export default function AdjustmentRequest() {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="pending" id="pending" />
-                  <Label htmlFor="pending" className="cursor-pointer font-normal">Pending</Label>
+                  <Label htmlFor="pending" className="cursor-pointer font-normal text-[#0B1B33]">Pending</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="approved" id="approved" />
-                  <Label htmlFor="approved" className="cursor-pointer font-normal">Approved</Label>
+                  <Label htmlFor="approved" className="cursor-pointer font-normal text-[#0B1B33]">Approved</Label>
                 </div>
               </RadioGroup>
             </div>
 
             <div className="flex-1 max-w-md">
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8AA0BE]" />
                 <Input
                   placeholder="Search records..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-10"
+                  className={`pr-10 ${fieldClass}`}
                 />
               </div>
             </div>
           </div>
-        </div>
+        </CardContent>
       </Card>
 
       {/* Table Section */}
-      <Card>
-        <div className="p-6">
-          <div className="border rounded-lg overflow-x-auto">
+      <Card className="card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+        <CardContent className="p-6">
+          <div className="overflow-x-auto rounded-lg border border-[#D5E1F2]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -234,7 +250,7 @@ export default function AdjustmentRequest() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handlePrint(adj.voucherNo)}
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            className="h-8 w-8 p-0 text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
                             title="Print"
                           >
                             <Printer className="h-4 w-4" />
@@ -267,7 +283,7 @@ export default function AdjustmentRequest() {
               </TableBody>
             </Table>
           </div>
-        </div>
+        </CardContent>
       </Card>
     </div>
   );

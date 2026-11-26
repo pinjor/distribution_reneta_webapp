@@ -90,15 +90,28 @@ class ApiClient {
             const body = await response.json();
             errorDetails = body;
             const detail = body?.detail;
+            const formatValidationMsg = (entry: any) =>
+              String(entry?.msg || "")
+                .replace(/^Value error,\s*/i, "")
+                .trim();
             message =
               typeof detail === "string"
                 ? detail
                 : typeof detail?.message === "string"
                   ? detail.message
-                  : body?.message || body?.error || (detail ? JSON.stringify(detail) : JSON.stringify(body)) || message;
+                  : Array.isArray(detail)
+                    ? detail.map(formatValidationMsg).filter(Boolean).join("; ") || JSON.stringify(detail)
+                    : body?.message || body?.error || (detail ? JSON.stringify(detail) : JSON.stringify(body)) || message;
           } else {
             const text = await response.text();
-            if (text) message = text;
+            if (text && /<\s*html/i.test(text)) {
+              message =
+                response.status === 502 || response.status === 503 || response.status === 504
+                  ? "This service is unavailable (bad gateway). Retry after the Opening Stock API is running."
+                  : `Request failed with status ${response.status}`;
+            } else if (text) {
+              message = text;
+            }
           }
         } catch (parseError) {
           console.warn("Failed to parse error response", parseError);

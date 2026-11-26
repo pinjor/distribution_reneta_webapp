@@ -57,6 +57,8 @@ interface ReceiveFormPageProps {
 
 const createKey = () => Math.random().toString(36).substring(2, 8).toUpperCase() + Date.now().toString(36).toUpperCase();
 
+const isNumericBatch = (batchNo: string | null | undefined) => /^\d+$/.test(String(batchNo || "").trim());
+
 const today = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset();
@@ -238,6 +240,14 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
       toast({ title: "Enter depot quantity", variant: "destructive" });
       return;
     }
+    if (!isNumericBatch(itemDraft.batchNumber)) {
+      toast({
+        title: "Invalid batch number",
+        description: "Batch number must be numeric only (digits only).",
+        variant: "destructive",
+      });
+      return;
+    }
     setItems((prev) => [
       ...prev,
       {
@@ -311,6 +321,15 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
       toast({ title: "Add at least one item", variant: "destructive" });
       return;
     }
+    const invalidBatch = items.find((item) => !isNumericBatch(item.batchNumber));
+    if (invalidBatch) {
+      toast({
+        title: "Invalid batch number",
+        description: `“${invalidBatch.batchNumber || "blank"}” on ${invalidBatch.itemName || "an item"} must be numeric only (digits only). Remove that row or use digits only.`,
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       setSaving(true);
       const payload = buildPayload();
@@ -346,45 +365,82 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
     }
   };
 
+  const useDashboardChrome = sourceType === "FACTORY" || sourceType === "DEPOT" || sourceType === "RETURN";
+  const fieldClass = useDashboardChrome
+    ? "border-[#D5E1F2] bg-white text-[#0B1B33] placeholder:text-[#8AA0BE] focus-visible:ring-[#0C4CA1]/30"
+    : "";
+  const cardClass = useDashboardChrome
+    ? "card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]"
+    : "";
+  const labelClass = useDashboardChrome ? "text-[#2C4A73]" : "";
+  const outlineBtn = useDashboardChrome
+    ? "border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+    : "";
+  const primaryBtn = useDashboardChrome ? "bg-[#0C4CA1] text-white hover:bg-[#08357A]" : "";
+
+  useEffect(() => {
+    if (useDashboardChrome) {
+      document.title = `${title} | Renata`;
+    }
+  }, [useDashboardChrome, title]);
+
   return (
     <main className="p-6 space-y-6">
-      <PageHeader
-        title={title}
-        subtitle="Record product receipts and generate printable reports."
-        icon={PackagePlus}
-        variant="blue"
-      />
+      {!useDashboardChrome && (
+        <PageHeader
+          title={title}
+          subtitle="Record product receipts and generate printable reports."
+          icon={PackagePlus}
+          variant="blue"
+        />
+      )}
 
-      <Card>
+      <Card className={cardClass}>
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Receipt details</CardTitle>
+          <CardTitle className={useDashboardChrome ? "flex items-center gap-3 text-lg font-semibold" : "text-base font-semibold"}>
+            {useDashboardChrome ? (
+              <>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+                  <PackagePlus className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="block text-[#0C4CA1]">{title}</span>
+                  <span className="text-sm font-normal text-[#2C4A73]">
+                    Record product receipts and generate printable reports.
+                  </span>
+                </div>
+              </>
+            ) : (
+              "Receipt details"
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {sourceType === "FACTORY" && (
             <>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <Label>Receipt number</Label>
-                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
+                  <Label className={labelClass}>Receipt number</Label>
+                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Issued date</Label>
-                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
+                  <Label className={labelClass}>Issued date</Label>
+                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Factory Name</Label>
-                  <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} placeholder="Enter factory name" />
+                  <Label className={labelClass}>Factory Name</Label>
+                  <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} placeholder="Enter factory name" className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Factory Code</Label>
-                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter factory code" />
+                  <Label className={labelClass}>Factory Code</Label>
+                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter factory code" className={fieldClass} />
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Depot</Label>
+                  <Label className={labelClass}>Depot</Label>
                   <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue placeholder="Select depot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -397,12 +453,12 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Shipment mode</Label>
-                  <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} />
+                  <Label className={labelClass}>Shipment mode</Label>
+                  <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Delivery person</Label>
-                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
+                  <Label className={labelClass}>Delivery person</Label>
+                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} className={fieldClass} />
                 </div>
               </div>
             </>
@@ -411,17 +467,17 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
             <>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <Label>Receipt number</Label>
-                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
+                  <Label className={labelClass}>Receipt number</Label>
+                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Issued date</Label>
-                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
+                  <Label className={labelClass}>Issued date</Label>
+                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Source Depot</Label>
+                  <Label className={labelClass}>Source Depot</Label>
                   <Select value={form.tfaNumber} onValueChange={(value) => handleHeaderChange("tfaNumber", value)} disabled={loading}>
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue placeholder="Select source depot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -434,15 +490,15 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Transfer Note</Label>
-                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter transfer note number" />
+                  <Label className={labelClass}>Transfer Note</Label>
+                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter transfer note number" className={fieldClass} />
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Target Depot</Label>
+                  <Label className={labelClass}>Target Depot</Label>
                   <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue placeholder="Select target depot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -455,12 +511,12 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Vehicle / Truck no.</Label>
-                  <Input value={form.vehicleInfo} onChange={(e) => handleHeaderChange("vehicleInfo", e.target.value)} />
+                  <Label className={labelClass}>Vehicle / Truck no.</Label>
+                  <Input value={form.vehicleInfo} onChange={(e) => handleHeaderChange("vehicleInfo", e.target.value)} className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Driver Name</Label>
-                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
+                  <Label className={labelClass}>Driver Name</Label>
+                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} className={fieldClass} />
                 </div>
               </div>
             </>
@@ -469,27 +525,27 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
             <>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-2">
-                  <Label>Receipt number</Label>
-                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" />
+                  <Label className={labelClass}>Receipt number</Label>
+                  <Input value={form.receiptNumber} onChange={(e) => handleHeaderChange("receiptNumber", e.target.value)} placeholder="Auto-generated" className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Return date</Label>
-                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} />
+                  <Label className={labelClass}>Return date</Label>
+                  <Input type="date" value={form.issuedDate} onChange={(e) => handleHeaderChange("issuedDate", e.target.value)} className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Return From</Label>
-                  <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} placeholder="Enter return source" />
+                  <Label className={labelClass}>Return From</Label>
+                  <Input value={form.tfaNumber} onChange={(e) => handleHeaderChange("tfaNumber", e.target.value)} placeholder="Enter return source" className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Invoice Number</Label>
-                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter original invoice number" />
+                  <Label className={labelClass}>Invoice Number</Label>
+                  <Input value={form.isoNumber} onChange={(e) => handleHeaderChange("isoNumber", e.target.value)} placeholder="Enter original invoice number" className={fieldClass} />
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Depot</Label>
+                  <Label className={labelClass}>Depot</Label>
                   <Select value={form.targetDepotId} onValueChange={(value) => handleHeaderChange("targetDepotId", value)} disabled={loading}>
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue placeholder="Select depot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -502,48 +558,59 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Return Reason</Label>
-                  <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} placeholder="Enter return reason" />
+                  <Label className={labelClass}>Return Reason</Label>
+                  <Input value={form.shipmentMode} onChange={(e) => handleHeaderChange("shipmentMode", e.target.value)} placeholder="Enter return reason" className={fieldClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Received By</Label>
-                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} />
+                  <Label className={labelClass}>Received By</Label>
+                  <Input value={form.deliveryPerson} onChange={(e) => handleHeaderChange("deliveryPerson", e.target.value)} className={fieldClass} />
                 </div>
               </div>
             </>
           )}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label>Vehicle / Truck no.</Label>
-              <Input value={form.vehicleInfo} onChange={(e) => handleHeaderChange("vehicleInfo", e.target.value)} />
+              <Label className={labelClass}>Vehicle / Truck no.</Label>
+              <Input value={form.vehicleInfo} onChange={(e) => handleHeaderChange("vehicleInfo", e.target.value)} className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>VAT number</Label>
-              <Input value={form.vatNumber} onChange={(e) => handleHeaderChange("vatNumber", e.target.value)} />
+              <Label className={labelClass}>VAT number</Label>
+              <Input value={form.vatNumber} onChange={(e) => handleHeaderChange("vatNumber", e.target.value)} className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>Remarks</Label>
-              <Input value={form.remarks} onChange={(e) => handleHeaderChange("remarks", e.target.value)} />
+              <Label className={labelClass}>Remarks</Label>
+              <Input value={form.remarks} onChange={(e) => handleHeaderChange("remarks", e.target.value)} className={fieldClass} />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Address / To</Label>
-            <Textarea value={form.toAddress} onChange={(e) => handleHeaderChange("toAddress", e.target.value)} rows={3} />
+            <Label className={labelClass}>Address / To</Label>
+            <Textarea value={form.toAddress} onChange={(e) => handleHeaderChange("toAddress", e.target.value)} rows={3} className={fieldClass} />
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={cardClass}>
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Add items</CardTitle>
+          <CardTitle className={useDashboardChrome ? "flex items-center gap-3 text-lg font-semibold" : "text-base font-semibold"}>
+            {useDashboardChrome ? (
+              <>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+                  <PackagePlus className="h-4 w-4" />
+                </div>
+                <span className="block text-[#0C4CA1]">Add items</span>
+              </>
+            ) : (
+              "Add items"
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
-              <Label>Product</Label>
+              <Label className={labelClass}>Product</Label>
               <Select value={itemDraft.productCode} onValueChange={(value) => setItemDraft((prev) => ({ ...prev, productCode: value }))} disabled={loading}>
-                <SelectTrigger>
+                <SelectTrigger className={fieldClass}>
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
@@ -556,43 +623,59 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Batch number</Label>
-              <Input value={itemDraft.batchNumber} onChange={(e) => setItemDraft((prev) => ({ ...prev, batchNumber: e.target.value }))} />
+              <Label className={labelClass}>Batch number</Label>
+              <Input
+                value={itemDraft.batchNumber}
+                onChange={(e) => {
+                  const value = e.target.value.trim();
+                  if (value && !/^\d+$/.test(value)) {
+                    toast({
+                      title: "Invalid batch number",
+                      description: "Batch number must be numeric only (digits only).",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setItemDraft((prev) => ({ ...prev, batchNumber: value }));
+                }}
+                placeholder="Digits only"
+                className={fieldClass}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Expiry date</Label>
-              <Input type="date" value={itemDraft.expiryDate} onChange={(e) => setItemDraft((prev) => ({ ...prev, expiryDate: e.target.value }))} />
+              <Label className={labelClass}>Expiry date</Label>
+              <Input type="date" value={itemDraft.expiryDate} onChange={(e) => setItemDraft((prev) => ({ ...prev, expiryDate: e.target.value }))} className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>Depot quantity</Label>
-              <Input value={itemDraft.depotQuantity} onChange={(e) => setItemDraft((prev) => ({ ...prev, depotQuantity: e.target.value }))} placeholder="0" />
+              <Label className={labelClass}>Depot quantity</Label>
+              <Input value={itemDraft.depotQuantity} onChange={(e) => setItemDraft((prev) => ({ ...prev, depotQuantity: e.target.value }))} placeholder="0" className={fieldClass} />
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
-              <Label>No. of IFC</Label>
-              <Input value={itemDraft.numberOfIfc} onChange={(e) => setItemDraft((prev) => ({ ...prev, numberOfIfc: e.target.value }))} placeholder="0" />
+              <Label className={labelClass}>No. of IFC</Label>
+              <Input value={itemDraft.numberOfIfc} onChange={(e) => setItemDraft((prev) => ({ ...prev, numberOfIfc: e.target.value }))} placeholder="0" className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>IFC per full MC</Label>
-              <Input value={itemDraft.ifcPerFullMc} onChange={(e) => setItemDraft((prev) => ({ ...prev, ifcPerFullMc: e.target.value }))} placeholder="1" />
+              <Label className={labelClass}>IFC per full MC</Label>
+              <Input value={itemDraft.ifcPerFullMc} onChange={(e) => setItemDraft((prev) => ({ ...prev, ifcPerFullMc: e.target.value }))} placeholder="1" className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>No. of full MC</Label>
-              <Input value={itemDraft.numberOfFullMc} onChange={(e) => setItemDraft((prev) => ({ ...prev, numberOfFullMc: e.target.value }))} placeholder="0" />
+              <Label className={labelClass}>No. of full MC</Label>
+              <Input value={itemDraft.numberOfFullMc} onChange={(e) => setItemDraft((prev) => ({ ...prev, numberOfFullMc: e.target.value }))} placeholder="0" className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>IFC in loose MC</Label>
-              <Input value={itemDraft.ifcInLooseMc} onChange={(e) => setItemDraft((prev) => ({ ...prev, ifcInLooseMc: e.target.value }))} placeholder="0" />
+              <Label className={labelClass}>IFC in loose MC</Label>
+              <Input value={itemDraft.ifcInLooseMc} onChange={(e) => setItemDraft((prev) => ({ ...prev, ifcInLooseMc: e.target.value }))} placeholder="0" className={fieldClass} />
             </div>
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={handleAddItem}>Add item</Button>
+            <Button type="button" onClick={handleAddItem} className={primaryBtn}>Add item</Button>
           </div>
 
-          <div className="border rounded-md overflow-hidden">
+          <div className={useDashboardChrome ? "overflow-hidden rounded-lg border border-[#D5E1F2]" : "border rounded-md overflow-hidden"}>
             <Table>
               <TableHeader className="bg-muted/60">
                 <TableRow className="uppercase text-xs text-muted-foreground">
@@ -650,18 +733,18 @@ export default function ReceiveFormPage({ sourceType, title }: ReceiveFormPagePr
       </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" disabled={saving || loading} onClick={() => handleSave(false)}>
+        <Button variant="outline" disabled={saving || loading} onClick={() => handleSave(false)} className={outlineBtn}>
           Save draft
         </Button>
-        <Button variant="outline" disabled={saving || loading} onClick={() => handleSave(true)}>
+        <Button variant="outline" disabled={saving || loading} onClick={() => handleSave(true)} className={outlineBtn}>
           Save & Close
         </Button>
         {sourceType === "RETURN" && (
-          <Button variant="outline" disabled={!receiptId || saving || loading}>
+          <Button variant="outline" disabled={!receiptId || saving || loading} className={outlineBtn}>
             Generate Invoice
           </Button>
         )}
-        <Button disabled={!receiptId || saving || loading} onClick={handleApprove}>
+        <Button disabled={!receiptId || saving || loading} onClick={handleApprove} className={primaryBtn}>
           Approve
         </Button>
       </div>

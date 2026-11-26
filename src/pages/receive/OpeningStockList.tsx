@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Eye, Pencil, PackagePlus, RefreshCw, Send } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Eye, Pencil, PackagePlus, RefreshCw, Send, ClipboardList, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KPICard } from "@/components/dashboard/KPICard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiEndpoints } from "@/lib/api";
@@ -102,51 +102,68 @@ export default function OpeningStockList() {
     }
   };
 
+  const fieldClass =
+    "border-[#D5E1F2] bg-white text-[#0B1B33] placeholder:text-[#8AA0BE] focus-visible:ring-[#0C4CA1]/30";
+  const metric = (value: number) => (loading ? "..." : summaryError ? "—" : value.toLocaleString());
+
+  useEffect(() => {
+    document.title = "Opening Stock | Renata";
+  }, []);
+
   return (
     <main className="p-6 space-y-6">
-      <PageHeader
-        title="Opening Stock"
-        subtitle="Create, submit and track initial stock requests. Stock is added only after admin approval."
-        icon={PackagePlus}
-        variant="blue"
-        actions={(
-          <>
-            <Button variant="outline" onClick={load} disabled={loading}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate("/receive/opening-stock/new")}>New Request</Button>
-          </>
-        )}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Total Requests", value: summary.total },
-          { label: "Pending Approval", value: summary.pendingApproval },
-          { label: "Approved", value: summary.approved },
-          { label: "Rejected", value: summary.rejected },
-        ].map((card) => (
-          <Card key={card.label}>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">{card.label}</p>
-              <p className="text-2xl font-semibold mt-1">{summaryError ? "—" : card.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+          className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+        <Button
+          size="sm"
+          className="bg-[#0C4CA1] text-white hover:bg-[#08357A]"
+          onClick={() => navigate("/receive/opening-stock/new")}
+        >
+          <PackagePlus className="h-4 w-4 mr-1.5" />
+          New Request
+        </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-4 space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KPICard title="Total Requests" value={metric(summary.total)} icon={ClipboardList} description="All opening stock requests" index={0} />
+        <KPICard title="Pending Approval" value={metric(summary.pendingApproval)} icon={Clock} description="Waiting for admin review" index={1} />
+        <KPICard title="Approved" value={metric(summary.approved)} icon={CheckCircle} description="Approved, posting still blocked" index={2} />
+        <KPICard title="Rejected" value={metric(summary.rejected)} icon={XCircle} description="Returned to the requester" index={3} />
+      </div>
+
+      <Card className="card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+              <PackagePlus className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="block text-[#0C4CA1]">Opening Stock</span>
+              <span className="text-sm font-normal text-[#2C4A73]">
+                Create, submit and track initial stock requests. Stock is added only after admin approval.
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2">
-              <Label>Search</Label>
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Request number" className="w-[200px]" />
+              <Label className="text-[#2C4A73]">Search</Label>
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Request number" className={`w-[200px] ${fieldClass}`} />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label className="text-[#2C4A73]">Status</Label>
               <Select value={status} onValueChange={(v) => { setSkip(0); setStatus(v); }}>
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className={`w-[200px] ${fieldClass}`}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="Draft">Draft</SelectItem>
@@ -157,9 +174,9 @@ export default function OpeningStockList() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Depot</Label>
+              <Label className="text-[#2C4A73]">Depot</Label>
               <Select value={depotId} onValueChange={(v) => { setSkip(0); setDepotId(v); }}>
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className={`w-[200px] ${fieldClass}`}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All depots</SelectItem>
                   {depots.map((depot) => (
@@ -169,14 +186,20 @@ export default function OpeningStockList() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>From</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <Label className="text-[#2C4A73]">From</Label>
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={fieldClass} />
             </div>
             <div className="space-y-2">
-              <Label>To</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <Label className="text-[#2C4A73]">To</Label>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={fieldClass} />
             </div>
-            <Button onClick={() => { setSkip(0); load(); }} disabled={loading}>Apply</Button>
+            <Button
+              className="bg-[#0C4CA1] text-white hover:bg-[#08357A]"
+              onClick={() => { setSkip(0); load(); }}
+              disabled={loading}
+            >
+              Apply
+            </Button>
           </div>
 
           <Table>
@@ -215,7 +238,7 @@ export default function OpeningStockList() {
                   </TableCell>
                   <TableCell>{row.reviewedByName || "—"}</TableCell>
                   <TableCell className="space-x-2">
-                    <Button size="sm" variant="ghost" onClick={() => navigate(`/receive/opening-stock/${row.id}`)}>
+                    <Button size="sm" variant="ghost" className="text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]" onClick={() => navigate(`/receive/opening-stock/${row.id}`)}>
                       <Eye className="h-4 w-4" />
                     </Button>
                     {row.status === "Draft" && (user?.id === row.requestedBy || user?.role === "admin") && (
@@ -233,11 +256,11 @@ export default function OpeningStockList() {
               ))}
             </TableBody>
           </Table>
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center justify-between text-sm text-[#2C4A73]">
             <span>{total} request(s)</span>
             <div className="space-x-2">
-              <Button variant="outline" size="sm" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - limit))}>Previous</Button>
-              <Button variant="outline" size="sm" disabled={skip + limit >= total} onClick={() => setSkip(skip + limit)}>Next</Button>
+              <Button variant="outline" size="sm" className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - limit))}>Previous</Button>
+              <Button variant="outline" size="sm" className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]" disabled={skip + limit >= total} onClick={() => setSkip(skip + limit)}>Next</Button>
             </div>
           </div>
         </CardContent>

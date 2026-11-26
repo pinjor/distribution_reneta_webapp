@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiEndpoints } from "@/lib/api";
@@ -42,6 +41,14 @@ export default function OpeningStockDetail() {
   useEffect(() => {
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (row?.requestNumber) {
+      document.title = `${row.requestNumber} | Renata`;
+    } else {
+      document.title = "Opening Stock | Renata";
+    }
+  }, [row?.requestNumber]);
 
   const isAdmin = (user?.role || "").toLowerCase() === "admin";
   const canApprove = isAdmin && row?.status === "Pending Approval" && row?.requestedBy !== user?.id;
@@ -87,33 +94,41 @@ export default function OpeningStockDetail() {
     return <main className="p-6">Opening stock request was not found.</main>;
   }
 
+  const cardClass =
+    "card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]";
+  const outlineBtn =
+    "border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]";
+  const primaryBtn = "bg-[#0C4CA1] text-white hover:bg-[#08357A]";
+
   return (
     <main className="p-6 space-y-6">
-      <PageHeader
-        title={row.requestNumber}
-        subtitle="Opening stock request. Approved does not mean inventory was posted."
-        icon={PackagePlus}
-        variant="blue"
-        actions={(
-          <div className="flex gap-2">
-            {row.status === "Draft" && (
-              <Button variant="outline" onClick={() => navigate(`/receive/opening-stock/${row.id}/edit`)}>Edit Draft</Button>
-            )}
-            {canApprove && (
-              <>
-                <Button onClick={() => setApproveOpen(true)} disabled={busy}>Approve</Button>
-                <Button variant="destructive" onClick={() => setRejectOpen(true)} disabled={busy}>Reject</Button>
-              </>
-            )}
-            <Button variant="outline" onClick={() => navigate("/receive/opening-stock")}>Back</Button>
-          </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {row.status === "Draft" && (
+          <Button variant="outline" size="sm" className={outlineBtn} onClick={() => navigate(`/receive/opening-stock/${row.id}/edit`)}>Edit Draft</Button>
         )}
-      />
+        {canApprove && (
+          <>
+            <Button size="sm" className={primaryBtn} onClick={() => setApproveOpen(true)} disabled={busy}>Approve</Button>
+            <Button variant="destructive" size="sm" onClick={() => setRejectOpen(true)} disabled={busy}>Reject</Button>
+          </>
+        )}
+        <Button variant="outline" size="sm" className={outlineBtn} onClick={() => navigate("/receive/opening-stock")}>Back</Button>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Request</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <Card className={cardClass}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+                <PackagePlus className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="block text-[#0C4CA1]">{row.requestNumber}</span>
+                <span className="text-sm font-normal text-[#2C4A73]">Request</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-[#0B1B33]">
             <p>Depot: {row.depotName}</p>
             <p>Requester: {row.requestedByName}</p>
             <p>Request date: {row.requestDate ? format(new Date(row.requestDate), "dd MMM yyyy HH:mm") : "—"}</p>
@@ -121,9 +136,9 @@ export default function OpeningStockDetail() {
             <p>Remarks: {row.remarks || "—"}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Review and posting</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <Card className={cardClass}>
+          <CardHeader><CardTitle className="text-[#0C4CA1]">Review and posting</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm text-[#0B1B33]">
             <p>Approval status: <Badge>{row.status}</Badge></p>
             <p>Posting status: <Badge variant="outline">{row.postingStatus === "posted" ? "Posted" : "Not Posted"}</Badge></p>
             <p>Inventory posted: {row.inventoryPosted ? "Yes" : "No"}</p>
@@ -134,8 +149,8 @@ export default function OpeningStockDetail() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Product / batch lines</CardTitle></CardHeader>
+      <Card className={cardClass}>
+        <CardHeader><CardTitle className="text-[#0C4CA1]">Product / batch lines</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -167,8 +182,8 @@ export default function OpeningStockDetail() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>Audit timeline</CardTitle></CardHeader>
+      <Card className={cardClass}>
+        <CardHeader><CardTitle className="text-[#0C4CA1]">Audit timeline</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {(row.history || []).length === 0 && <p className="text-sm text-muted-foreground">No history yet.</p>}
           {(row.history || []).map((event: any) => (

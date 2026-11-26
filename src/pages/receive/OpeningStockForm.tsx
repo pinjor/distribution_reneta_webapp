@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { PackagePlus, Plus, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 
@@ -153,24 +152,43 @@ export default function OpeningStockForm() {
     }
   };
 
+  const fieldClass =
+    "border-[#D5E1F2] bg-white text-[#0B1B33] placeholder:text-[#8AA0BE] focus-visible:ring-[#0C4CA1]/30";
+  const cardClass =
+    "card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]";
+  const outlineBtn =
+    "border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]";
+  const primaryBtn = "bg-[#0C4CA1] text-white hover:bg-[#08357A]";
+
+  useEffect(() => {
+    document.title = `${id ? "Edit Opening Stock Draft" : "New Opening Stock Request"} | Renata`;
+  }, [id]);
+
   return (
     <main className="p-6 space-y-6">
-      <PageHeader
-        title={id ? "Edit Opening Stock Draft" : "New Opening Stock Request"}
-        subtitle="Drafts do not change available, reserved, or physical stock."
-        icon={PackagePlus}
-        variant="blue"
-      />
-      <Card>
-        <CardContent className="p-4 grid gap-4 md:grid-cols-2">
+      <Card className={cardClass}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-lg font-semibold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+              <PackagePlus className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="block text-[#0C4CA1]">{id ? "Edit Opening Stock Draft" : "New Opening Stock Request"}</span>
+              <span className="text-sm font-normal text-[#2C4A73]">
+                Drafts do not change available, reserved, or physical stock.
+              </span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Request Number</Label>
-            <Input value={requestNumber} disabled />
+            <Label className="text-[#2C4A73]">Request Number</Label>
+            <Input value={requestNumber} disabled className={fieldClass} />
           </div>
           <div className="space-y-2">
-            <Label>Depot</Label>
+            <Label className="text-[#2C4A73]">Depot</Label>
             <Select value={depotId} onValueChange={setDepotId}>
-              <SelectTrigger><SelectValue placeholder="Select depot" /></SelectTrigger>
+              <SelectTrigger className={fieldClass}><SelectValue placeholder="Select depot" /></SelectTrigger>
               <SelectContent>
                 {depots.map((depot) => (
                   <SelectItem key={depot.id} value={String(depot.id)}>{depot.name}</SelectItem>
@@ -179,20 +197,20 @@ export default function OpeningStockForm() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Opening Date</Label>
-            <Input type="date" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} />
+            <Label className="text-[#2C4A73]">Opening Date</Label>
+            <Input type="date" value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} className={fieldClass} />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label>Remarks / Justification</Label>
-            <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+            <Label className="text-[#2C4A73]">Remarks / Justification</Label>
+            <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} className={fieldClass} />
           </div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className={cardClass}>
         <CardContent className="p-4 space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="font-medium">Product rows</h2>
-            <Button variant="outline" onClick={() => setLines((current) => [...current, emptyLine()])}>
+            <h2 className="font-medium text-[#0C4CA1]">Product rows</h2>
+            <Button variant="outline" className={outlineBtn} onClick={() => setLines((current) => [...current, emptyLine()])}>
               <Plus className="h-4 w-4 mr-2" /> Add row
             </Button>
           </div>
@@ -222,7 +240,7 @@ export default function OpeningStockForm() {
                           setLines((current) => current.map((row, i) => i === index ? { ...row, productId: value, unitOfMeasure: next?.unit_of_measure || row.unitOfMeasure } : row));
                         }}
                       >
-                        <SelectTrigger><SelectValue placeholder="Product" /></SelectTrigger>
+                        <SelectTrigger className={fieldClass}><SelectValue placeholder="Product" /></SelectTrigger>
                         <SelectContent>
                           {products.map((productOption) => (
                             <SelectItem key={productOption.id} value={String(productOption.id)}>
@@ -233,11 +251,11 @@ export default function OpeningStockForm() {
                       </Select>
                     </TableCell>
                     <TableCell>{product?.sku || product?.code || "—"}</TableCell>
-                    <TableCell><Input value={line.batchNumber} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, batchNumber: e.target.value } : row))} /></TableCell>
-                    <TableCell><Input type="date" value={line.manufacturingDate} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, manufacturingDate: e.target.value } : row))} /></TableCell>
-                    <TableCell><Input type="date" value={line.expiryDate} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, expiryDate: e.target.value } : row))} /></TableCell>
-                    <TableCell><Input type="number" min="1" value={line.quantity} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} /></TableCell>
-                    <TableCell><Input value={line.unitOfMeasure} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, unitOfMeasure: e.target.value } : row))} /></TableCell>
+                    <TableCell><Input value={line.batchNumber} className={fieldClass} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, batchNumber: e.target.value } : row))} /></TableCell>
+                    <TableCell><Input type="date" value={line.manufacturingDate} className={fieldClass} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, manufacturingDate: e.target.value } : row))} /></TableCell>
+                    <TableCell><Input type="date" value={line.expiryDate} className={fieldClass} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, expiryDate: e.target.value } : row))} /></TableCell>
+                    <TableCell><Input type="number" min="1" value={line.quantity} className={fieldClass} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, quantity: e.target.value } : row))} /></TableCell>
+                    <TableCell><Input value={line.unitOfMeasure} className={fieldClass} onChange={(e) => setLines((current) => current.map((row, i) => i === index ? { ...row, unitOfMeasure: e.target.value } : row))} /></TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" onClick={() => setLines((current) => current.filter((_, i) => i !== index))} disabled={lines.length === 1}>
                         <Trash2 className="h-4 w-4" />
@@ -249,11 +267,11 @@ export default function OpeningStockForm() {
             </TableBody>
           </Table>
           <div className="flex gap-2">
-            <Button onClick={saveDraft} disabled={saving}>Save Draft</Button>
-            <Button variant="secondary" onClick={() => { if (!validateClient()) setSubmitOpen(true); else toast({ title: validateClient() as string, variant: "destructive" }); }} disabled={saving}>
+            <Button className={primaryBtn} onClick={saveDraft} disabled={saving}>Save Draft</Button>
+            <Button variant="secondary" className={outlineBtn} onClick={() => { if (!validateClient()) setSubmitOpen(true); else toast({ title: validateClient() as string, variant: "destructive" }); }} disabled={saving}>
               Submit for Approval
             </Button>
-            <Button variant="outline" onClick={() => navigate("/receive/opening-stock")}>Cancel</Button>
+            <Button variant="outline" className={outlineBtn} onClick={() => navigate("/receive/opening-stock")}>Cancel</Button>
           </div>
         </CardContent>
       </Card>

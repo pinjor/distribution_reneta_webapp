@@ -50,6 +50,14 @@ export function AppHeader() {
   const { pathname } = useLocation();
   const isDashboard = pathname === "/";
   const isCockpit = pathname === "/distribution/cockpit" || pathname === "/orders/distribution-cockpit";
+  const isStockReceipt = pathname === "/warehouse/receipt";
+  const isStockManagement = pathname === "/warehouse/maintenance";
+  const isAdjustStockEntry = pathname === "/warehouse/adjustment/new";
+  const isAdjustmentWorkList = pathname === "/warehouse/adjustment/request";
+  const isReceiveFactory = pathname === "/receive/factory";
+  const isReceiveDepot = pathname === "/receive/depot";
+  const isReceiveReturn = pathname === "/receive/return";
+  const isOpeningStock = pathname === "/receive/opening-stock" || pathname.startsWith("/receive/opening-stock/");
 
   const displayName = getUserDisplayName(user);
   const dashboardName = user?.first_name
@@ -98,6 +106,62 @@ export function AppHeader() {
             <div className="min-w-0">
               <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
                 Distribution Cockpit
+              </h1>
+            </div>
+          )}
+          {isStockReceipt && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Stock Receipt
+              </h1>
+            </div>
+          )}
+          {isStockManagement && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Stock Management
+              </h1>
+            </div>
+          )}
+          {isAdjustStockEntry && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Adjust Stock Entry
+              </h1>
+            </div>
+          )}
+          {isAdjustmentWorkList && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Stock Adjustment Work List
+              </h1>
+            </div>
+          )}
+          {isReceiveFactory && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Receive From Factory
+              </h1>
+            </div>
+          )}
+          {isReceiveDepot && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Receive From Depot
+              </h1>
+            </div>
+          )}
+          {isReceiveReturn && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Stock Return Receive
+              </h1>
+            </div>
+          )}
+          {isOpeningStock && (
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight tracking-tight text-[#0B1B33] dark:text-foreground">
+                Opening Stock
               </h1>
             </div>
           )}

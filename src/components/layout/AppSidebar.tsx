@@ -20,6 +20,10 @@ import { AppBrand } from "@/components/layout/AppBrand";
 import { SIDEBAR_MENU, filterSidebarMenu } from "@/lib/menuNavigation";
 import { usePermissions } from "@/hooks/usePermissions";
 
+const menuLabelClass = "min-w-0 flex-1 whitespace-normal break-words text-sm leading-snug";
+const subButtonFitClass =
+  "h-auto min-h-7 overflow-visible py-1.5 [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip";
+
 export function AppSidebar() {
   const location = useLocation();
   const { open } = useSidebar();
@@ -80,7 +84,7 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton
-                          className={`flex items-center gap-3 px-4 py-3 rounded-button transition-colors ${
+                          className={`flex h-auto min-h-8 items-center gap-3 overflow-visible px-4 py-3 rounded-button transition-colors [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible ${
                             isParentActive(item.subItems)
                               ? "bg-sidebar-accent text-sidebar-accent-foreground"
                               : "hover:bg-sidebar-accent text-sidebar-foreground"
@@ -89,7 +93,7 @@ export function AppSidebar() {
                           <item.icon className="h-5 w-5" />
                           {open && (
                             <>
-                              <span className="text-sm font-medium flex-1">{item.title}</span>
+                              <span className={`${menuLabelClass} font-medium`}>{item.title}</span>
                               <ChevronDown
                                 className={`h-4 w-4 transition-transform duration-200 ${
                                   openMenus[item.title] ? "rotate-180" : ""
@@ -112,14 +116,14 @@ export function AppSidebar() {
                                   <SidebarMenuSubItem>
                                     <CollapsibleTrigger asChild>
                                       <SidebarMenuSubButton
-                                        className={`flex items-center gap-2 px-3 py-2 pl-10 rounded-button transition-colors ${
+                                        className={`${subButtonFitClass} flex items-center gap-2 px-3 py-2 pl-10 rounded-button transition-colors ${
                                           isParentActive(subItem.subItems)
                                             ? "bg-sidebar-accent text-sidebar-accent-foreground"
                                             : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
                                         }`}
                                       >
                                         <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                                        <span className="text-sm flex-1 truncate">{subItem.title}</span>
+                                        <span className={menuLabelClass}>{subItem.title}</span>
                                         <ChevronDown
                                           className={`h-3 w-3 transition-transform duration-200 ${
                                             openMenus[subItem.title] ? "rotate-180" : ""
@@ -131,17 +135,21 @@ export function AppSidebar() {
                                       <SidebarMenuSub>
                                         {subItem.subItems.map((nestedItem) => (
                                           <SidebarMenuSubItem key={nestedItem.title}>
-                                             <SidebarMenuSubButton asChild isActive={isActive(nestedItem.path)}>
+                                             <SidebarMenuSubButton
+                                               asChild
+                                               isActive={isActive(nestedItem.path)}
+                                               className={subButtonFitClass}
+                                             >
                                                <NavLink
                                                  to={nestedItem.path}
-                                                 className={`flex items-center gap-2 px-3 py-2 pl-16 rounded-button transition-colors ${
+                                                 className={`flex items-center gap-2 px-3 py-2 pl-6 rounded-button transition-colors ${
                                                    isActive(nestedItem.path)
                                                      ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                                                      : "hover:bg-sidebar-accent/50 text-sidebar-foreground"
                                                  }`}
                                                >
                                                  <nestedItem.icon className="h-3.5 w-3.5 flex-shrink-0" />
-                                                 <span className="text-sm truncate">{nestedItem.title}</span>
+                                                 <span className={menuLabelClass}>{nestedItem.title}</span>
                                               </NavLink>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
@@ -152,7 +160,11 @@ export function AppSidebar() {
                                 </Collapsible>
                               ) : (
                                 <SidebarMenuSubItem key={subItem.title}>
-                                   <SidebarMenuSubButton asChild isActive={isActive(subItem.path)}>
+                                   <SidebarMenuSubButton
+                                     asChild
+                                     isActive={isActive(subItem.path)}
+                                     className={subButtonFitClass}
+                                   >
                                      <NavLink
                                        to={subItem.path}
                                        className={`flex items-center gap-2 px-3 py-2 pl-10 rounded-button transition-colors ${
@@ -162,7 +174,7 @@ export function AppSidebar() {
                                        }`}
                                      >
                                        <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                                       <span className="text-sm truncate">{subItem.title}</span>
+                                       <span className={menuLabelClass}>{subItem.title}</span>
                                     </NavLink>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
@@ -185,7 +197,7 @@ export function AppSidebar() {
                         }`}
                       >
                         <item.icon className="h-5 w-5" />
-                        {open && <span className="text-sm font-medium">{item.title}</span>}
+                        {open && <span className={`${menuLabelClass} font-medium`}>{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Package, ClipboardList, AlertCircle, Layers } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Package, ClipboardList, AlertCircle, Layers, Warehouse } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { apiEndpoints } from "@/lib/api";
 import { masterData, type ProductOption } from "@/lib/masterData";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { KPICard } from "@/components/dashboard/KPICard";
 
 interface StockLedgerRow {
   id: number;
@@ -261,6 +261,17 @@ export default function StockMaintenance() {
 
   const systemQuantity = selectedLedger ? selectedLedger.availableQuantity : 0;
   const discrepancy = countQty ? Number(countQty || 0) - systemQuantity : 0;
+  const uniqueDepots = useMemo(() => {
+    const names = new Set(filteredStock.map((item) => item.depotName).filter(Boolean));
+    return names.size;
+  }, [filteredStock]);
+  const formatMetric = (value: number) => (loading ? "..." : value.toLocaleString());
+  const fieldClass =
+    "border-[#D5E1F2] bg-white text-[#0B1B33] placeholder:text-[#8AA0BE] focus-visible:ring-[#0C4CA1]/30";
+
+  useEffect(() => {
+    document.title = "Stock Management | Renata";
+  }, []);
 
   return (
     <Tabs
@@ -269,118 +280,124 @@ export default function StockMaintenance() {
       className="space-y-6"
     >
       <div className="space-y-6">
-        <PageHeader
-          title="Stock Management"
-          subtitle={activeTab === "products"
-            ? "Product-level availability across all depots and batches."
-            : "Batch-wise inventory reflecting approved receipts."}
-          icon={Package}
-          variant="sky"
-          footer={(
-            <TabsList variant="header" className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
-              <TabsTrigger variant="header" value="products">
-                <Package className="h-4 w-4" />
-                Product stock
-              </TabsTrigger>
-              <TabsTrigger variant="header" value="batches">
-                <Layers className="h-4 w-4" />
-                Batchwise stock
-              </TabsTrigger>
-            </TabsList>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {activeTab === "products" ? (
             <>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total products</p>
-                    <p className="text-2xl font-semibold">{productMetrics.totalProducts}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-success/10 flex items-center justify-center">
-                    <ClipboardList className="h-6 w-6 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total available units</p>
-                    <p className="text-2xl font-semibold">{productMetrics.totalQuantity.toLocaleString()}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-warning/10 flex items-center justify-center">
-                    <AlertCircle className="h-6 w-6 text-warning" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Products with holds</p>
-                    <p className="text-2xl font-semibold">{productMetrics.restricted}</p>
-                  </div>
-                </div>
-              </Card>
+              <KPICard
+                title="Total products"
+                value={formatMetric(productMetrics.totalProducts)}
+                icon={Package}
+                description="Catalog products in this view"
+                index={0}
+              />
+              <KPICard
+                title="Available units"
+                value={formatMetric(productMetrics.totalQuantity)}
+                icon={ClipboardList}
+                description="Sum of on-hand quantity"
+                index={1}
+              />
+              <KPICard
+                title="Products with holds"
+                value={formatMetric(productMetrics.restricted)}
+                icon={AlertCircle}
+                description="SKUs with restricted batches"
+                index={2}
+              />
+              <KPICard
+                title="Depots"
+                value={formatMetric(uniqueDepots)}
+                icon={Warehouse}
+                description="Depots in the current filter"
+                index={3}
+              />
             </>
           ) : (
             <>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total batches</p>
-                    <p className="text-2xl font-semibold">{totalBatches}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-success/10 flex items-center justify-center">
-                    <ClipboardList className="h-6 w-6 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Available quantity</p>
-                    <p className="text-2xl font-semibold">{totalQuantity.toLocaleString()}</p>
-                  </div>
-                </div>
-              </Card>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-lg bg-warning/10 flex items-center justify-center">
-                    <AlertCircle className="h-6 w-6 text-warning" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Restricted / hold batches</p>
-                    <p className="text-2xl font-semibold">{restrictedCount}</p>
-                  </div>
-                </div>
-              </Card>
+              <KPICard
+                title="Total batches"
+                value={formatMetric(totalBatches)}
+                icon={Package}
+                description="Ledger rows after filters"
+                index={0}
+              />
+              <KPICard
+                title="Available quantity"
+                value={formatMetric(totalQuantity)}
+                icon={ClipboardList}
+                description="Units on listed batches"
+                index={1}
+              />
+              <KPICard
+                title="Restricted / hold"
+                value={formatMetric(restrictedCount)}
+                icon={AlertCircle}
+                description="Batches not unrestricted"
+                index={2}
+              />
+              <KPICard
+                title="Depots"
+                value={formatMetric(uniqueDepots)}
+                icon={Warehouse}
+                description="Depots in the current filter"
+                index={3}
+              />
             </>
           )}
         </div>
 
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">
-              {activeTab === "products" ? "Product stock" : "Batch-wise stock ledger"}
-            </h2>
-            {activeTab === "batches" ? (
-              <Button onClick={handleOpenCycleCount} disabled={filteredStock.length === 0}>
-                Start Cycle Count
-              </Button>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-4 mb-4">
+        <Card className="card-elevated overflow-hidden border border-[#D5E1F2] bg-white shadow-[0_16px_40px_-28px_rgba(12,76,161,0.45)]">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-lg font-semibold">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0C4CA1] text-white shadow-[0_8px_16px_-10px_rgba(12,76,161,0.9)]">
+                  {activeTab === "products" ? <Package className="h-4 w-4" /> : <Layers className="h-4 w-4" />}
+                </div>
+                <div>
+                  <span className="block text-[#0C4CA1]">
+                    {activeTab === "products" ? "Product stock" : "Batch-wise stock ledger"}
+                  </span>
+                  <span className="text-sm font-normal text-[#2C4A73]">
+                    {activeTab === "products"
+                      ? "Product-level availability across depots and batches."
+                      : "Batch-wise inventory reflecting approved receipts."}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <TabsList className="h-9 rounded-md border border-[#D5E1F2] bg-white p-0.5 shadow-none">
+                  <TabsTrigger
+                    value="products"
+                    className="h-8 gap-1.5 rounded-md px-3 text-[#0C4CA1] data-[state=active]:bg-[#0C4CA1] data-[state=active]:text-white data-[state=active]:shadow-none"
+                  >
+                    <Package className="h-4 w-4" />
+                    Product stock
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="batches"
+                    className="h-8 gap-1.5 rounded-md px-3 text-[#0C4CA1] data-[state=active]:bg-[#0C4CA1] data-[state=active]:text-white data-[state=active]:shadow-none"
+                  >
+                    <Layers className="h-4 w-4" />
+                    Batchwise stock
+                  </TabsTrigger>
+                </TabsList>
+                {activeTab === "batches" ? (
+                  <Button
+                    size="sm"
+                    className="bg-[#0C4CA1] text-white hover:bg-[#08357A]"
+                    onClick={handleOpenCycleCount}
+                    disabled={filteredStock.length === 0}
+                  >
+                    Start Cycle Count
+                  </Button>
+                ) : null}
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+          <div className="mb-4 flex flex-wrap gap-4">
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className={`w-[200px] ${fieldClass}`}>
                 <SelectValue placeholder="Source" />
               </SelectTrigger>
               <SelectContent>
@@ -392,7 +409,7 @@ export default function StockMaintenance() {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className={`w-[200px] ${fieldClass}`}>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -403,7 +420,7 @@ export default function StockMaintenance() {
               </SelectContent>
             </Select>
             <Input
-              className="w-[260px]"
+              className={`w-[260px] ${fieldClass}`}
               placeholder="Search product code, name, or batch"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -518,6 +535,7 @@ export default function StockMaintenance() {
               </TableBody>
             </Table>
           </TabsContent>
+          </CardContent>
         </Card>
       </div>
 
@@ -529,12 +547,12 @@ export default function StockMaintenance() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Select Batch</label>
+              <label className="mb-2 block text-sm font-medium text-[#2C4A73]">Select Batch</label>
               <Select
                 value={selectedLedger ? String(selectedLedger.id) : undefined}
                 onValueChange={(value) => setSelectedLedgerId(Number(value))}
               >
-                <SelectTrigger>
+                <SelectTrigger className={fieldClass}>
                   <SelectValue placeholder="Choose batch" />
                 </SelectTrigger>
                 <SelectContent>
@@ -547,20 +565,21 @@ export default function StockMaintenance() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">System Quantity</label>
-              <Input value={systemQuantity.toLocaleString()} disabled />
+              <label className="mb-2 block text-sm font-medium text-[#2C4A73]">System Quantity</label>
+              <Input value={systemQuantity.toLocaleString()} disabled className={fieldClass} />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Physical Count</label>
+              <label className="mb-2 block text-sm font-medium text-[#2C4A73]">Physical Count</label>
               <Input
                 type="number"
                 placeholder="Enter counted quantity"
                 value={countQty}
                 onChange={(e) => setCountQty(e.target.value)}
+                className={fieldClass}
               />
             </div>
             {countQty && discrepancy !== 0 && (
-              <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+              <div className="rounded-lg border border-warning/20 bg-warning/10 p-3">
                 <p className="text-sm font-medium text-warning">
                   Discrepancy: {discrepancy > 0 ? `+${discrepancy}` : discrepancy} units
                 </p>
@@ -568,10 +587,16 @@ export default function StockMaintenance() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCycleCount(false)}>
+            <Button
+              variant="outline"
+              className="border-[#0C4CA1] bg-white text-[#0C4CA1] hover:bg-[#E7EEF8] hover:text-[#08357A]"
+              onClick={() => setShowCycleCount(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCycleCountSubmit}>Submit Count</Button>
+            <Button className="bg-[#0C4CA1] text-white hover:bg-[#08357A]" onClick={handleCycleCountSubmit}>
+              Submit Count
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
